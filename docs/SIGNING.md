@@ -62,6 +62,19 @@ Google Cloud Console → **Google Auth Platform → Clients → Create client �
 Create one client per key (debug, release, and later Google Play's app-signing key, which is shown in
 Play Console → Setup → App signing).
 
+### Registered fingerprints (official builds)
+
+Fingerprints are public and safe to publish.
+
+| Key | SHA-1 |
+|---|---|
+| Release (upload key, alias `neutrino`) | `A5:52:B9:63:4F:F9:66:58:5A:64:28:04:84:CB:90:40:38:56:5C:72` |
+| Maintainer debug key | `9E:C8:D0:72:7B:FD:EE:77:47:8B:89:6D:2E:A3:1A:88:F9:F2:66:CC` |
+| Google Play app signing | _added after the first Play upload_ |
+
+Debug keys are per machine. Contributors who need Drive backup while developing must register their own
+debug SHA-1 in their own Cloud project (see "Building your own fork").
+
 ## Building your own fork
 
 Forks must use their own package name and register their own OAuth client. Everything except Google
