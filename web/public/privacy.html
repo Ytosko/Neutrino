@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Privacy Policy — Neutrino</title>
+  <meta name="description" content="How the Neutrino Android app and website handle your data: no servers, no accounts, no analytics.">
+  <link rel="canonical" href="https://neutrino.ytosko.dev/privacy">
+  <meta name="theme-color" content="#FFF8F6" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#17110F" media="(prefers-color-scheme: dark)">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/favicon.ico" sizes="32x32">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="manifest" href="/site.webmanifest">
+  <link rel="preload" href="/assets/fonts/plus-jakarta-sans-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/assets/css/site.css">
+  <meta property="og:title" content="Privacy Policy — Neutrino">
+  <meta property="og:image" content="https://neutrino.ytosko.dev/og-image.png">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <div class="container">
+      <a class="brand" href="/" aria-label="Neutrino home">
+        <span class="brand-tile"><img src="/assets/img/logo-mark-white.svg" alt="" width="26" height="26"></span>
+        Neutrino
+      </a>
+      <nav class="nav" aria-label="Main">
+        <div class="nav-links">
+          <a href="/#how">How it works</a>
+          <a href="/privacy" aria-current="page">Privacy</a>
+          <a href="/terms">Terms</a>
+        </div>
+        <a class="btn btn-secondary btn-sm" href="https://github.com/ytosko/neutrino" rel="noopener">
+          <svg class="icon icon-sm" aria-hidden="true"><use href="/assets/img/icons.svg#i-github"/></svg>
+          <span>GitHub</span>
+        </a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main" class="container">
+    <div class="legal-hero">
+      <span class="kicker">Legal</span>
+      <h1>Privacy Policy</h1>
+      <p class="meta">Effective 25 September 2026 · Last updated 25 September 2026</p>
+    </div>
+
+    <div class="legal-layout">
+      <nav class="toc" aria-label="On this page">
+        <h2>On this page</h2>
+        <ol>
+          <li><a href="#summary">Summary</a></li>
+          <li><a href="#who">Who we are</a></li>
+          <li><a href="#app-data">Data the app handles</a></li>
+          <li><a href="#ai">AI providers</a></li>
+          <li><a href="#health-connect">Health Connect</a></li>
+          <li><a href="#google-drive">Google Drive backups</a></li>
+          <li><a href="#limited-use">Google API Limited Use</a></li>
+          <li><a href="#not-collected">What we don't collect</a></li>
+          <li><a href="#website">This website</a></li>
+          <li><a href="#retention">Retention &amp; deletion</a></li>
+          <li><a href="#security">Security</a></li>
+          <li><a href="#children">Children</a></li>
+          <li><a href="#rights">Your choices</a></li>
+          <li><a href="#changes">Changes</a></li>
+          <li><a href="#contact">Contact</a></li>
+        </ol>
+      </nav>
+
+      <article class="prose">
+        <h2 id="summary">Summary</h2>
+        <div class="callout">
+          <svg class="icon" aria-hidden="true"><use href="/assets/img/icons.svg#i-shield-check"/></svg>
+          <div>
+            <p><strong>Neutrino does not collect, store or sell your personal data.</strong> The Neutrino project runs no servers for the app, and requires no account.</p>
+            <p>Your meal photos go directly from your device to the AI provider <em>you</em> choose, using <em>your</em> API key. Nutrition data is saved to Health Connect on your device. Optional backups are encrypted on your device and stored locally or in your own Google Drive.</p>
+          </div>
+        </div>
+
+        <h2 id="who">Who we are</h2>
+        <p>Neutrino (“Neutrino”, “we”, “us”) is a free, open-source Android application and this accompanying website at <a href="https://neutrino.ytosko.dev">neutrino.ytosko.dev</a>, maintained by the Neutrino project (ytosko) and its contributors. The source code is publicly available at <a href="https://github.com/ytosko/neutrino" rel="noopener">github.com/ytosko/neutrino</a> under the GNU General Public License v3.0, so anyone can verify the statements in this policy.</p>
+        <p>This policy covers the Neutrino app as distributed by the project (for example through Google Play or the project's GitHub releases) and this website. Modified versions built and distributed by others are the responsibility of whoever distributes them.</p>
+
+        <h2 id="app-data">Data the app handles</h2>
+        <p>The app processes the following data <strong>on your device</strong>, only to provide its features:</p>
+        <table>
+          <thead><tr><th>Data</th><th>Why</th><th>Where it goes</th></tr></thead>
+          <tbody>
+            <tr><td>Meal photos you take or select</td><td>To estimate the foods and nutrition in your meal</td><td>Sent to the AI provider you selected, using your API key. A small thumbnail may be kept on your device for your meal history.</td></tr>
+            <tr><td>Your AI provider API key</td><td>To call the AI provider on your behalf</td><td>Stored on your device, encrypted with Android Keystore. Sent only to that provider, as required to authenticate your requests.</td></tr>
+            <tr><td>Nutrition estimates you approve (foods, portions, carbohydrates, protein, fat, energy, meal type, time)</td><td>To log your meals</td><td>Written to Health Connect on your device, and kept in the app's local history.</td></tr>
+            <tr><td>Water intake you log</td><td>To log hydration</td><td>Written to Health Connect on your device.</td></tr>
+            <tr><td>Settings (provider, model, meal times, time zone, cuisine, units)</td><td>To configure the app</td><td>Stored on your device.</td></tr>
+            <tr><td>Photo date and time (from image metadata, if present)</td><td>To assign the meal to the right time and meal type</td><td>Used on your device. We do not use location data.</td></tr>
+          </tbody>
+        </table>
+        <p>The app requests the camera permission only to take meal photos, and uses the Android photo picker to let you choose existing images without granting access to your whole gallery.</p>
+
+        <h2 id="ai">AI providers</h2>
+        <p>To analyze a meal, the app sends the photo and a text prompt directly from your device to the provider you configured, such as Google (Gemini API) or OpenAI. These requests are made with <strong>your own API key</strong> and are governed by <strong>your agreement with that provider</strong>, including their data usage and retention policies. Neutrino has no access to these requests or responses beyond what is displayed in the app on your device.</p>
+        <p>Provider terms differ. For example, some free tiers may use submitted content to improve the provider's services, while paid tiers may not. Please review your provider's current terms before use:</p>
+        <ul>
+          <li>Google Gemini API: <a href="https://ai.google.dev/gemini-api/terms" rel="noopener">ai.google.dev/gemini-api/terms</a></li>
+          <li>OpenAI: <a href="https://openai.com/policies/" rel="noopener">openai.com/policies</a></li>
+        </ul>
+        <p>Neutrino does not send your nutrition history, Health Connect data or any other personal data to AI providers. Only the photo you are analyzing and the settings needed for the prompt (such as your cuisine preference and local time) are sent.</p>
+
+        <h2 id="health-connect">Health Connect</h2>
+        <p>With your permission, Neutrino writes data to <a href="https://developer.android.com/health-and-fitness/guides/health-connect" rel="noopener">Health Connect</a>, Android's on-device health data store. Neutrino requests only these permissions:</p>
+        <ul>
+          <li><strong>Write nutrition</strong>: to save the meals you approve (food name, carbohydrates, protein, fat, energy and related nutrients, meal type and time).</li>
+          <li><strong>Write hydration</strong>: to save water intake you log.</li>
+        </ul>
+        <p>Neutrino does not read other health data, such as heart rate, sleep, activity or blood glucose. If a future version asks for additional access, for example to read back nutrition records it previously wrote so it can restore your history, the app will ask for your permission first and this policy will be updated beforehand.</p>
+        <p>Data obtained through Health Connect is used only to provide Neutrino's features to you. It is not used for advertising, not sold, not shared with third parties, and not used to determine credit-worthiness or for lending purposes. You can review or revoke Neutrino's permissions and delete its data at any time in Health Connect settings.</p>
+
+        <h2 id="google-drive">Google Drive backups (optional)</h2>
+        <p>If you choose to connect your Google account, Neutrino requests the <code>https://www.googleapis.com/auth/drive.appdata</code> scope. This allows the app to read and write <strong>only its own private application data folder</strong> in your Google Drive. That folder is hidden from your Drive file list. Neutrino <strong>cannot see, open, change or delete any of your other Drive files</strong>.</p>
+        <ul>
+          <li><strong>What is stored:</strong> backup files containing your settings, meal history and, only if you enable it, your API key.</li>
+          <li><strong>Encryption:</strong> backups are encrypted on your device with a password you set before they are uploaded. Neutrino's maintainers have no access to your Drive, your backup files or your password.</li>
+          <li><strong>When:</strong> on the schedule you choose (daily, weekly or monthly) or when you tap “Back up now”.</li>
+          <li><strong>Your Google account email</strong> is shown in the app so you know which account holds your backup. It is not sent anywhere else.</li>
+          <li><strong>Revoking access:</strong> disconnect in the app, or visit <a href="https://myaccount.google.com/permissions" rel="noopener">myaccount.google.com/permissions</a>. To delete stored backups, use the in-app “Delete Drive backup” option or, in Google Drive on the web, open Settings → Manage apps → Neutrino → Delete hidden app data.</li>
+        </ul>
+
+        <h2 id="limited-use">Google API Services: Limited Use disclosure</h2>
+        <p>Neutrino's use and transfer to any other app of information received from Google APIs will adhere to the <a href="https://developers.google.com/terms/api-services-user-data-policy" rel="noopener">Google API Services User Data Policy</a>, including the Limited Use requirements. Specifically, data accessed through Google APIs is used only to provide the backup and restore features you request; it is not transferred to others, not used for advertising, and not read by humans. The only exception is when you give explicit permission, when it's needed for security purposes, or when required by law.</p>
+
+        <h2 id="not-collected">What we don't collect</h2>
+        <ul>
+          <li>No accounts, sign-ups or user profiles.</li>
+          <li>No analytics, telemetry, advertising identifiers or tracking SDKs.</li>
+          <li>No crash-reporting services. If you report a bug, you choose what to share, for example in a public GitHub issue.</li>
+          <li>No location data.</li>
+          <li>No selling or sharing of personal data with anyone.</li>
+        </ul>
+        <p>App stores such as Google Play may collect data under their own policies (for example, install statistics). That data is governed by the store's privacy policy.</p>
+
+        <h2 id="website">This website</h2>
+        <p>This website is a static site. It uses no cookies, no analytics and no third-party scripts, and it serves its own fonts, so your browser doesn't contact other services when you visit. Our web server is configured not to keep access logs. The hosting infrastructure necessarily processes your IP address transiently to deliver the page.</p>
+
+        <h2 id="retention">Retention &amp; deletion</h2>
+        <ul>
+          <li><strong>On your device:</strong> app data remains until you delete it in the app, clear the app's storage or uninstall it.</li>
+          <li><strong>Local backup files:</strong> remain where you saved them until you delete them.</li>
+          <li><strong>Health Connect:</strong> records Neutrino wrote remain in Health Connect even after uninstalling, until you delete them in Health Connect settings.</li>
+          <li><strong>Google Drive:</strong> the latest backup remains in Neutrino's hidden folder until you delete it as described above.</li>
+          <li><strong>AI providers:</strong> retention is governed by your provider's policy.</li>
+        </ul>
+
+        <h2 id="security">Security</h2>
+        <p>API keys are encrypted with Android Keystore and excluded from Android's automatic cloud backup. Backups are encrypted on your device before they are written or uploaded. All network requests use HTTPS. Because the code is open source, security researchers can audit it. Please report vulnerabilities privately to <a href="mailto:privacy@ytosko.dev">privacy@ytosko.dev</a>.</p>
+
+        <h2 id="children">Children</h2>
+        <p>Neutrino is not directed to children under 13 (or the minimum age in your country), and we do not knowingly process children's data. Because we collect no data, there is nothing for us to delete, but if you have concerns please contact us.</p>
+
+        <h2 id="rights">Your choices</h2>
+        <p>Because your data stays on your device and in accounts you control, you are always in control. You can view, export or delete your data in the app; revoke Health Connect permissions; disconnect Google Drive; delete backups; or uninstall the app. Depending on where you live (for example under the GDPR), you may have rights to access, correct or erase personal data. Since the Neutrino project holds no personal data about you, these rights are exercised directly through the controls above. You may still contact us with any questions.</p>
+
+        <h2 id="changes">Changes to this policy</h2>
+        <p>If we change this policy, we will update the “Last updated” date above and, for material changes, note them in the app's release notes. The full history of this page is visible in the project's public repository.</p>
+
+        <h2 id="contact">Contact</h2>
+        <p>Questions or requests about privacy: <a href="mailto:privacy@ytosko.dev">privacy@ytosko.dev</a><br>
+        Project issues: <a href="https://github.com/ytosko/neutrino/issues" rel="noopener">github.com/ytosko/neutrino/issues</a></p>
+      </article>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div>
+          <a class="brand" href="/">
+            <span class="brand-tile"><img src="/assets/img/logo-mark-white.svg" alt="" width="26" height="26"></span>
+            Neutrino
+          </a>
+          <p>Free, open-source food logging for Android. Estimates only. Not medical advice or a medical device.</p>
+        </div>
+        <div>
+          <h2>Project</h2>
+          <ul>
+            <li><a href="https://github.com/ytosko/neutrino" rel="noopener">Source code</a></li>
+            <li><a href="https://github.com/ytosko/neutrino/issues" rel="noopener">Issues</a></li>
+            <li><a href="https://github.com/ytosko/neutrino/blob/main/LICENSE" rel="noopener">License (GPL-3.0)</a></li>
+          </ul>
+        </div>
+        <div>
+          <h2>Legal</h2>
+          <ul>
+            <li><a href="/privacy" aria-current="page">Privacy Policy</a></li>
+            <li><a href="/terms">Terms of Use</a></li>
+            <li><a href="mailto:privacy@ytosko.dev">privacy@ytosko.dev</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 Neutrino contributors</span>
+        <span>Health Connect, Google Health and Gemini are trademarks of Google LLC. OpenAI is a trademark of OpenAI.</span>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

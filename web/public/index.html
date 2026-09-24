@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Neutrino — Snap your plate, log your macros</title>
+  <meta name="description" content="Neutrino is a free, open-source Android app that estimates carbs, protein, fat and calories from a photo of your meal using your own Gemini or OpenAI key, then saves it to Health Connect.">
+  <link rel="canonical" href="https://neutrino.ytosko.dev/">
+  <meta name="theme-color" content="#FFF8F6" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#17110F" media="(prefers-color-scheme: dark)">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/favicon.ico" sizes="32x32">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="manifest" href="/site.webmanifest">
+  <link rel="preload" href="/assets/fonts/plus-jakarta-sans-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/assets/css/site.css">
+
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Neutrino">
+  <meta property="og:title" content="Neutrino — Snap your plate, log your macros">
+  <meta property="og:description" content="Free, open-source, privacy-first food logging for Android. Your AI key, your data, Health Connect.">
+  <meta property="og:url" content="https://neutrino.ytosko.dev/">
+  <meta property="og:image" content="https://neutrino.ytosko.dev/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Neutrino",
+    "operatingSystem": "Android",
+    "applicationCategory": "HealthApplication",
+    "description": "Open-source Android app that estimates meal nutrition from a photo using your own AI key and saves it to Health Connect.",
+    "url": "https://neutrino.ytosko.dev/",
+    "license": "https://www.gnu.org/licenses/gpl-3.0.html",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+  }
+  </script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <div class="container">
+      <a class="brand" href="/" aria-label="Neutrino home">
+        <span class="brand-tile"><img src="/assets/img/logo-mark-white.svg" alt="" width="26" height="26"></span>
+        Neutrino
+      </a>
+      <nav class="nav" aria-label="Main">
+        <div class="nav-links">
+          <a href="#how">How it works</a>
+          <a href="#privacy">Privacy</a>
+          <a href="#features">Features</a>
+          <a href="#faq">FAQ</a>
+        </div>
+        <a class="btn btn-secondary btn-sm" href="https://github.com/ytosko/neutrino" rel="noopener">
+          <svg class="icon icon-sm" aria-hidden="true"><use href="/assets/img/icons.svg#i-github"/></svg>
+          <span>GitHub</span>
+        </a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <!-- Hero -->
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="container hero-grid">
+        <div>
+          <span class="eyebrow reveal">
+            <span class="dot"><svg class="icon" aria-hidden="true"><use href="/assets/img/icons.svg#i-code"/></svg></span>
+            Free &amp; open source · Android · GPL-3.0
+          </span>
+          <h1 id="hero-title" class="reveal reveal-2">Snap your plate<span class="stop">.</span><br><span class="accent">Log your macros<span class="stop">.</span></span></h1>
+          <p class="lede reveal reveal-3">
+            Neutrino looks at a photo of your meal with <strong>the AI model you choose</strong>, using
+            your own Gemini or OpenAI key, and estimates carbs, protein, fat and calories.
+            You check the numbers, and it saves them to <strong>Health Connect</strong> as breakfast,
+            lunch, dinner or a snack based on your local time.
+          </p>
+          <div class="hero-actions reveal reveal-3">
+            <a class="btn btn-primary" href="https://github.com/ytosko/neutrino" rel="noopener">
+              <svg class="icon icon-sm" aria-hidden="true"><use href="/assets/img/icons.svg#i-github"/></svg>
+              View on GitHub
+            </a>
+            <a class="btn btn-secondary" href="#privacy">
+              Our privacy promise
+              <svg class="icon icon-sm" aria-hidden="true"><use href="/assets/img/icons.svg#i-arrow-right"/></svg>
+            </a>
+          </div>
+          <ul class="hero-note reveal reveal-3">
+            <li><svg class="icon icon-sm" aria-hidden="true"><use href="/assets/img/icons.svg#i-check"/></svg>No account</li>
+            <li><svg class="icon icon-sm" aria-hidden="true"><use href="/assets/img/icons.svg#i-check"/></svg>No ads or tracking</li>
+            <li><svg class="icon icon-sm" aria-hidden="true"><use href="/assets/img/icons.svg#i-check"/></svg>Coming soon to Google Play</li>
+          </ul>
+        </div>
+
+        <!-- Illustrative app preview -->
+        <figure class="phone-wrap reveal reveal-2" aria-labelledby="mock-cap">
+          <div class="phone" aria-hidden="true">
+            <div class="screen">
+              <div class="screen-status"><span>8:42</span><span class="notch"></span><span>100%</span></div>
+              <div class="screen-top">
+                <span class="back"><svg class="icon"><use href="/assets/img/icons.svg#i-chevron-left"/></svg></span>
+                <strong>Review meal</strong>
+              </div>
+              <div class="meal-photo">
+                <svg viewBox="0 0 300 150" preserveAspectRatio="xMidYMid slice">
+                  <ellipse cx="150" cy="82" rx="118" ry="64" fill="#fffaf7"/>
+                  <ellipse cx="150" cy="82" rx="100" ry="52" fill="#f4ece6"/>
+                  <ellipse cx="112" cy="74" rx="44" ry="30" fill="#ffffff"/>
+                  <g fill="#efe7df"><circle cx="98" cy="68" r="3"/><circle cx="112" cy="62" r="3"/><circle cx="124" cy="72" r="3"/><circle cx="106" cy="82" r="3"/><circle cx="120" cy="86" r="3"/><circle cx="92" cy="80" r="3"/></g>
+                  <ellipse cx="184" cy="66" rx="34" ry="22" fill="#b5541b"/>
+                  <g fill="#e08a3c"><ellipse cx="176" cy="62" rx="10" ry="7"/><ellipse cx="194" cy="70" rx="9" ry="6"/></g>
+                  <ellipse cx="178" cy="104" rx="28" ry="16" fill="#f2b441"/>
+                  <ellipse cx="178" cy="102" rx="18" ry="9" fill="#f7cb62"/>
+                  <g fill="#7fb35d"><circle cx="228" cy="96" r="9"/><circle cx="238" cy="80" r="8"/></g>
+                  <g fill="#c9e3a8"><circle cx="228" cy="96" r="5"/><circle cx="238" cy="80" r="4.5"/></g>
+                </svg>
+                <span class="meal-chip"><svg class="icon"><use href="/assets/img/icons.svg#i-clock"/></svg>Dinner · auto-detected</span>
+              </div>
+              <div class="totals">
+                <div class="total carbs"><b>63g</b><span>Carbs</span></div>
+                <div class="total protein"><b>34g</b><span>Protein</span></div>
+                <div class="total fat"><b>18g</b><span>Fat</span></div>
+                <div class="total"><b>540</b><span>kcal</span></div>
+              </div>
+              <ul class="items">
+                <li class="item"><span class="sw" style="background:#f4ece6"></span><div><b>Plain rice</b><small>1 cup · 158 g</small></div><span class="g">45g</span></li>
+                <li class="item"><span class="sw" style="background:#b5541b"></span><div><b>Chicken curry</b><small>150 g</small></div><span class="g">6g</span></li>
+                <li class="item"><span class="sw" style="background:#f2b441"></span><div><b>Masoor dal</b><small>½ cup</small></div><span class="g">12g</span></li>
+              </ul>
+              <div class="screen-cta"><svg class="icon"><use href="/assets/img/icons.svg#i-check"/></svg>Save to Health Connect</div>
+            </div>
+          </div>
+          <div class="float-card float-a" aria-hidden="true">
+            <span class="badge"><svg class="icon icon-sm"><use href="/assets/img/icons.svg#i-sparkles"/></svg></span>
+            <span>3 items found<small>Gemini · your key</small></span>
+          </div>
+          <div class="float-card float-b" aria-hidden="true">
+            <span class="badge"><svg class="icon icon-sm"><use href="/assets/img/icons.svg#i-heart-pulse"/></svg></span>
+            <span>Synced<small>Shows up in Google Health</small></span>
+          </div>
+          <figcaption id="mock-cap" class="mock-caption">Illustrative preview. The app is in active development.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <!-- How it works -->
+    <section id="how" class="section" aria-labelledby="how-title">
+      <div class="container">
+        <div class="section-head">
+          <span class="kicker">How it works</span>
+          <h2 id="how-title">From photo to logged meal in seconds</h2>
+          <p>No searching food databases or weighing everything. Take a picture, fix anything that looks off, and save.</p>
+        </div>
+        <ol class="steps">
+          <li class="step">
+            <span class="ic"><svg class="icon" aria-hidden="true"><use href="/assets/img/icons.svg#i-camera"/></svg></span>
+            <h3>Snap</h3>
+            <p>Take a photo of your plate, or pick one from your gallery if you forgot earlier.</p>
+          </li>
+          <li class="step">
+            <span class="ic"><svg class="icon" aria-hidden="true"><use href="/assets/img/icons.svg#i-sparkles"/></svg></span>
+            <h3>AI estimates</h3>
+            <p>Your chosen model identifies each food and estimates portions, carbs, protein, fat and calories.</p>
+          </li>
+          <li class="step">
+            <span class="ic"><svg class="icon" aria-hidden="true"><use href="/assets/img/icons.svg#i-pencil"/></svg></span>
+            <h3>You review</h3>
+            <p>Adjust portions in a tap. The meal type is picked from your local time, and you can change it.</p>
+          </li>
+          <li class="step">
+            <span class="ic"><svg class="icon" aria-hidden="true"><use href="/assets/img/icons.svg#i-heart-pulse"/></svg></span>
+            <h3>Saved</h3>
+            <p>The meal is written to Health Connect, so it appears in Google Health, Fitbit and other apps you allow.</p>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- Privacy -->
+    <section id="privacy" class="section" aria-labelledby="privacy-title" style="padding-top:0">
+      <div class="container">
+        <div class="privacy-band">
+          <div class="privacy-grid">
+            <div>
+              <div class="section-head" style="margin-bottom:var(--s-6)">
+                <span class="kicker">Privacy by design</span>
+                <h2 id="privacy-title">We never see your data, because we don't have servers</h2>
+                <p>Neutrino has no backend, no accounts and no analytics. Your phone talks directly to the AI provider you picked and to your own Health Connect.</p>
+              </div>
+              <ul class="checklist">
+                <li><span class="tick"><svg class="icon" aria-hidden="true"><use href="/assets/img/icons.svg#i-check"/></svg></span><div><b>Your key stays on your phone</b><span>Encrypted with Android Keystore. Never sent to us.</span></div></li>
+                <li><span class="tick"><svg class="icon" aria-hidden="true"><use href="/assets/img/icons.svg#i-check"/></svg></span><div><b>No tracking, ads or crash reporting</b><span>Nothing phones home. Read the code to check.</span></div></li>
+                <li><span class="tick"><svg class="icon" aria-hidden="true"><use href="/assets/img/icons.svg#i-check"/></svg></span><div><b>Backups belong to you</b><span>Encrypted on your device, stored locally or in your own Google Drive.</span></div></li>
+              </ul>
+            </div>
+            <div class="flow" role="img" aria-label="Data flow: your phone sends meal photos only to the AI provider you choose, writes nutrition to Health Connect, and optionally stores an encrypted backup in your Google Drive. Nothing is sent to Neutrino.">
+              <div class="flow-node phone-node">
+                <span class="ic"><svg class="icon" aria-hidden="true"><use href="/assets/img/icons.svg#i-smartphone"/></svg></span>
+                <div><b>Your phone</b><small>Neutrino runs entirely here</small></div>
+              </div>
+              <div class="flow-arrow"><svg class="icon" aria-hidden="true"><use href="/assets/img/icons.svg#i-arrow-down"/></svg>meal photo, with your key</div>
+              <div class="flow-node">
+                <span class="ic"><svg class="icon" aria-hidden="true"><use href="/assets/img/icons.svg#i-cpu"/></svg></span>
+                <div><b>Your AI provider</b><small>Google Gemini or OpenAI, under your account</small></div>
+              </div>
+              <div class="flow-arrow"><svg class="icon" aria-hidden="true"><use href="/assets/img/icons.svg#i-arrow-down"/></svg>nutrition you approved</div>
+              <div class="flow-node">
+                <span class="ic"><svg class="icon" aria-hidden="true"><use href="/assets/img/icons.svg#i-heart-pulse"/></svg></span>
+                <div><b>Health Connect</b><small>On-device, and you control which apps can read it</small></div>
+              </div>
+              <div class="flow-node blocked">
+                <span class="ic"><svg class="icon" aria-hidden="true"><use href="/assets/img/icons.svg#i-ban"/></svg></span>
+                <div><b>Neutrino servers</b><small>Don't exist. Nothing is sent to us.</small></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Features -->
+    <section id="features" class="section" aria-labelledby="features-title" style="padding-top:0">
+      <div class="container">
+        <div class="section-head">
+          <span class="kicker">Features</span>
+          <h2 id="features-title">Small app, carefully built</h2>
+          <p>Everything you need to log meals fast, and nothing that gets in your way.</p>
+        </div>
+        <div class="features">
+          <article class="feature">
+            <span class="ic"><svg class="icon" aria-hidden="true"><use href="/assets/img/icons.svg#i-key"/></svg></span>
+            <h3>Bring your own key</h3>
+            <p>Paste a Gemini or OpenAI API key. You pay the provider directly, usually a fraction of a cent per photo.</p>
+          </article>
+          <article class="feature">
+            <span class="ic"><svg class="icon" aria-hidden="true"><use href="/assets/img/icons.svg#i-cpu"/></svg></span>
+            <h3>Pick your model</h3>
+            <p>Neutrino lists the vision-capable models your key can use, so you can trade speed, cost and accuracy.</p>
+          </article>
+          <article class="feature">
+            <span class="ic"><svg class="icon" aria-hidden="true"><use href="/assets/img/icons.svg#i-clock"/></svg></span>
+            <h3>Knows what meal it is</h3>
+            <p>Breakfast, lunch, dinner or snack, chosen from your time zone and your own meal windows.</p>
+          </article>
+          <article class="feature">
+            <span class="ic"><svg class="icon" aria-hidden="true"><use href="/assets/img/icons.svg#i-utensils"/></svg></span>
+            <h3>Understands local food</h3>
+            <p>Tell it your cuisine, like Bangladeshi, Indian or Mexican, for better recognition of bhaat, dal, biryani and more.</p>
+          </article>
+          <article class="feature">
+            <span class="ic"><svg class="icon" aria-hidden="true"><use href="/assets/img/icons.svg#i-droplet"/></svg></span>
+            <h3>Water too</h3>
+            <p>Log a glass in one tap. Hydration goes to Health Connect alongside your meals.</p>
+          </article>
+          <article class="feature">
+            <span class="ic"><svg class="icon" aria-hidden="true"><use href="/assets/img/icons.svg#i-code"/></svg></span>
+            <h3>Open source, GPL-3.0</h3>
+            <p>Every line is public. Audit it, build it yourself, or contribute a new AI provider.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- Backups -->
+    <section id="backups" class="section" aria-labelledby="backup-title" style="padding-top:0">
+      <div class="container backup">
+        <div class="section-head" style="margin:0">
+          <span class="kicker">Backups</span>
+          <h2 id="backup-title">Don't lose a thing, even if you reinstall</h2>
+          <p>Like the chat apps you already use: an encrypted local backup is created on day one. Connect your Google account to keep a copy in your own Drive, daily, weekly or monthly.</p>
+          <ul class="pill-row" aria-label="Backup options">
+            <li class="pill">Encrypted before upload</li>
+            <li class="pill">Private app folder in your Drive</li>
+            <li class="pill">Restore on a new phone</li>
+          </ul>
+        </div>
+        <div class="backup-card" aria-hidden="true">
+          <div class="backup-row">
+            <span class="label"><svg class="icon"><use href="/assets/img/icons.svg#i-archive"/></svg><span>Local backup<small>On this device</small></span></span>
+            <span class="status-ok"><svg class="icon"><use href="/assets/img/icons.svg#i-check"/></svg>Today</span>
+          </div>
+          <div class="backup-row">
+            <span class="label"><svg class="icon"><use href="/assets/img/icons.svg#i-cloud-upload"/></svg><span>Google Drive<small>Your account</small></span></span>
+            <span class="status-ok"><svg class="icon"><use href="/assets/img/icons.svg#i-check"/></svg>Connected</span>
+          </div>
+          <div class="backup-row">
+            <span class="label"><svg class="icon"><use href="/assets/img/icons.svg#i-history"/></svg><span>Frequency</span></span>
+            <span class="seg"><span>Daily</span><span class="on">Weekly</span><span>Monthly</span></span>
+          </div>
+          <div class="backup-row">
+            <span class="label"><svg class="icon"><use href="/assets/img/icons.svg#i-lock"/></svg><span>Include API key<small>Protected by your backup password</small></span></span>
+            <span class="status-ok"><svg class="icon"><use href="/assets/img/icons.svg#i-check"/></svg>On</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FAQ -->
+    <section id="faq" class="section" aria-labelledby="faq-title" style="padding-top:0">
+      <div class="container">
+        <div class="section-head center">
+          <span class="kicker">FAQ</span>
+          <h2 id="faq-title">Questions, answered</h2>
+        </div>
+        <div class="faq">
+          <details>
+            <summary>Is Neutrino free?<svg class="icon" aria-hidden="true"><use href="/assets/img/icons.svg#i-plus"/></svg></summary>
+            <div class="answer"><p>Yes. The app is free and open source under GPL-3.0. The only cost is what your AI provider charges for your API usage, usually a fraction of a cent per photo, billed to your own account.</p></div>
+          </details>
+          <details>
+            <summary>Which AI providers are supported?<svg class="icon" aria-hidden="true"><use href="/assets/img/icons.svg#i-plus"/></svg></summary>
+            <div class="answer"><p>Google Gemini and OpenAI at launch. Providers are plug-ins, so more can be added by the community.</p></div>
+          </details>
+          <details>
+            <summary>Do you see my photos or health data?<svg class="icon" aria-hidden="true"><use href="/assets/img/icons.svg#i-plus"/></svg></summary>
+            <div class="answer"><p>No. Neutrino has no servers. Photos go straight from your phone to the AI provider you chose, under your account and their terms. Nutrition is saved to Health Connect on your device.</p><p>Some providers' free tiers may use submitted content to improve their services. Check your provider's terms if that matters to you.</p></div>
+          </details>
+          <details>
+            <summary>How accurate are the estimates?<svg class="icon" aria-hidden="true"><use href="/assets/img/icons.svg#i-plus"/></svg></summary>
+            <div class="answer"><p>Photo-based estimates are approximate. Portion size is the hardest part to judge from a picture. That's why Neutrino always shows you the numbers to review before saving. Neutrino is not a medical device. Don't use it as the sole basis for medical decisions such as insulin dosing.</p></div>
+          </details>
+          <details>
+            <summary>Does it work on iPhone?<svg class="icon" aria-hidden="true"><use href="/assets/img/icons.svg#i-plus"/></svg></summary>
+            <div class="answer"><p>Not yet. Neutrino is built for Android and Health Connect. Android 14 and newer include Health Connect; on older versions you can install it from Google Play.</p></div>
+          </details>
+          <details>
+            <summary>What happens if I uninstall or clear the app's data?<svg class="icon" aria-hidden="true"><use href="/assets/img/icons.svg#i-plus"/></svg></summary>
+            <div class="answer"><p>Meals you've already saved stay in Health Connect. Your settings, history and API key can be restored from your encrypted local backup or your Google Drive backup.</p></div>
+          </details>
+          <details>
+            <summary>What can Neutrino access in my Google Drive?<svg class="icon" aria-hidden="true"><use href="/assets/img/icons.svg#i-plus"/></svg></summary>
+            <div class="answer"><p>Only a private, hidden folder that belongs to Neutrino. It cannot see or change any of your other files, and you can revoke access at any time from your Google Account settings. See the <a href="/privacy">Privacy Policy</a> for details.</p></div>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="section" aria-labelledby="cta-title" style="padding-top:0">
+      <div class="container">
+        <div class="cta-band">
+          <img class="mark-bg" src="/assets/img/logo-mark-white.svg" alt="" width="360" height="360">
+          <h2 id="cta-title">Built in the open</h2>
+          <p>Star the repo to follow along, report issues, or help add providers and cuisines.</p>
+          <div class="actions">
+            <a class="btn btn-primary" href="https://github.com/ytosko/neutrino" rel="noopener">
+              <svg class="icon icon-sm" aria-hidden="true"><use href="/assets/img/icons.svg#i-github"/></svg>
+              Star on GitHub
+            </a>
+            <a class="btn btn-secondary" href="https://github.com/ytosko/neutrino/issues" rel="noopener">Report an issue</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div>
+          <a class="brand" href="/">
+            <span class="brand-tile"><img src="/assets/img/logo-mark-white.svg" alt="" width="26" height="26"></span>
+            Neutrino
+          </a>
+          <p>Free, open-source food logging for Android. Estimates only. Not medical advice or a medical device.</p>
+        </div>
+        <div>
+          <h2>Project</h2>
+          <ul>
+            <li><a href="https://github.com/ytosko/neutrino" rel="noopener">Source code</a></li>
+            <li><a href="https://github.com/ytosko/neutrino/issues" rel="noopener">Issues</a></li>
+            <li><a href="https://github.com/ytosko/neutrino/blob/main/LICENSE" rel="noopener">License (GPL-3.0)</a></li>
+          </ul>
+        </div>
+        <div>
+          <h2>Legal</h2>
+          <ul>
+            <li><a href="/privacy">Privacy Policy</a></li>
+            <li><a href="/terms">Terms of Use</a></li>
+            <li><a href="mailto:privacy@ytosko.dev">privacy@ytosko.dev</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 Neutrino contributors</span>
+        <span>Health Connect, Google Health and Gemini are trademarks of Google LLC. OpenAI is a trademark of OpenAI.</span>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

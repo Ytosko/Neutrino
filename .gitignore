@@ -1,0 +1,43 @@
+# ---- Secrets: never commit ----
+local.properties
+*.jks
+*.keystore
+keystore.properties
+signing.properties
+google-services.json
+*.p12
+*.pem
+.env
+.env.*
+!.env.example
+secrets/
+
+# ---- Android / Gradle / Kotlin ----
+.gradle/
+build/
+**/build/
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+*.ap_
+*.dex
+*.hprof
+output-metadata.json
+.kotlin/
+
+# ---- IDEs ----
+.idea/
+*.iml
+.vscode/
+*.swp
+
+# ---- OS ----
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---- Local tooling ----
+.claude/
+docker-compose.override.yml
