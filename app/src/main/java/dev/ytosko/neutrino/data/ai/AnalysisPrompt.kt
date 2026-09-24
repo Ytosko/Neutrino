@@ -44,6 +44,7 @@ object AnalysisPrompt {
         return """
             Estimate typical nutrition for this food as it is usually prepared and eaten: "$clean".
             If it is a South Asian or Bangladeshi dish, assume a typical home or restaurant recipe.
+            If the text is not a food or drink you recognise, return 0 for every number.
             Return ONLY a valid JSON object, no markdown:
             {"name": "string", "category": "string", "kcal_100g": X, "protein_100g": X, "carbs_100g": X, "fat_100g": X, "units": [{"unit": "string", "grams": X}], "g_per_ml": X}
             - name: clean display name (fix spelling; keep a local name in parentheses if useful)

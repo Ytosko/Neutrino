@@ -31,6 +31,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.Instant
+import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
 import java.time.ZonedDateTime
@@ -65,12 +66,15 @@ data class ReviewItem(
     val nutrition: Nutrition get() = grams?.let { food.per100g * (it / 100.0) } ?: Nutrition.ZERO
 }
 
+/** Most foods one meal can hold. */
+const val MAX_ITEMS = 50
+
 data class ReviewUiState(
     val phase: ReviewPhase = ReviewPhase.Preparing,
     val photo: ByteArray? = null,
-    /** What the user typed; empty means "name it after the foods". */
+    /** Required. Filled in from the AI or the foods until the user edits it. */
     val name: String = "",
-    val suggestedName: String = "",
+    val nameEditedByUser: Boolean = false,
     val items: List<ReviewItem> = emptyList(),
     val mealType: MealType = MealType.Snack,
     val mealTypeChosenByUser: Boolean = false,
@@ -80,11 +84,20 @@ data class ReviewUiState(
 ) {
     val nutrition: Nutrition get() = items.fold(Nutrition.ZERO) { acc, item -> acc + item.nutrition }
 
-    val displayName: String
-        get() = name.trim().ifEmpty { suggestedName.ifEmpty { items.joinToString(", ") { it.food.name.substringBefore(" (") } } }
+    val canAddItem: Boolean get() = items.size < MAX_ITEMS
 
     val canSave: Boolean
-        get() = phase == ReviewPhase.Ready && items.isNotEmpty() && items.all { it.grams != null } && displayName.isNotBlank()
+        get() = phase == ReviewPhase.Ready && items.isNotEmpty() && items.all { it.grams != null } && name.isNotBlank()
+}
+
+/** Default meal name from its foods: "White rice, Chicken curry and 2 more". */
+internal fun autoName(items: List<ReviewItem>): String {
+    val names = items.map { it.food.name.substringBefore(" (").substringBefore(",") }.distinct()
+    return when {
+        names.isEmpty() -> ""
+        names.size <= 2 -> names.joinToString(" and ")
+        else -> "${names[0]}, ${names[1]} and ${names.size - 2} more"
+    }.take(80)
 }
 
 class ReviewViewModel(
@@ -166,8 +179,8 @@ class ReviewViewModel(
                     _state.update {
                         it.copy(
                             phase = ReviewPhase.Ready,
-                            suggestedName = result.foodName,
-                            items = resolved.map { r -> newItem(r.food, r.portion) },
+                            name = if (it.nameEditedByUser) it.name else result.foodName.take(80),
+                            items = resolved.take(MAX_ITEMS).map { r -> newItem(r.food, r.portion) },
                             usage = result.usage,
                         )
                     }
@@ -181,9 +194,11 @@ class ReviewViewModel(
     /** Continue without the AI: the user adds foods from search. */
     fun enterManually() = _state.update { it.copy(phase = ReviewPhase.Ready) }
 
-    fun setName(value: String) = _state.update { it.copy(name = value.take(80)) }
+    fun setName(value: String) = _state.update { it.copy(name = value.take(80), nameEditedByUser = true) }
 
-    fun addItem(food: Food, portion: Portion) = _state.update { it.copy(items = it.items + newItem(food, portion)) }
+    fun addItem(food: Food, portion: Portion) = updateItems { items ->
+        if (items.size >= MAX_ITEMS) items else items + newItem(food, portion)
+    }
 
     /** Swaps the food on a line, keeping the amount when the unit still makes sense. */
     fun replaceFood(key: Long, food: Food, portion: Portion) = updateItem(key) { item ->
@@ -196,6 +211,11 @@ class ReviewViewModel(
         it.copy(quantityText = text.filter { c -> c.isDigit() || c == '.' || c == ',' }.take(6))
     }
 
+    /** Sets amount and unit together (from the amount pop-up). */
+    fun setPortion(key: Long, quantity: Double, unit: FoodUnit) = updateItem(key) {
+        it.copy(quantityText = formatQuantity(quantity), unit = unit)
+    }
+
     /** Changes the unit and converts the amount so the weight stays the same (1 plate → 250 g). */
     fun setUnit(key: Long, unit: FoodUnit) = updateItem(key) { item ->
         val grams = item.grams
@@ -204,7 +224,7 @@ class ReviewViewModel(
         item.copy(unit = unit, quantityText = converted?.let(::formatQuantity) ?: item.quantityText)
     }
 
-    fun removeItem(key: Long) = _state.update { it.copy(items = it.items.filterNot { item -> item.key == key }) }
+    fun removeItem(key: Long) = updateItems { items -> items.filterNot { it.key == key } }
 
     fun setMealType(type: MealType) = _state.update { it.copy(mealType = type, mealTypeChosenByUser = true) }
 
@@ -213,6 +233,8 @@ class ReviewViewModel(
         it.copy(eatenAt = eatenAt, mealType = if (it.mealTypeChosenByUser) it.mealType else mealWindows.mealAt(time))
     }
 
+    fun setDate(date: LocalDate) = _state.update { it.copy(eatenAt = it.eatenAt.with(date)) }
+
     fun save() {
         val snapshot = _state.value
         if (!snapshot.canSave) return
@@ -220,7 +242,7 @@ class ReviewViewModel(
             _state.update { it.copy(phase = ReviewPhase.Saving) }
             val result = meals.saveMeal(
                 MealDraft(
-                    name = snapshot.displayName,
+                    name = snapshot.name.trim(),
                     items = snapshot.items.map { item ->
                         DraftItem(
                             food = item.food,
@@ -245,8 +267,13 @@ class ReviewViewModel(
     private fun newItem(food: Food, portion: Portion) =
         ReviewItem(key = nextKey++, food = food, quantityText = formatQuantity(portion.quantity), unit = portion.unit)
 
-    private fun updateItem(key: Long, transform: (ReviewItem) -> ReviewItem) = _state.update {
-        it.copy(items = it.items.map { item -> if (item.key == key) transform(item) else item })
+    private fun updateItem(key: Long, transform: (ReviewItem) -> ReviewItem) =
+        updateItems { items -> items.map { item -> if (item.key == key) transform(item) else item } }
+
+    /** Changes the item list and keeps an automatic name in sync until the user types one. */
+    private fun updateItems(transform: (List<ReviewItem>) -> List<ReviewItem>) = _state.update {
+        val items = transform(it.items)
+        it.copy(items = items, name = if (it.nameEditedByUser || (it.name.isNotBlank() && it.photo != null)) it.name else autoName(items))
     }
 
     private fun fail(reason: FailureReason) = _state.update { it.copy(phase = ReviewPhase.Failed(reason)) }

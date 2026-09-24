@@ -40,6 +40,8 @@ sealed interface CustomFoodState {
     data object Idle : CustomFoodState
     data object Estimating : CustomFoodState
     data object NeedsAi : CustomFoodState
+    /** The AI didn't recognise the text as a food or drink. */
+    data object NotFound : CustomFoodState
     data class Failed(val error: AiException) : CustomFoodState
 }
 
@@ -108,6 +110,8 @@ class FoodSearchViewModel(
                 val food = estimate.toFood(fallbackName = name)
                 _state.update { it.copy(custom = CustomFoodState.Idle) }
                 _picked.send(FoodPick(food, food.suggestedPortion))
+            } catch (_: AiException.NoResult) {
+                _state.update { it.copy(custom = CustomFoodState.NotFound) }
             } catch (e: AiException) {
                 _state.update { it.copy(custom = CustomFoodState.Failed(e)) }
             }

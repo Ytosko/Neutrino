@@ -47,6 +47,7 @@ import dev.ytosko.neutrino.data.ai.AiException
 import dev.ytosko.neutrino.domain.food.Food
 import dev.ytosko.neutrino.domain.food.FoodSource
 import dev.ytosko.neutrino.domain.roundKcal
+import dev.ytosko.neutrino.ui.components.WobblingWand
 import dev.ytosko.neutrino.ui.components.mealTypeLabel
 import dev.ytosko.neutrino.ui.theme.Spacing
 
@@ -179,7 +180,7 @@ private fun CustomFoodRow(query: String, state: CustomFoodState, onCreate: () ->
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
             if (estimating) {
-                CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                WobblingWand()
             } else {
                 Icon(painterResource(R.drawable.ic_sparkles), contentDescription = null, tint = MaterialTheme.colorScheme.primary)
             }
@@ -194,6 +195,7 @@ private fun CustomFoodRow(query: String, state: CustomFoodState, onCreate: () ->
         }
         val error = when (state) {
             CustomFoodState.NeedsAi -> stringResource(R.string.food_custom_needs_ai)
+            CustomFoodState.NotFound -> stringResource(R.string.food_not_found, query)
             is CustomFoodState.Failed -> when (val e = state.error) {
                 is AiException.InvalidKey -> stringResource(R.string.ai_error_invalid_key)
                 is AiException.RateLimited -> stringResource(R.string.ai_error_rate_limited)

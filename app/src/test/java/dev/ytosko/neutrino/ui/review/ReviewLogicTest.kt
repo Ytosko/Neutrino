@@ -40,6 +40,7 @@ class ReviewLogicTest {
     fun `totals add up items and invalid amounts count as zero`() {
         val state = ReviewUiState(
             phase = ReviewPhase.Ready,
+            name = "Lunch",
             items = listOf(item(rice, "1", FoodUnit.Plate, 1), item(dal, "1", FoodUnit.Bowl, 2)),
         )
         assertEquals(325.0 + 170.0, state.nutrition.calories, 0.001)
@@ -56,11 +57,26 @@ class ReviewLogicTest {
     }
 
     @Test
-    fun `meal is named after its foods unless the user typed a name`() {
-        val state = ReviewUiState(items = listOf(item(rice, "1", FoodUnit.Plate, 1), item(dal, "1", FoodUnit.Bowl, 2)))
-        assertEquals("White rice, cooked, Masoor dal", state.displayName)
-        assertEquals("Lunch", state.copy(name = " Lunch ").displayName)
-        assertEquals("Rice and dal", state.copy(suggestedName = "Rice and dal").displayName)
+    fun `automatic meal names read naturally`() {
+        val chicken = rice.copy(id = "c", name = "Chicken curry (murgi)")
+        val egg = rice.copy(id = "e", name = "Egg, boiled")
+        assertEquals("", autoName(emptyList()))
+        assertEquals("White rice", autoName(listOf(item(rice, "1", FoodUnit.Plate))))
+        assertEquals("White rice and Masoor dal", autoName(listOf(item(rice, "1", FoodUnit.Plate), item(dal, "1", FoodUnit.Bowl))))
+        assertEquals(
+            "White rice, Masoor dal and 2 more",
+            autoName(listOf(rice, dal, chicken, egg).mapIndexed { i, f -> item(f, "1", FoodUnit.Gram, i.toLong()) }),
+        )
+    }
+
+    @Test
+    fun `a meal needs a name and at most fifty foods`() {
+        val items = listOf(item(rice, "1", FoodUnit.Plate))
+        assertFalse(ReviewUiState(phase = ReviewPhase.Ready, name = " ", items = items).canSave)
+        assertTrue(ReviewUiState(phase = ReviewPhase.Ready, name = "Rice", items = items).canSave)
+        val full = (0 until MAX_ITEMS).map { item(rice, "1", FoodUnit.Plate, it.toLong()) }
+        assertFalse(ReviewUiState(items = full).canAddItem)
+        assertTrue(ReviewUiState(items = full.drop(1)).canAddItem)
     }
 
     @Test

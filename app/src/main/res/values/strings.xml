@@ -121,6 +121,17 @@
     <string name="review_no_items">Add the foods in this meal. Search by name, and pick how much you ate.</string>
     <string name="review_name_hint">Named after your foods if left empty</string>
     <string name="home_add_manually">Add foods without a photo</string>
+    <string name="review_max_items">Up to %1$d foods per meal</string>
+    <string name="review_name_required">Meal name is required</string>
+    <string name="review_edit_details">Change meal type, date and time</string>
+    <string name="review_save_short">Save</string>
+    <string name="review_edit_amount">Change amount</string>
+    <string name="review_less">Less</string>
+    <string name="review_more">More</string>
+    <string name="review_details_title">Meal details</string>
+    <string name="review_done">Done</string>
+    <string name="review_disclaimer_short">Estimates only, check before saving</string>
+    <string name="food_not_found">Couldn’t recognise “%1$s” as a food. Check the spelling or try a simpler name.</string>
 
     <!-- Common -->
     <string name="action_back">Back</string>
