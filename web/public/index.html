@@ -50,6 +50,7 @@
       </a>
       <nav class="nav" aria-label="Main">
         <div class="nav-links">
+          <a href="#about">About</a>
           <a href="#how">How it works</a>
           <a href="#privacy">Privacy</a>
           <a href="#features">Features</a>
@@ -68,18 +69,19 @@
     <section class="hero" aria-labelledby="hero-title">
       <div class="container hero-grid">
         <div>
-          <span class="eyebrow reveal">
+          <span class="eyebrow">
             <span class="dot"><svg class="icon" aria-hidden="true"><use href="/assets/img/icons.svg#i-code"/></svg></span>
-            Free &amp; open source · Android · GPL-3.0
+            Neutrino · AI meal logging for Android
           </span>
-          <h1 id="hero-title" class="reveal reveal-2">Snap your plate<span class="stop">.</span><br><span class="accent">Log your macros<span class="stop">.</span></span></h1>
-          <p class="lede reveal reveal-3">
-            Neutrino looks at a photo of your meal with <strong>the AI model you choose</strong>, using
-            your own Gemini or OpenAI key, and estimates carbs, protein, fat and calories.
-            You check the numbers, and it saves them to <strong>Health Connect</strong> as breakfast,
-            lunch, dinner or a snack based on your local time.
+          <h1 id="hero-title">Snap your plate<span class="stop">.</span><br><span class="accent">Log your macros<span class="stop">.</span></span></h1>
+          <p class="lede">
+            <strong>Neutrino is a free, open-source Android app for logging what you eat.</strong>
+            Take a photo of your meal and Neutrino uses the AI model you choose (Google Gemini or
+            OpenAI, with your own API key) to estimate its carbs, protein, fat and calories. You
+            review the numbers, and Neutrino saves them to <strong>Health Connect</strong> as
+            breakfast, lunch, dinner or a snack based on your local time.
           </p>
-          <div class="hero-actions reveal reveal-3">
+          <div class="hero-actions">
             <a class="btn btn-primary" href="https://github.com/Ytosko/Nutrino" rel="noopener">
               <svg class="icon icon-sm" aria-hidden="true"><use href="/assets/img/icons.svg#i-github"/></svg>
               View on GitHub
@@ -89,7 +91,7 @@
               <svg class="icon icon-sm" aria-hidden="true"><use href="/assets/img/icons.svg#i-arrow-right"/></svg>
             </a>
           </div>
-          <ul class="hero-note reveal reveal-3">
+          <ul class="hero-note">
             <li><svg class="icon icon-sm" aria-hidden="true"><use href="/assets/img/icons.svg#i-check"/></svg>No account</li>
             <li><svg class="icon icon-sm" aria-hidden="true"><use href="/assets/img/icons.svg#i-check"/></svg>No ads or tracking</li>
             <li><svg class="icon icon-sm" aria-hidden="true"><use href="/assets/img/icons.svg#i-check"/></svg>Coming soon to Google Play</li>
@@ -97,7 +99,7 @@
         </div>
 
         <!-- Illustrative app preview -->
-        <figure class="phone-wrap reveal reveal-2" aria-labelledby="mock-cap">
+        <figure class="phone-wrap" aria-labelledby="mock-cap">
           <div class="phone" aria-hidden="true">
             <div class="screen">
               <div class="screen-status"><span>8:42</span><span class="notch"></span><span>100%</span></div>
@@ -147,8 +149,43 @@
       </div>
     </section>
 
+    <!-- About / purpose -->
+    <section id="about" class="section" aria-labelledby="about-title">
+      <div class="container about-grid">
+        <div>
+          <div class="section-head" style="margin-bottom:var(--s-5)">
+            <span class="kicker">About Neutrino</span>
+            <h2 id="about-title">What Neutrino does</h2>
+          </div>
+          <div class="about-copy">
+            <p>Neutrino helps people track their nutrition without searching food databases or typing in every ingredient. It is made for anyone who wants to count carbohydrates or macros, including people managing their diet for health reasons.</p>
+            <p>With Neutrino you can:</p>
+            <ul class="purpose-list">
+              <li><b>Photograph a meal</b> and get an itemised estimate of carbohydrates, protein, fat and calories.</li>
+              <li><b>Review and correct</b> each food and portion before anything is saved.</li>
+              <li><b>Save the meal to Health Connect</b>, labelled as breakfast, lunch, dinner or snack from your time zone, so it appears in Google Health, Fitbit and other apps you allow.</li>
+              <li><b>Log water intake</b> in one tap.</li>
+              <li><b>Back up your settings and meal history</b>, encrypted, on your device and optionally in your own Google Drive.</li>
+            </ul>
+          </div>
+        </div>
+        <aside class="google-use" aria-labelledby="google-use-title">
+          <span class="ic"><svg class="icon" aria-hidden="true"><use href="/assets/img/icons.svg#i-shield-check"/></svg></span>
+          <h3 id="google-use-title">How Neutrino uses your Google account</h3>
+          <p>Connecting a Google account is <b>optional</b>. Neutrino only asks for it when you turn on <b>Google Drive backup</b>.</p>
+          <ul class="purpose-list">
+            <li>Neutrino requests one permission: <b>Google Drive app data</b> (<code>drive.appdata</code>).</li>
+            <li>It is used <b>only</b> to save and restore your encrypted Neutrino backup in a private, hidden folder in your own Drive.</li>
+            <li>Neutrino <b>cannot see, open or change any other files</b> in your Drive.</li>
+            <li>Your data is never sent to Neutrino, sold, or used for advertising. You can disconnect at any time.</li>
+          </ul>
+          <p class="fine">Details in our <a href="/privacy#google-drive">Privacy Policy</a>.</p>
+        </aside>
+      </div>
+    </section>
+
     <!-- How it works -->
-    <section id="how" class="section" aria-labelledby="how-title">
+    <section id="how" class="section" aria-labelledby="how-title" style="padding-top:0">
       <div class="container">
         <div class="section-head">
           <span class="kicker">How it works</span>

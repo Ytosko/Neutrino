@@ -344,6 +344,26 @@ p { margin: 0; }
 .pill-row { display: flex; flex-wrap: wrap; gap: var(--s-2); margin-top: var(--s-4); list-style: none; padding: 0; }
 .pill { font-size: 0.8rem; font-weight: 700; padding: 5px 12px; border-radius: 999px; background: var(--surface-2); color: var(--ink); border: 1px solid var(--border); }
 
+/* about / purpose */
+.about-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s-6); align-items: start; }
+@media (min-width: 960px) { .about-grid { grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr); gap: var(--s-8); } }
+.about-copy p { color: var(--muted); font-size: 1.075rem; }
+.about-copy p + p, .about-copy p + ul { margin-top: var(--s-4); }
+.purpose-list { list-style: none; padding: 0; margin: var(--s-4) 0 0; display: grid; gap: var(--s-3); }
+.purpose-list li { position: relative; padding-left: 28px; color: var(--muted); }
+.purpose-list li b { color: var(--ink); }
+.purpose-list li::before {
+  content: ""; position: absolute; left: 0; top: 0.45em; width: 14px; height: 14px; border-radius: 50%;
+  background: var(--brand); box-shadow: inset 0 0 0 4px var(--surface-2);
+}
+.google-use { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--s-6) var(--s-5); box-shadow: var(--shadow); }
+@media (min-width: 768px) { .google-use { padding: var(--s-6); } }
+.google-use .ic { width: 48px; height: 48px; border-radius: 14px; display: grid; place-items: center; background: var(--surface-2); color: var(--link); margin-bottom: var(--s-4); }
+.google-use h3 { font-size: 1.3rem; }
+.google-use > p { color: var(--muted); margin-top: var(--s-3); }
+.google-use code { font-size: 0.85em; background: var(--surface-2); padding: 2px 6px; border-radius: 6px; }
+.google-use .fine { font-size: 0.95rem; margin-top: var(--s-5); }
+
 /* backup timeline */
 .backup { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s-6); align-items: center; }
 @media (min-width: 960px) { .backup { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
@@ -440,10 +460,6 @@ p { margin: 0; }
 
 /* ---------- Motion ---------- */
 @media (prefers-reduced-motion: no-preference) {
-  .reveal { animation: rise 600ms var(--ease-out) both; }
-  .reveal-2 { animation-delay: 80ms; }
-  .reveal-3 { animation-delay: 160ms; }
-  @keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
 }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
