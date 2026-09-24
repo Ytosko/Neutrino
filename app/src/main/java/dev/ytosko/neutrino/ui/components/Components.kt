@@ -1,0 +1,132 @@
+package dev.ytosko.neutrino.ui.components
+
+import androidx.annotation.DrawableRes
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import dev.ytosko.neutrino.R
+import dev.ytosko.neutrino.ui.theme.NeutrinoTheme
+import dev.ytosko.neutrino.ui.theme.Spacing
+
+/** The app logo: white mark on a coral rounded tile. Decorative by default. */
+@Composable
+fun NeutrinoLogo(modifier: Modifier = Modifier, size: Dp = 56.dp) {
+    Box(
+        modifier = modifier
+            .size(size)
+            .clip(RoundedCornerShape(size * 0.28f))
+            .background(NeutrinoTheme.colors.brand),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            painter = painterResource(R.drawable.ic_neutrino_mark),
+            contentDescription = null,
+            tint = Color.White,
+            modifier = Modifier.size(size * 0.74f),
+        )
+    }
+}
+
+/** A tinted rounded square holding an icon, used in lists and cards. */
+@Composable
+fun IconBadge(
+    @DrawableRes icon: Int,
+    modifier: Modifier = Modifier,
+    container: Color = MaterialTheme.colorScheme.primaryContainer,
+    content: Color = MaterialTheme.colorScheme.primary,
+    size: Dp = 44.dp,
+) {
+    Box(
+        modifier = modifier
+            .size(size)
+            .clip(MaterialTheme.shapes.small)
+            .background(container),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            painter = painterResource(icon),
+            contentDescription = null,
+            tint = content,
+            modifier = Modifier.size(size * 0.5f),
+        )
+    }
+}
+
+/** One macro total: value above label, coloured value plus a text label (never colour alone). */
+@Composable
+fun MacroStat(
+    value: String,
+    label: String,
+    color: Color,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier
+            .clip(MaterialTheme.shapes.medium)
+            .background(MaterialTheme.colorScheme.surfaceContainerLowest)
+            .heightIn(min = 64.dp)
+            .padding(vertical = Spacing.sm, horizontal = Spacing.xs)
+            .clearAndSetSemantics { contentDescription = "$label $value" },
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Text(
+            text = value,
+            style = MaterialTheme.typography.titleLarge,
+            color = color,
+            textAlign = TextAlign.Center,
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/** Icon + title + body row used for feature/benefit lists. */
+@Composable
+fun FeatureRow(
+    @DrawableRes icon: Int,
+    title: String,
+    body: String,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+        verticalAlignment = Alignment.Top,
+    ) {
+        IconBadge(icon = icon)
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = title, style = MaterialTheme.typography.titleMedium)
+            Text(
+                text = body,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 2.dp),
+            )
+        }
+    }
+}

@@ -48,7 +48,8 @@ based on your local time, so they show up in Google Health, Fitbit and any other
 
 ```
 .
-├── app/                    # Android app (Kotlin + Jetpack Compose), coming soon
+├── app/                    # Android app (Kotlin + Jetpack Compose)
+├── docs/                   # Developer docs (signing, OAuth setup)
 ├── logos/                  # Brand assets (SVG + PNG variants)
 ├── web/                    # Website: landing page, privacy policy, terms
 │   ├── public/             # Static files served as-is
@@ -79,6 +80,19 @@ Or without Docker: `python -m http.server 8080 --directory web/public` (clean UR
 2. Set the `web` service domain to `https://neutrino.ytosko.dev:8080`
    (the `:8080` tells Coolify which container port to route to; the public URL stays on 443).
 3. Point a DNS `A` record for `neutrino.ytosko.dev` at your Coolify server, then deploy.
+
+## Android app
+
+Kotlin, Jetpack Compose and Material 3. Minimum Android 9 (API 28), targets Android 16 (API 36).
+No DI framework, no analytics, no Google Play Services dependency for core features.
+
+```bash
+./gradlew assembleDebug          # build app/build/outputs/apk/debug/app-debug.apk
+./gradlew testDebugUnitTest      # unit tests
+```
+
+Open the repository root in Android Studio to run it on a device or emulator.
+Release signing and Google OAuth setup: [docs/SIGNING.md](docs/SIGNING.md).
 
 ## Brand
 

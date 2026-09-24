@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Neutrino</string>
+
+    <!-- Welcome -->
+    <string name="welcome_tagline">Snap your plate.\nLog your macros.</string>
+    <string name="welcome_body">Take a photo of your meal. The AI model you choose estimates carbs, protein, fat and calories, and Neutrino saves it to Health Connect.</string>
+    <string name="welcome_point_ai_title">Your AI, your key</string>
+    <string name="welcome_point_ai_body">Use Google Gemini or OpenAI with your own API key.</string>
+    <string name="welcome_point_review_title">You stay in control</string>
+    <string name="welcome_point_review_body">Review every estimate before it\'s saved.</string>
+    <string name="welcome_point_privacy_title">Private by design</string>
+    <string name="welcome_point_privacy_body">No accounts, no tracking, no Neutrino servers.</string>
+    <string name="welcome_get_started">Get started</string>
+    <string name="welcome_legal">By continuing you agree to the Terms of Use and Privacy Policy.</string>
+    <string name="welcome_disclaimer">Estimates only. Not medical advice.</string>
+
+    <!-- Home -->
+    <string name="home_title">Today</string>
+    <string name="home_empty_title">No meals logged yet</string>
+    <string name="home_empty_body">Snap your first meal and Neutrino will estimate its nutrition for you to review.</string>
+    <string name="home_log_meal">Log a meal</string>
+    <string name="home_log_water">Add water</string>
+    <string name="home_coming_soon">Coming in the next build</string>
+    <string name="macro_carbs">Carbs</string>
+    <string name="macro_protein">Protein</string>
+    <string name="macro_fat">Fat</string>
+    <string name="macro_energy">kcal</string>
+    <string name="meal_breakfast">Breakfast</string>
+    <string name="meal_lunch">Lunch</string>
+    <string name="meal_dinner">Dinner</string>
+    <string name="meal_snack">Snack</string>
+    <string name="home_next_meal">Next up: %1$s</string>
+
+    <string name="url_privacy" translatable="false">https://neutrino.ytosko.dev/privacy</string>
+    <string name="url_terms" translatable="false">https://neutrino.ytosko.dev/terms</string>
+</resources>
