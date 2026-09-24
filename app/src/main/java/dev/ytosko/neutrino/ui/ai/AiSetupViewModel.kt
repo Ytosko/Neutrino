@@ -6,6 +6,7 @@ import dev.ytosko.neutrino.data.ai.AiClient
 import dev.ytosko.neutrino.data.ai.AiException
 import dev.ytosko.neutrino.data.ai.AiModel
 import dev.ytosko.neutrino.data.ai.AiProvider
+import dev.ytosko.neutrino.data.ai.PhotoDetail
 import dev.ytosko.neutrino.data.settings.SettingsRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -33,6 +34,7 @@ data class AiSetupUiState(
     val check: KeyCheck = KeyCheck.Idle,
     val selectedModel: String? = null,
     val saving: Boolean = false,
+    val photoDetail: PhotoDetail = PhotoDetail.Standard,
 ) {
     val canCheck: Boolean get() = (keyInput.isNotBlank() || hasSavedKey) && check !is KeyCheck.Checking
     val canSave: Boolean get() = check is KeyCheck.Valid && selectedModel != null && !saving
@@ -74,6 +76,12 @@ class AiSetupViewModel(
     fun toggleKeyVisibility() = _state.update { it.copy(keyVisible = !it.keyVisible) }
 
     fun selectModel(id: String) = _state.update { it.copy(selectedModel = id) }
+
+    /** Saved immediately: it's a preference, not part of the key setup. */
+    fun selectPhotoDetail(detail: PhotoDetail) {
+        _state.update { it.copy(photoDetail = detail) }
+        viewModelScope.launch { settings.setPhotoDetail(detail) }
+    }
 
     fun checkKey() {
         val snapshot = _state.value
@@ -123,6 +131,7 @@ class AiSetupViewModel(
             provider = provider,
             hasSavedKey = hasKey,
             selectedModel = current.models[provider],
+            photoDetail = current.photoDetail,
         )
         // Re-validate a stored key so the model list is ready without re-typing it.
         if (hasKey) checkKey()

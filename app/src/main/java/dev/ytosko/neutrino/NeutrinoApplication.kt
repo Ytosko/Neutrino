@@ -7,6 +7,9 @@ import dev.ytosko.neutrino.data.ai.AiProvider
 import dev.ytosko.neutrino.data.ai.GeminiClient
 import dev.ytosko.neutrino.data.ai.OpenAiClient
 import dev.ytosko.neutrino.data.health.HealthConnectManager
+import dev.ytosko.neutrino.data.meal.MealDatabase
+import dev.ytosko.neutrino.data.meal.MealRepository
+import dev.ytosko.neutrino.data.meal.PhotoProcessor
 import dev.ytosko.neutrino.data.security.SecretCipher
 import dev.ytosko.neutrino.data.settings.SettingsRepository
 import kotlinx.serialization.json.Json
@@ -41,6 +44,10 @@ class AppContainer(application: Application) {
     val settings = SettingsRepository(application, SecretCipher())
 
     val healthConnect = HealthConnectManager(application)
+
+    val photos = PhotoProcessor(application)
+
+    val meals = MealRepository(MealDatabase.create(application), healthConnect, photos)
 
     val aiClients: Map<AiProvider, AiClient> = mapOf(
         AiProvider.Gemini to GeminiClient(http, json),

@@ -20,6 +20,8 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.toRoute
+import android.net.Uri
 import dev.ytosko.neutrino.R
 import dev.ytosko.neutrino.appContainer
 import dev.ytosko.neutrino.ui.ai.AiSetupForm
@@ -28,6 +30,9 @@ import dev.ytosko.neutrino.ui.components.SetupScaffold
 import dev.ytosko.neutrino.ui.health.HealthConnectScreen
 import dev.ytosko.neutrino.ui.health.HealthConnectViewModel
 import dev.ytosko.neutrino.ui.home.HomeScreen
+import dev.ytosko.neutrino.ui.home.HomeViewModel
+import dev.ytosko.neutrino.ui.review.ReviewScreen
+import dev.ytosko.neutrino.ui.review.ReviewViewModel
 import dev.ytosko.neutrino.ui.settings.SettingsScreen
 import dev.ytosko.neutrino.ui.welcome.WelcomeScreen
 import kotlinx.serialization.Serializable
@@ -41,7 +46,11 @@ sealed interface Route {
     @Serializable data object Settings : Route
     @Serializable data object SettingsAi : Route
     @Serializable data object SettingsHealth : Route
+    @Serializable data class Review(val photoUri: String, val fromCamera: Boolean) : Route
 }
+
+private const val KEY_SAVED_RESULT = "meal_saved_synced"
+
 
 private const val SETUP_STEPS = 2
 
@@ -67,8 +76,44 @@ fun NeutrinoNavHost(startDestination: Route, modifier: Modifier = Modifier) {
                 onSaved = { navController.finishOnboarding() },
             )
         }
-        composable<Route.Home> {
-            HomeScreen(onOpenSettings = { navController.navigate(Route.Settings) })
+        composable<Route.Home> { entry ->
+            val container = LocalContext.current.appContainer
+            val homeViewModel: HomeViewModel = viewModel { HomeViewModel(container.meals, container.settings) }
+            val savedResult by entry.savedStateHandle.getStateFlow<Boolean?>(KEY_SAVED_RESULT, null).collectAsStateWithLifecycle()
+            HomeScreen(
+                viewModel = homeViewModel,
+                onOpenSettings = { navController.navigate(Route.Settings) },
+                onOpenAiSettings = { navController.navigate(Route.SettingsAi) },
+                onPhotoSelected = { uri, fromCamera -> navController.navigate(Route.Review(uri.toString(), fromCamera)) },
+                savedResult = savedResult,
+                onSavedResultShown = { entry.savedStateHandle[KEY_SAVED_RESULT] = null },
+            )
+        }
+        composable<Route.Review> { entry ->
+            val route = entry.toRoute<Route.Review>()
+            val context = LocalContext.current
+            val container = context.appContainer
+            val reviewViewModel: ReviewViewModel = viewModel {
+                val uri = Uri.parse(route.photoUri)
+                ReviewViewModel(
+                    photoUri = uri,
+                    settings = container.settings,
+                    clients = container.aiClients,
+                    photos = container.photos,
+                    meals = container.meals,
+                    // Camera captures are temporary; delete once the photo is prepared.
+                    onPhotoConsumed = { if (route.fromCamera) runCatching { context.contentResolver.delete(uri, null, null) } },
+                )
+            }
+            ReviewScreen(
+                viewModel = reviewViewModel,
+                onBack = navController::popBackStack,
+                onSaved = { synced ->
+                    navController.previousBackStackEntry?.savedStateHandle?.set(KEY_SAVED_RESULT, synced)
+                    navController.popBackStack()
+                },
+                onOpenAiSettings = { navController.navigate(Route.SettingsAi) },
+            )
         }
         composable<Route.Settings> {
             val container = LocalContext.current.appContainer
@@ -149,6 +194,7 @@ private fun AiScreen(onBack: () -> Unit, onboarding: Boolean, onSaved: () -> Uni
                 onToggleKeyVisibility = viewModel::toggleKeyVisibility,
                 onCheckKey = viewModel::checkKey,
                 onModelChange = viewModel::selectModel,
+                onPhotoDetailChange = viewModel::selectPhotoDetail,
             )
         }
     }

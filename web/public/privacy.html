@@ -96,7 +96,7 @@
             <tr><td>Photo date and time (from image metadata, if present)</td><td>To assign the meal to the right time and meal type</td><td>Used on your device. We do not use location data.</td></tr>
           </tbody>
         </table>
-        <p>The app requests the camera permission only to take meal photos, and uses the Android photo picker to let you choose existing images without granting access to your whole gallery.</p>
+        <p>To take a meal photo, Neutrino opens your phone's camera app. It does not request the camera permission itself. To choose an existing photo it uses the Android photo picker, so it never gets access to your whole gallery. Photos are resized and stripped of metadata (including location) on your device before they are sent. Temporary camera files are deleted after analysis.</p>
 
         <h2 id="ai">AI providers</h2>
         <p>To analyze a meal, the app sends the photo and a text prompt directly from your device to the provider you configured, such as Google (Gemini API) or OpenAI. These requests are made with <strong>your own API key</strong> and are governed by <strong>your agreement with that provider</strong>, including their data usage and retention policies. Neutrino has no access to these requests or responses beyond what is displayed in the app on your device.</p>

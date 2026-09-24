@@ -26,6 +26,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.ytosko.neutrino.R
+import dev.ytosko.neutrino.domain.MealType
+import androidx.compose.ui.res.stringResource
 import dev.ytosko.neutrino.ui.theme.NeutrinoTheme
 import dev.ytosko.neutrino.ui.theme.Spacing
 
@@ -130,3 +132,13 @@ fun FeatureRow(
         }
     }
 }
+
+@Composable
+fun mealTypeLabel(type: MealType): String = stringResource(
+    when (type) {
+        MealType.Breakfast -> R.string.meal_breakfast
+        MealType.Lunch -> R.string.meal_lunch
+        MealType.Dinner -> R.string.meal_dinner
+        MealType.Snack -> R.string.meal_snack
+    },
+)

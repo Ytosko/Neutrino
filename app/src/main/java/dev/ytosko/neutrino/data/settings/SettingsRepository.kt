@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dev.ytosko.neutrino.data.ai.AiProvider
+import dev.ytosko.neutrino.data.ai.PhotoDetail
 import dev.ytosko.neutrino.data.security.SecretCipher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -27,6 +28,7 @@ data class AppSettings(
     val models: Map<AiProvider, String> = emptyMap(),
     /** Providers that have an (encrypted) API key stored. */
     val providersWithKey: Set<AiProvider> = emptySet(),
+    val photoDetail: PhotoDetail = PhotoDetail.Standard,
 ) {
     val aiReady: Boolean
         get() = activeProvider != null && activeProvider in providersWithKey && models[activeProvider] != null
@@ -43,6 +45,7 @@ class SettingsRepository(context: Context, private val cipher: SecretCipher) {
     private object Keys {
         val onboardingComplete = booleanPreferencesKey("onboarding_complete")
         val activeProvider = stringPreferencesKey("ai_provider")
+        val photoDetail = stringPreferencesKey("photo_detail")
         fun model(provider: AiProvider) = stringPreferencesKey("ai_model_${provider.id}")
         fun apiKey(provider: AiProvider) = stringPreferencesKey("ai_key_${provider.id}")
     }
@@ -57,6 +60,7 @@ class SettingsRepository(context: Context, private val cipher: SecretCipher) {
             activeProvider = AiProvider.fromId(p[Keys.activeProvider]),
             models = AiProvider.entries.mapNotNull { provider -> p[Keys.model(provider)]?.let { provider to it } }.toMap(),
             providersWithKey = AiProvider.entries.filter { p[Keys.apiKey(it)] != null }.toSet(),
+            photoDetail = PhotoDetail.fromId(p[Keys.photoDetail]),
         )
     }
 
@@ -73,6 +77,10 @@ class SettingsRepository(context: Context, private val cipher: SecretCipher) {
             it[Keys.model(provider)] = model
             if (encrypted != null) it[Keys.apiKey(provider)] = encrypted
         }
+    }
+
+    suspend fun setPhotoDetail(detail: PhotoDetail) {
+        store.edit { it[Keys.photoDetail] = detail.id }
     }
 
     suspend fun setOnboardingComplete() {

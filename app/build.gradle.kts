@@ -4,6 +4,8 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.room)
 }
 
 // Release signing is read from keystore.properties (never committed).
@@ -63,11 +65,19 @@ android {
         resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
     }
 
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+    }
+
     // Don't embed Google's encrypted dependency metadata blob (privacy, reproducible builds).
     dependenciesInfo {
         includeInApk = false
         includeInBundle = false
     }
+}
+
+room {
+    schemaDirectory("$projectDir/schemas")
 }
 
 dependencies {
@@ -82,6 +92,9 @@ dependencies {
     implementation(libs.androidx.health.connect)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.okhttp)
+    implementation(libs.androidx.room.runtime)
+    ksp(libs.androidx.room.compiler)
+    implementation(libs.androidx.exifinterface)
 
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
@@ -93,4 +106,5 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.mockwebserver)
 }

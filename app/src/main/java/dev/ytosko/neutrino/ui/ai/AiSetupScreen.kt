@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import dev.ytosko.neutrino.R
 import dev.ytosko.neutrino.data.ai.AiException
 import dev.ytosko.neutrino.data.ai.AiProvider
+import dev.ytosko.neutrino.data.ai.PhotoDetail
 import dev.ytosko.neutrino.ui.theme.Spacing
 
 /** Provider, key and model form. Hosted by onboarding and by Settings. */
@@ -59,6 +60,7 @@ fun AiSetupForm(
     onToggleKeyVisibility: () -> Unit,
     onCheckKey: () -> Unit,
     onModelChange: (String) -> Unit,
+    onPhotoDetailChange: (PhotoDetail) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val uriHandler = LocalUriHandler.current
@@ -141,6 +143,25 @@ fun AiSetupForm(
                 )
             }
         }
+
+        Text(stringResource(R.string.ai_photo_detail), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = Spacing.xs))
+        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+            PhotoDetail.entries.forEachIndexed { index, detail ->
+                SegmentedButton(
+                    selected = state.photoDetail == detail,
+                    onClick = { onPhotoDetailChange(detail) },
+                    shape = SegmentedButtonDefaults.itemShape(index, PhotoDetail.entries.size),
+                    modifier = Modifier.heightIn(min = 48.dp),
+                ) {
+                    Text(stringResource(if (detail == PhotoDetail.Standard) R.string.ai_photo_standard else R.string.ai_photo_low))
+                }
+            }
+        }
+        Text(
+            stringResource(R.string.ai_photo_helper),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
@@ -169,6 +190,7 @@ private fun errorMessage(error: AiException): String = when (error) {
     is AiException.RateLimited -> stringResource(R.string.ai_error_rate_limited)
     is AiException.Network -> stringResource(R.string.ai_error_network)
     is AiException.Unexpected -> stringResource(R.string.ai_error_unexpected, error.code)
+    is AiException.NoResult -> stringResource(R.string.ai_error_no_result)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
