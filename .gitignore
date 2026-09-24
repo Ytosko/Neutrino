@@ -43,3 +43,7 @@ desktop.ini
 # ---- Local tooling ----
 .claude/
 docker-compose.override.yml
+
+# ---- Python ----
+__pycache__/
+*.pyc
