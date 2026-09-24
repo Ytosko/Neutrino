@@ -5,6 +5,8 @@ local.properties
 keystore.properties
 signing.properties
 google-services.json
+client_secret*.json
+*.apps.googleusercontent.com.json
 *.p12
 *.pem
 .env
