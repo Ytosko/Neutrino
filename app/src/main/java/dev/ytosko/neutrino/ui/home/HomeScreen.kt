@@ -19,6 +19,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -56,6 +57,7 @@ import java.time.format.FormatStyle
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
+    onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
     today: LocalDate = LocalDate.now(),
     now: LocalTime = LocalTime.now(),
@@ -89,6 +91,11 @@ fun HomeScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
+                    }
+                },
+                actions = {
+                    IconButton(onClick = onOpenSettings) {
+                        Icon(painterResource(R.drawable.ic_settings), contentDescription = stringResource(R.string.home_settings))
                     }
                 },
                 scrollBehavior = scrollBehavior,
@@ -236,5 +243,5 @@ private fun EmptyMeals(onAddWater: () -> Unit, modifier: Modifier = Modifier) {
 @Preview(name = "Dark", uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = true)
 @Composable
 private fun HomePreview() {
-    NeutrinoTheme { HomeScreen(now = LocalTime.of(13, 0)) }
+    NeutrinoTheme { HomeScreen(onOpenSettings = {}, now = LocalTime.of(13, 0)) }
 }

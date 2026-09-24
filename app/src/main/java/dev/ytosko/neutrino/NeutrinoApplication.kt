@@ -1,6 +1,17 @@
 package dev.ytosko.neutrino
 
 import android.app.Application
+import android.content.Context
+import dev.ytosko.neutrino.data.ai.AiClient
+import dev.ytosko.neutrino.data.ai.AiProvider
+import dev.ytosko.neutrino.data.ai.GeminiClient
+import dev.ytosko.neutrino.data.ai.OpenAiClient
+import dev.ytosko.neutrino.data.health.HealthConnectManager
+import dev.ytosko.neutrino.data.security.SecretCipher
+import dev.ytosko.neutrino.data.settings.SettingsRepository
+import kotlinx.serialization.json.Json
+import okhttp3.OkHttpClient
+import java.util.concurrent.TimeUnit
 
 /**
  * Application entry point. Holds the [AppContainer] for simple, explicit
@@ -16,5 +27,26 @@ class NeutrinoApplication : Application() {
     }
 }
 
-/** App-wide dependencies. Repositories (Health Connect, AI providers, backups) are added here. */
-class AppContainer(@Suppress("unused") private val application: Application)
+/** App-wide singletons. */
+class AppContainer(application: Application) {
+
+    private val json = Json { ignoreUnknownKeys = true }
+
+    private val http = OkHttpClient.Builder()
+        .connectTimeout(15, TimeUnit.SECONDS)
+        .readTimeout(90, TimeUnit.SECONDS)
+        .callTimeout(120, TimeUnit.SECONDS)
+        .build()
+
+    val settings = SettingsRepository(application, SecretCipher())
+
+    val healthConnect = HealthConnectManager(application)
+
+    val aiClients: Map<AiProvider, AiClient> = mapOf(
+        AiProvider.Gemini to GeminiClient(http, json),
+        AiProvider.OpenAi to OpenAiClient(http, json),
+    )
+}
+
+val Context.appContainer: AppContainer
+    get() = (applicationContext as NeutrinoApplication).container

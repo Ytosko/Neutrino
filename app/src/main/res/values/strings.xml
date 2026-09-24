@@ -32,6 +32,79 @@
     <string name="meal_snack">Snack</string>
     <string name="home_next_meal">Next up: %1$s</string>
 
+    <string name="home_settings">Settings</string>
+
+    <!-- Common -->
+    <string name="action_back">Back</string>
+    <string name="action_continue">Continue</string>
+    <string name="action_retry">Try again</string>
+    <string name="setup_step">Step %1$d of %2$d</string>
+
+    <!-- Health Connect -->
+    <string name="hc_title">Connect Health Connect</string>
+    <string name="hc_body">Neutrino saves the meals and water you log to Health Connect, so they appear in Google Health, Fitbit and other apps you allow.</string>
+    <string name="hc_writes_title">Neutrino will only write</string>
+    <string name="hc_writes_nutrition">Nutrition: carbs, protein, fat and calories for each meal</string>
+    <string name="hc_writes_hydration">Hydration: water you log</string>
+    <string name="hc_reads_nothing">Neutrino never reads your health data.</string>
+    <string name="hc_connect">Connect Health Connect</string>
+    <string name="hc_connected">Connected</string>
+    <string name="hc_connected_body">Neutrino can save meals and water to Health Connect.</string>
+    <string name="hc_install">Install Health Connect</string>
+    <string name="hc_update">Update Health Connect</string>
+    <string name="hc_not_installed">Health Connect isn\'t installed on this phone. It\'s free from Google Play.</string>
+    <string name="hc_update_required">Health Connect needs an update before Neutrino can use it.</string>
+    <string name="hc_not_supported">Health Connect isn\'t available on this device. You can still use Neutrino, but meals won\'t sync to other apps.</string>
+    <string name="hc_denied">Permission wasn\'t granted. You can allow it in Health Connect settings.</string>
+    <string name="hc_open_settings">Open Health Connect settings</string>
+    <string name="hc_skip">Set up later</string>
+
+    <!-- Health Connect rationale (shown from Health Connect's permission screen) -->
+    <string name="rationale_title">How Neutrino uses Health Connect</string>
+    <string name="rationale_body">Neutrino writes the meals and water you approve to Health Connect. It does not read any health data, does not send health data to anyone, and does not use it for advertising.</string>
+    <string name="rationale_policy">Read the full privacy policy</string>
+    <string name="rationale_close">Close</string>
+
+    <!-- AI setup -->
+    <string name="ai_title">Connect your AI</string>
+    <string name="ai_body">Neutrino uses your own API key to analyse meal photos. You pay your provider directly, usually a fraction of a cent per photo.</string>
+    <string name="ai_provider">Provider</string>
+    <string name="ai_get_key">Get a %1$s API key</string>
+    <string name="ai_key_label">API key</string>
+    <string name="ai_key_saved_hint">A key is saved. Paste a new one to replace it.</string>
+    <string name="ai_key_helper">Stored encrypted on this phone. Sent only to %1$s.</string>
+    <string name="ai_show_key">Show key</string>
+    <string name="ai_hide_key">Hide key</string>
+    <string name="ai_check_key">Check key</string>
+    <string name="ai_checking">Checking…</string>
+    <string name="ai_key_ok">Key works · %1$d models available</string>
+    <string name="ai_model">Model</string>
+    <string name="ai_recommended">Recommended</string>
+    <string name="ai_model_helper">Faster “flash” and “mini” models cost less and work well for meals.</string>
+    <string name="ai_no_models">This key has no models that can read images.</string>
+    <string name="ai_error_invalid_key">That key was rejected. Check that you copied it completely.</string>
+    <string name="ai_error_rate_limited">Your provider says the rate limit or quota was reached. Check your plan, then try again.</string>
+    <string name="ai_error_network">Couldn\'t reach the provider. Check your internet connection.</string>
+    <string name="ai_error_unexpected">The provider returned an error (%1$d). Try again in a moment.</string>
+    <string name="ai_save">Save</string>
+    <string name="ai_save_continue">Save and continue</string>
+    <string name="ai_saved">AI settings saved</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_section_ai">AI</string>
+    <string name="settings_ai_provider">AI provider</string>
+    <string name="settings_ai_not_set">Not set up</string>
+    <string name="settings_section_health">Health Connect</string>
+    <string name="settings_hc_status_connected">Connected: writes nutrition and water</string>
+    <string name="settings_hc_status_disconnected">Not connected</string>
+    <string name="settings_section_about">About</string>
+    <string name="settings_privacy">Privacy Policy</string>
+    <string name="settings_terms">Terms of Use</string>
+    <string name="settings_source">Source code (GPL-3.0)</string>
+    <string name="settings_version">Version %1$s</string>
+
+    <string name="url_source" translatable="false">https://github.com/Ytosko/Nutrino</string>
     <string name="url_privacy" translatable="false">https://neutrino.ytosko.dev/privacy</string>
     <string name="url_terms" translatable="false">https://neutrino.ytosko.dev/terms</string>
 </resources>
