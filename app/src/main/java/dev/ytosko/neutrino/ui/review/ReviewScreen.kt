@@ -1,14 +1,8 @@
 package dev.ytosko.neutrino.ui.review
 
 import android.graphics.BitmapFactory
-import android.provider.Settings
 import android.text.format.DateFormat
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -28,7 +22,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -37,14 +33,15 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SelectableDates
@@ -64,11 +61,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -76,8 +74,10 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -85,10 +85,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.ytosko.neutrino.R
 import dev.ytosko.neutrino.data.ai.AiException
 import dev.ytosko.neutrino.domain.MealType
+import dev.ytosko.neutrino.domain.Nutrition
 import dev.ytosko.neutrino.domain.food.FoodUnit
 import dev.ytosko.neutrino.domain.roundGrams
 import dev.ytosko.neutrino.domain.roundKcal
 import dev.ytosko.neutrino.ui.components.WobblingWand
+import dev.ytosko.neutrino.ui.components.mealTypeColors
+import dev.ytosko.neutrino.ui.components.mealTypeIcon
 import dev.ytosko.neutrino.ui.components.mealTypeLabel
 import dev.ytosko.neutrino.ui.food.FoodIcon
 import dev.ytosko.neutrino.ui.food.FoodSearchSheet
@@ -110,12 +113,14 @@ private sealed interface SearchTarget {
     data class Replace(val key: Long) : SearchTarget
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * The meal editor used for photo scans and manual entry. Back is the system gesture/button;
+ * Save sits in the header like the settings icon on Today.
+ */
 @Composable
 fun ReviewScreen(
     viewModel: ReviewViewModel,
     searchViewModel: @Composable (key: String, mealType: MealType) -> FoodSearchViewModel,
-    onBack: () -> Unit,
     onSaved: (syncedToHealthConnect: Boolean) -> Unit,
     onOpenAiSettings: () -> Unit,
 ) {
@@ -138,7 +143,6 @@ fun ReviewScreen(
         topBar = {
             ReviewHeader(
                 state = state,
-                onBack = onBack,
                 onNameChange = viewModel::setName,
                 onDetails = { showMealDetails = true },
                 onPhoto = { showPhoto = true },
@@ -154,24 +158,18 @@ fun ReviewScreen(
                 top = padding.calculateTopPadding(),
                 bottom = padding.calculateBottomPadding() + Spacing.lg,
             ),
-            verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+            verticalArrangement = Arrangement.spacedBy(Spacing.xs),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             val width = Modifier.widthIn(max = 640.dp).fillMaxWidth()
-            item(key = "totals") { TotalsBar(state, width) }
+            item(key = "totals") { TotalsBar(state.nutrition, width) }
 
             when (phase) {
                 ReviewPhase.Preparing, is ReviewPhase.Analyzing -> item(key = "status") {
-                    AnalyzingBanner((phase as? ReviewPhase.Analyzing)?.model, width)
+                    AnalyzingBanner((phase as? ReviewPhase.Analyzing)?.model, width.padding(top = Spacing.xs))
                 }
                 is ReviewPhase.Failed -> item(key = "status") {
-                    FailureBanner(
-                        reason = phase.reason,
-                        onRetry = viewModel::analyze,
-                        onManual = viewModel::enterManually,
-                        onOpenAiSettings = onOpenAiSettings,
-                        modifier = width,
-                    )
+                    FailureBanner(phase.reason, viewModel::analyze, viewModel::enterManually, onOpenAiSettings, width.padding(top = Spacing.xs))
                 }
                 else -> Unit
             }
@@ -181,8 +179,7 @@ fun ReviewScreen(
                     FilledTonalButton(
                         onClick = { openSearch(SearchTarget.Add) },
                         enabled = state.canAddItem,
-                        contentPadding = PaddingValues(vertical = 0.dp, horizontal = Spacing.md),
-                        modifier = width.heightIn(min = 44.dp),
+                        modifier = width.padding(vertical = Spacing.xs).heightIn(min = 48.dp),
                     ) {
                         Icon(painterResource(R.drawable.ic_plus), contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.size(Spacing.xs))
@@ -195,28 +192,13 @@ fun ReviewScreen(
                             stringResource(R.string.review_no_items),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = width.padding(horizontal = Spacing.xs),
+                            textAlign = TextAlign.Center,
+                            modifier = width.padding(horizontal = Spacing.lg, vertical = Spacing.md),
                         )
                     }
-                } else {
-                    item(key = "items") {
-                        Card(
-                            modifier = width,
-                            shape = MaterialTheme.shapes.large,
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
-                            border = CardDefaults.outlinedCardBorder(),
-                        ) {
-                            state.items.forEachIndexed { index, item ->
-                                if (index > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                                ItemRow(
-                                    item = item,
-                                    onChangeFood = { openSearch(SearchTarget.Replace(item.key)) },
-                                    onEditAmount = { editingKey = item.key },
-                                    onRemove = { viewModel.removeItem(item.key) },
-                                )
-                            }
-                        }
-                    }
+                }
+                items(state.items, key = { it.key }) { item ->
+                    ItemCard(item = item, onClick = { editingKey = item.key }, modifier = width)
                 }
             }
 
@@ -239,16 +221,27 @@ fun ReviewScreen(
     }
 
     editingKey?.let { key ->
-        state.items.firstOrNull { it.key == key }?.let { item ->
-            AmountDialog(
+        val item = state.items.firstOrNull { it.key == key }
+        if (item == null) {
+            editingKey = null
+        } else {
+            ItemDialog(
                 item = item,
                 onConfirm = { quantity, unit ->
                     viewModel.setPortion(key, quantity, unit)
                     editingKey = null
                 },
+                onChangeFood = {
+                    editingKey = null
+                    openSearch(SearchTarget.Replace(key))
+                },
+                onRemove = {
+                    viewModel.removeItem(key)
+                    editingKey = null
+                },
                 onDismiss = { editingKey = null },
             )
-        } ?: run { editingKey = null }
+        }
     }
 
     if (showMealDetails) {
@@ -262,7 +255,8 @@ fun ReviewScreen(
     }
 
     if (showPhoto) {
-        state.photo?.let { PhotoDialog(it) { showPhoto = false } } ?: run { showPhoto = false }
+        val photo = state.photo
+        if (photo == null) showPhoto = false else PhotoDialog(photo) { showPhoto = false }
     }
 }
 
@@ -271,43 +265,42 @@ fun ReviewScreen(
 @Composable
 private fun ReviewHeader(
     state: ReviewUiState,
-    onBack: () -> Unit,
     onNameChange: (String) -> Unit,
     onDetails: () -> Unit,
     onPhoto: () -> Unit,
     onSave: () -> Unit,
 ) {
+    val focus = LocalFocusManager.current
     val timeFormatter = remember { DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT) }
-    val dateFormatter = remember { DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM) }
+    val dateFormatter = remember { DateTimeFormatter.ofPattern("d MMM") }
+    val (typeColor, typeContainer) = mealTypeColors(state.mealType)
     Surface(color = MaterialTheme.colorScheme.background) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .statusBarsPadding()
-                .padding(start = Spacing.xxs, end = Spacing.md, top = Spacing.xs, bottom = Spacing.sm),
-            verticalAlignment = Alignment.CenterVertically,
+                .padding(start = Spacing.md, end = Spacing.md, top = Spacing.sm, bottom = Spacing.md),
+            verticalAlignment = Alignment.Top,
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
-            IconButton(onClick = onBack) {
-                Icon(painterResource(R.drawable.ic_chevron_left), contentDescription = stringResource(R.string.action_back))
-            }
             MealThumbnail(state, onPhoto)
-            Spacer(Modifier.size(Spacing.sm))
-            Column(modifier = Modifier.weight(1f)) {
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 val nameMissing = state.name.isBlank() && state.items.isNotEmpty()
                 BasicTextField(
                     value = state.name,
-                    onValueChange = onNameChange,
-                    singleLine = true,
-                    textStyle = MaterialTheme.typography.titleLarge.copy(color = MaterialTheme.colorScheme.onSurface),
+                    onValueChange = { onNameChange(it.replace('\n', ' ')) },
+                    maxLines = 2,
+                    textStyle = MaterialTheme.typography.titleMedium.copy(color = MaterialTheme.colorScheme.onSurface),
                     cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { focus.clearFocus() }),
                     modifier = Modifier.fillMaxWidth().semantics { heading() },
                     decorationBox = { inner ->
                         Box {
                             if (state.name.isEmpty()) {
                                 Text(
                                     stringResource(if (nameMissing) R.string.review_name_required else R.string.review_name),
-                                    style = MaterialTheme.typography.titleLarge,
+                                    style = MaterialTheme.typography.titleMedium,
                                     color = if (nameMissing) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
@@ -315,27 +308,28 @@ private fun ReviewHeader(
                         }
                     },
                 )
+                // Meal type · date · time, tinted in the meal's colour; opens the details pop-up.
                 Row(
                     modifier = Modifier
-                        .clip(MaterialTheme.shapes.extraSmall)
+                        .clip(MaterialTheme.shapes.extraLarge)
+                        .background(typeContainer)
                         .clickable(role = Role.Button, onClickLabel = stringResource(R.string.review_edit_details), onClick = onDetails)
-                        .padding(vertical = Spacing.xxs),
+                        .heightIn(min = 32.dp)
+                        .padding(start = 8.dp, end = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
+                    Icon(painterResource(mealTypeIcon(state.mealType)), contentDescription = null, tint = typeColor, modifier = Modifier.size(16.dp))
                     Text(
                         "${mealTypeLabel(state.mealType)} · ${state.eatenAt.format(dateFormatter)} · ${state.eatenAt.format(timeFormatter)}",
                         style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
-                    Icon(
-                        painterResource(R.drawable.ic_chevron_down),
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(16.dp),
-                    )
+                    Icon(painterResource(R.drawable.ic_chevron_down), contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(14.dp))
                 }
             }
-            Spacer(Modifier.size(Spacing.xs))
             Button(
                 onClick = onSave,
                 enabled = state.canSave,
@@ -352,22 +346,21 @@ private fun ReviewHeader(
     }
 }
 
-/** Photo if there is one; otherwise the wand while analysing, or the first food's icon. */
+/** Photo if there is one (tap to enlarge); otherwise the first food's icon. */
 @Composable
 private fun MealThumbnail(state: ReviewUiState, onPhoto: () -> Unit) {
     val bitmap = remember(state.photo) { state.photo?.let { BitmapFactory.decodeByteArray(it, 0, it.size)?.asImageBitmap() } }
-    val shape = MaterialTheme.shapes.medium
     Box(
         modifier = Modifier
-            .size(44.dp)
-            .clip(shape)
+            .size(48.dp)
+            .clip(MaterialTheme.shapes.medium)
             .background(MaterialTheme.colorScheme.surfaceContainerHigh)
             .then(if (bitmap != null) Modifier.clickable(role = Role.Image, onClick = onPhoto) else Modifier),
         contentAlignment = Alignment.Center,
     ) {
         when {
             bitmap != null -> Image(bitmap, stringResource(R.string.review_photo_desc), contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-            state.items.isNotEmpty() -> FoodIcon(state.items.first().food.category, size = 44.dp)
+            state.items.isNotEmpty() -> FoodIcon(state.items.first().food.category, size = 48.dp)
             else -> Icon(painterResource(R.drawable.ic_utensils), contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp))
         }
     }
@@ -377,14 +370,13 @@ private fun MealThumbnail(state: ReviewUiState, onPhoto: () -> Unit) {
 
 /** One slim strip: value over label for carbs, protein, fat and kcal. */
 @Composable
-private fun TotalsBar(state: ReviewUiState, modifier: Modifier) {
+private fun TotalsBar(totals: Nutrition, modifier: Modifier) {
     val colors = NeutrinoTheme.colors
-    val totals = state.nutrition
     Row(
         modifier = modifier
             .clip(MaterialTheme.shapes.large)
             .background(MaterialTheme.colorScheme.surfaceContainer)
-            .padding(vertical = Spacing.xs),
+            .padding(vertical = Spacing.sm),
     ) {
         TotalCell(grams(totals.carbsG), stringResource(R.string.macro_carbs), colors.carbs, Modifier.weight(1f))
         TotalCell(grams(totals.proteinG), stringResource(R.string.macro_protein), colors.protein, Modifier.weight(1f))
@@ -394,17 +386,16 @@ private fun TotalsBar(state: ReviewUiState, modifier: Modifier) {
 }
 
 @Composable
-private fun TotalCell(value: String, label: String, color: androidx.compose.ui.graphics.Color, modifier: Modifier) {
-    Column(
-        modifier = modifier.semantics(mergeDescendants = true) {},
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
+private fun TotalCell(value: String, label: String, color: Color, modifier: Modifier) {
+    Column(modifier = modifier.semantics(mergeDescendants = true) {}, horizontalAlignment = Alignment.CenterHorizontally) {
         Text(value, style = MaterialTheme.typography.titleMedium, color = color, maxLines = 1)
         Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
-private fun grams(value: Double): String = "${value.roundGrams().let { if (it >= 100) it.toInt().toString() else it.toString().removeSuffix(".0") }}g"
+private fun grams(value: Double): String = "${value.roundGrams().let { if (it >= 100) it.toInt().toString() else it.fmt() }}g"
+
+private fun Double.fmt(): String = toString().removeSuffix(".0")
 
 @Composable
 private fun AnalyzingBanner(model: String?, modifier: Modifier) {
@@ -427,13 +418,7 @@ private fun AnalyzingBanner(model: String?, modifier: Modifier) {
 }
 
 @Composable
-private fun FailureBanner(
-    reason: FailureReason,
-    onRetry: () -> Unit,
-    onManual: () -> Unit,
-    onOpenAiSettings: () -> Unit,
-    modifier: Modifier,
-) {
+private fun FailureBanner(reason: FailureReason, onRetry: () -> Unit, onManual: () -> Unit, onOpenAiSettings: () -> Unit, modifier: Modifier) {
     val message = when (reason) {
         FailureReason.AiNotSetUp -> stringResource(R.string.review_ai_not_set)
         FailureReason.NoFood -> stringResource(R.string.review_no_food)
@@ -464,114 +449,98 @@ private fun FailureBanner(
                 FailureReason.PhotoUnreadable -> Unit
                 else -> TextButton(onClick = onRetry) { Text(stringResource(R.string.review_retry)) }
             }
-            TextButton(onClick = onManual) { Text(stringResource(R.string.home_add_manually)) }
+            TextButton(onClick = onManual) { Text(stringResource(R.string.review_manual)) }
         }
     }
 }
 
-// ---- Item row ----------------------------------------------------------------------------------
+// ---- Food cards --------------------------------------------------------------------------------
 
-/** Two compact lines: food name + kcal, then the amount chip and macros. */
+/** A food in the meal. Tap to change the amount, swap the food or remove it. */
 @Composable
-private fun ItemRow(item: ReviewItem, onChangeFood: () -> Unit, onEditAmount: () -> Unit, onRemove: () -> Unit) {
+private fun ItemCard(item: ReviewItem, onClick: () -> Unit, modifier: Modifier) {
     val colors = NeutrinoTheme.colors
     val n = item.nutrition
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(start = Spacing.sm, top = 2.dp, bottom = 2.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+    val invalid = item.grams == null
+    Card(
+        onClick = onClick,
+        modifier = modifier,
+        shape = MaterialTheme.shapes.medium,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
+        border = BorderStroke(1.dp, if (invalid) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outlineVariant),
     ) {
-        FoodIcon(item.food.category, size = 30.dp)
-        Column(modifier = Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    item.food.name,
-                    style = MaterialTheme.typography.titleSmall,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable(role = Role.Button, onClickLabel = stringResource(R.string.review_change_food), onClick = onChangeFood),
-                )
-                Text(
-                    "${n.calories.roundKcal()} kcal",
-                    style = MaterialTheme.typography.labelLarge,
-                    modifier = Modifier.padding(start = Spacing.xs),
-                )
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.sm, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+        ) {
+            FoodIcon(item.food.category, size = 40.dp)
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(item.food.name, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                    Text(
+                        "${item.quantityText.ifBlank { "?" }} ${unitLabel(item.unit)}",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = if (invalid) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSecondaryContainer,
+                        modifier = Modifier
+                            .clip(MaterialTheme.shapes.extraSmall)
+                            .background(if (invalid) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer)
+                            .padding(horizontal = 6.dp, vertical = 2.dp),
+                    )
+                    MacroLetter("C", n.carbsG, colors.carbs)
+                    MacroLetter("P", n.proteinG, colors.protein)
+                    MacroLetter("F", n.fatG, colors.fat)
+                }
             }
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                AmountChip(item, onEditAmount)
-                Text(
-                    "C ${n.carbsG.roundGrams().fmt()} · P ${n.proteinG.roundGrams().fmt()} · F ${n.fatG.roundGrams().fmt()}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+            Column(horizontalAlignment = Alignment.End) {
+                Text("${n.calories.roundKcal()}", style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.macro_energy), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-        }
-        IconButton(onClick = onRemove, modifier = Modifier.size(44.dp)) {
-            Icon(
-                painterResource(R.drawable.ic_x),
-                contentDescription = stringResource(R.string.review_remove_item, item.food.name),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(18.dp),
-            )
         }
     }
 }
 
-private fun Double.fmt(): String = toString().removeSuffix(".0")
-
 @Composable
-private fun AmountChip(item: ReviewItem, onClick: () -> Unit) {
-    val invalid = item.grams == null
-    Row(
-        modifier = Modifier
-            .clip(MaterialTheme.shapes.extraSmall)
-            .background(if (invalid) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer)
-            .clickable(role = Role.Button, onClickLabel = stringResource(R.string.review_edit_amount), onClick = onClick)
-            .heightIn(min = 28.dp)
-            .padding(horizontal = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            "${item.quantityText.ifBlank { "?" }} ${unitLabel(item.unit)}",
-            style = MaterialTheme.typography.labelMedium,
-            color = if (invalid) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSecondaryContainer,
-        )
-        Icon(painterResource(R.drawable.ic_chevron_down), contentDescription = null, modifier = Modifier.size(14.dp))
-    }
+private fun MacroLetter(letter: String, grams: Double, color: Color) {
+    Text("$letter ${grams.roundGrams().fmt()}", style = MaterialTheme.typography.labelSmall, color = color, maxLines = 1)
 }
 
 // ---- Dialogs -----------------------------------------------------------------------------------
 
+/** Amount (stepper), unit (dropdown), live nutrition, plus change food / remove. */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AmountDialog(item: ReviewItem, onConfirm: (Double, FoodUnit) -> Unit, onDismiss: () -> Unit) {
+private fun ItemDialog(
+    item: ReviewItem,
+    onConfirm: (Double, FoodUnit) -> Unit,
+    onChangeFood: () -> Unit,
+    onRemove: () -> Unit,
+    onDismiss: () -> Unit,
+) {
     var unit by remember { mutableStateOf(item.unit) }
     var text by remember { mutableStateOf(item.quantityText) }
+    var unitMenu by remember { mutableStateOf(false) }
     val quantity = text.replace(',', '.').toDoubleOrNull()?.takeIf { it > 0 }
     val step = when {
         unit == FoodUnit.Kilogram || unit == FoodUnit.Liter -> 0.1
         unit.isMass || unit.isVolume -> 10.0
         else -> 0.5
     }
-    fun changeUnit(new: FoodUnit) {
-        // Keep the same weight when switching unit (1 plate -> 250 g).
-        val grams = quantity?.let { item.food.grams(it, unit) }
-        val perUnit = item.food.grams(1.0, new)
-        if (grams != null && perUnit != null && perUnit > 0) text = formatQuantity(roundForUnit(grams / perUnit, new))
-        unit = new
+    fun unitText(option: FoodUnit): String {
+        val grams = item.food.grams(1.0, option)
+        return if (option.isMass || option.isVolume || grams == null) "" else " · ${grams.roundGrams().fmt()} g"
     }
-    val kcal = quantity?.let { item.food.nutrition(it, unit)?.calories?.roundKcal() }
+    val nutrition = quantity?.let { item.food.nutrition(it, unit) }
+    val colors = NeutrinoTheme.colors
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(item.food.name, maxLines = 2, overflow = TextOverflow.Ellipsis) },
+        icon = { FoodIcon(item.food.category, size = 48.dp) },
+        title = { Text(item.food.name, textAlign = TextAlign.Center, maxLines = 3, overflow = TextOverflow.Ellipsis) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                    OutlinedButton(onClick = { text = formatQuantity(((quantity ?: step) - step).coerceAtLeast(step)) }, modifier = Modifier.size(48.dp), contentPadding = PaddingValues(0.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    FilledTonalIconButton(onClick = { text = formatQuantity(((quantity ?: step) - step).coerceAtLeast(step)) }) {
                         Icon(painterResource(R.drawable.ic_minus), contentDescription = stringResource(R.string.review_less))
                     }
                     OutlinedTextField(
@@ -579,38 +548,76 @@ private fun AmountDialog(item: ReviewItem, onConfirm: (Double, FoodUnit) -> Unit
                         onValueChange = { text = it.filter { c -> c.isDigit() || c == '.' || c == ',' }.take(6) },
                         singleLine = true,
                         isError = quantity == null,
-                        textStyle = MaterialTheme.typography.titleLarge,
+                        label = { Text(stringResource(R.string.review_amount)) },
+                        textStyle = MaterialTheme.typography.titleLarge.copy(textAlign = TextAlign.Center),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         modifier = Modifier.weight(1f),
                     )
-                    OutlinedButton(onClick = { text = formatQuantity((quantity ?: 0.0) + step) }, modifier = Modifier.size(48.dp), contentPadding = PaddingValues(0.dp)) {
+                    FilledTonalIconButton(onClick = { text = formatQuantity((quantity ?: 0.0) + step) }) {
                         Icon(painterResource(R.drawable.ic_plus), contentDescription = stringResource(R.string.review_more))
                     }
                 }
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                    item.food.availableUnits.forEach { option ->
-                        val grams = item.food.grams(1.0, option)
-                        FilterChip(
-                            selected = unit == option,
-                            onClick = { changeUnit(option) },
-                            leadingIcon = if (unit == option) { { CheckIcon() } } else null,
-                            label = {
-                                Text(
-                                    if (option.isMass || option.isVolume || grams == null) unitLabel(option)
-                                    else "${unitLabel(option)} · ${grams.roundGrams().fmt()} g",
-                                )
-                            },
-                        )
+
+                ExposedDropdownMenuBox(expanded = unitMenu, onExpandedChange = { unitMenu = it }) {
+                    OutlinedTextField(
+                        value = unitLabel(unit) + unitText(unit),
+                        onValueChange = {},
+                        readOnly = true,
+                        singleLine = true,
+                        label = { Text(stringResource(R.string.review_unit)) },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = unitMenu) },
+                        modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
+                    )
+                    ExposedDropdownMenu(expanded = unitMenu, onDismissRequest = { unitMenu = false }) {
+                        item.food.availableUnits.forEach { option ->
+                            DropdownMenuItem(
+                                text = { Text(unitLabel(option) + unitText(option)) },
+                                onClick = {
+                                    // Keep the same weight when switching unit (1 plate -> 250 g).
+                                    val grams = quantity?.let { item.food.grams(it, unit) }
+                                    val perUnit = item.food.grams(1.0, option)
+                                    if (grams != null && perUnit != null && perUnit > 0) text = formatQuantity(roundForUnit(grams / perUnit, option))
+                                    unit = option
+                                    unitMenu = false
+                                },
+                                contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding,
+                            )
+                        }
                     }
                 }
-                if (kcal != null) {
-                    Text("$kcal kcal", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+
+                if (nutrition != null) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(MaterialTheme.shapes.medium)
+                            .background(MaterialTheme.colorScheme.surfaceContainerLowest)
+                            .padding(vertical = Spacing.sm),
+                    ) {
+                        TotalCell("${nutrition.calories.roundKcal()}", stringResource(R.string.macro_energy), MaterialTheme.colorScheme.onSurface, Modifier.weight(1f))
+                        TotalCell(grams(nutrition.carbsG), stringResource(R.string.macro_carbs), colors.carbs, Modifier.weight(1f))
+                        TotalCell(grams(nutrition.proteinG), stringResource(R.string.macro_protein), colors.protein, Modifier.weight(1f))
+                        TotalCell(grams(nutrition.fatG), stringResource(R.string.macro_fat), colors.fat, Modifier.weight(1f))
+                    }
+                }
+
+                Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                    TextButton(onClick = onChangeFood) {
+                        Icon(painterResource(R.drawable.ic_refresh), contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.size(6.dp))
+                        Text(stringResource(R.string.review_change_food))
+                    }
+                    TextButton(onClick = onRemove) {
+                        Icon(painterResource(R.drawable.ic_trash), contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.size(6.dp))
+                        Text(stringResource(R.string.review_remove), color = MaterialTheme.colorScheme.error)
+                    }
                 }
             }
         },
         confirmButton = {
             TextButton(onClick = { quantity?.let { onConfirm(it, unit) } }, enabled = quantity != null) {
-                Text(stringResource(R.string.review_time_ok))
+                Text(stringResource(R.string.review_done))
             }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.home_cancel)) } },
@@ -630,36 +637,25 @@ private fun MealDetailsDialog(
     var pickDate by remember { mutableStateOf(false) }
     var pickTime by remember { mutableStateOf(false) }
     val timeFormatter = remember { DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT) }
-    val dateFormatter = remember { DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM) }
+    val dateFormatter = remember { DateTimeFormatter.ofPattern("EEE, d MMM") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.review_details_title)) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 Text(stringResource(R.string.review_meal_type), style = MaterialTheme.typography.titleSmall)
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                    listOf(MealType.Breakfast, MealType.Lunch, MealType.Snack, MealType.Dinner).forEach { type ->
-                        FilterChip(
-                            selected = state.mealType == type,
-                            onClick = { onMealType(type) },
-                            label = { Text(mealTypeLabel(type)) },
-                            leadingIcon = if (state.mealType == type) { { CheckIcon() } } else null,
-                        )
+                listOf(listOf(MealType.Breakfast, MealType.Lunch), listOf(MealType.Snack, MealType.Dinner)).forEach { row ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                        row.forEach { type ->
+                            MealTypeTile(type, selected = state.mealType == type, onClick = { onMealType(type) }, modifier = Modifier.weight(1f))
+                        }
                     }
                 }
-                Text(stringResource(R.string.review_time), style = MaterialTheme.typography.titleSmall)
-                Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                    OutlinedButton(onClick = { pickDate = true }, modifier = Modifier.fillMaxWidth()) {
-                        Icon(painterResource(R.drawable.ic_calendar), contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.size(Spacing.xs))
-                        Text(state.eatenAt.format(dateFormatter))
-                    }
-                    OutlinedButton(onClick = { pickTime = true }, modifier = Modifier.fillMaxWidth()) {
-                        Icon(painterResource(R.drawable.ic_clock), contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.size(Spacing.xs))
-                        Text(state.eatenAt.format(timeFormatter))
-                    }
+                Text(stringResource(R.string.review_when), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = Spacing.xs))
+                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                    DetailTile(R.drawable.ic_calendar, stringResource(R.string.review_date), state.eatenAt.format(dateFormatter), { pickDate = true }, Modifier.weight(1f))
+                    DetailTile(R.drawable.ic_clock, stringResource(R.string.review_time), state.eatenAt.format(timeFormatter), { pickTime = true }, Modifier.weight(1f))
                 }
             }
         },
@@ -710,9 +706,58 @@ private fun MealDetailsDialog(
     }
 }
 
+/** Half-width tile in the meal's own colour; the selected one is filled and outlined. */
 @Composable
-private fun CheckIcon() {
-    Icon(painterResource(R.drawable.ic_check), contentDescription = null, modifier = Modifier.size(16.dp))
+private fun MealTypeTile(type: MealType, selected: Boolean, onClick: () -> Unit, modifier: Modifier) {
+    val (color, container) = mealTypeColors(type)
+    Surface(
+        onClick = onClick,
+        selected = selected,
+        modifier = modifier.heightIn(min = 52.dp),
+        shape = MaterialTheme.shapes.medium,
+        color = if (selected) container else MaterialTheme.colorScheme.surfaceContainerLowest,
+        border = if (selected) BorderStroke(2.dp, color) else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.sm),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+        ) {
+            Icon(painterResource(mealTypeIcon(type)), contentDescription = null, tint = color, modifier = Modifier.size(20.dp))
+            Text(
+                mealTypeLabel(type),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (selected) Icon(painterResource(R.drawable.ic_check), contentDescription = null, tint = color, modifier = Modifier.size(16.dp))
+        }
+    }
+}
+
+@Composable
+private fun DetailTile(icon: Int, label: String, value: String, onClick: () -> Unit, modifier: Modifier) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier.heightIn(min = 56.dp),
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surfaceContainerLowest,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.xs),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+        ) {
+            Icon(painterResource(icon), contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+            Column {
+                Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(value, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+    }
 }
 
 @Composable
@@ -739,6 +784,6 @@ private fun Footer(state: ReviewUiState, modifier: Modifier) {
         text,
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = modifier.padding(horizontal = Spacing.xs, vertical = Spacing.xs),
+        modifier = modifier.padding(horizontal = Spacing.xs, vertical = Spacing.sm),
     )
 }

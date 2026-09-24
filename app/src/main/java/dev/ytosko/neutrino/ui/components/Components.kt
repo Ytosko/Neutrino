@@ -142,3 +142,23 @@ fun mealTypeLabel(type: MealType): String = stringResource(
         MealType.Snack -> R.string.meal_snack
     },
 )
+
+/** Each meal has its own colour so it's recognisable at a glance (always shown with its name). */
+@Composable
+fun mealTypeColors(type: MealType): Pair<Color, Color> {
+    val colors = NeutrinoTheme.colors
+    return when (type) {
+        MealType.Breakfast -> colors.carbs to colors.carbsContainer
+        MealType.Lunch -> colors.protein to colors.proteinContainer
+        MealType.Snack -> colors.fat to colors.fatContainer
+        MealType.Dinner -> colors.water to colors.waterContainer
+    }
+}
+
+@DrawableRes
+fun mealTypeIcon(type: MealType): Int = when (type) {
+    MealType.Breakfast -> R.drawable.ic_sunrise
+    MealType.Lunch -> R.drawable.ic_sun
+    MealType.Snack -> R.drawable.ic_cookie
+    MealType.Dinner -> R.drawable.ic_moon
+}

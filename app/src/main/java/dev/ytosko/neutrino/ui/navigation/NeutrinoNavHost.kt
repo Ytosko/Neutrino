@@ -115,7 +115,6 @@ fun NeutrinoNavHost(startDestination: Route, modifier: Modifier = Modifier) {
                         FoodSearchViewModel(container.foods, container.openFoodFacts, container.settings, container.aiClients, mealType)
                     }
                 },
-                onBack = navController::popBackStack,
                 onSaved = { synced ->
                     navController.previousBackStackEntry?.savedStateHandle?.set(KEY_SAVED_RESULT, synced)
                     navController.popBackStack()
