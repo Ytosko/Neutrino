@@ -9,6 +9,7 @@ import dev.ytosko.neutrino.data.ai.OpenAiClient
 import dev.ytosko.neutrino.data.backup.BackupRepository
 import dev.ytosko.neutrino.data.backup.DriveClient
 import dev.ytosko.neutrino.data.backup.GoogleDriveAuth
+import dev.ytosko.neutrino.data.backup.LocalBackupFile
 import dev.ytosko.neutrino.data.food.FoodCatalog
 import dev.ytosko.neutrino.data.food.FoodRepository
 import dev.ytosko.neutrino.data.food.OpenFoodFactsClient
@@ -85,6 +86,7 @@ class AppContainer(application: Application) {
         cipher = cipher,
         drive = DriveClient(http, json),
         auth = GoogleDriveAuth(application),
+        local = LocalBackupFile(application),
         json = json,
     )
 

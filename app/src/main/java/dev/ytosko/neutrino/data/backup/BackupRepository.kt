@@ -1,9 +1,6 @@
 package dev.ytosko.neutrino.data.backup
 
 import android.content.Context
-import android.content.Intent
-import android.net.Uri
-import android.provider.OpenableColumns
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
@@ -25,7 +22,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -49,11 +47,10 @@ enum class DriveProblem { SignInNeeded, Failed }
 
 data class BackupState(
     val passwordSet: Boolean = false,
-    /** The backup file the user picked (a document URI with a persisted grant). */
-    val localUri: String? = null,
-    val localName: String? = null,
+    /** Neutrino may write its backup folder ("All files access" or the storage permission). */
+    val storageAccess: Boolean = false,
     val lastLocalAt: Long? = null,
-    /** The last write to [localUri] failed, e.g. the file was deleted or the grant was lost. */
+    /** The last write to the backup folder failed, e.g. storage access was turned off. */
     val localFailed: Boolean = false,
     /** Signed-in Google account; non-null means Drive backup is on. */
     val driveEmail: String? = null,
@@ -62,20 +59,20 @@ data class BackupState(
     val driveProblem: DriveProblem? = null,
     val lastSizeBytes: Long? = null,
 ) {
-    val configured: Boolean get() = passwordSet && localUri != null
+    val configured: Boolean get() = passwordSet && storageAccess
     val driveConnected: Boolean get() = driveEmail != null
     val needsAttention: Boolean get() = !configured || localFailed || driveProblem != null
 }
 
 /** Where a restore came from, so later backups keep going to the same place. */
 sealed interface RestoreSource {
-    data class File(val uri: Uri) : RestoreSource
+    data object Phone : RestoreSource
     data class Drive(val email: String?) : RestoreSource
 }
 
 /**
- * WhatsApp-style backups: an encrypted file in a place the user picks on the phone (required),
- * plus an optional copy in the hidden Neutrino folder of the user's Google Drive. Everything the
+ * WhatsApp-style backups: an encrypted file in a fixed, hidden folder on the phone (required; see
+ * [LocalBackupFile]), plus an optional copy in the hidden Neutrino folder of the user's Google Drive. Everything the
  * app knows is included: AI settings and keys, meals with their photos, water and the personal
  * food directory. See [BackupCrypto] for the file format.
  */
@@ -86,6 +83,7 @@ class BackupRepository(
     private val cipher: SecretCipher,
     private val drive: DriveClient,
     val auth: GoogleDriveAuth,
+    val local: LocalBackupFile,
     private val json: Json,
 ) {
     private val store = context.applicationContext.backupStore
@@ -95,8 +93,6 @@ class BackupRepository(
     private object Keys {
         val wrappedKey = stringPreferencesKey("wrapped_key")
         val backupKey = stringPreferencesKey("backup_key")
-        val localUri = stringPreferencesKey("local_uri")
-        val localName = stringPreferencesKey("local_name")
         val lastLocalAt = longPreferencesKey("last_local_at")
         val localFailed = booleanPreferencesKey("local_failed")
         val driveEmail = stringPreferencesKey("drive_email")
@@ -111,11 +107,17 @@ class BackupRepository(
         if (e is IOException) emit(emptyPreferences()) else throw e
     }
 
-    val state: Flow<BackupState> = preferences.map { p ->
+    private val access = MutableStateFlow(local.hasAccess())
+
+    /** Re-reads storage access, e.g. after returning from the system permission screen. */
+    fun refreshAccess() {
+        access.value = local.hasAccess()
+    }
+
+    val state: Flow<BackupState> = combine(preferences, access) { p, hasAccess ->
         BackupState(
             passwordSet = p[Keys.wrappedKey] != null && p[Keys.backupKey] != null,
-            localUri = p[Keys.localUri],
-            localName = p[Keys.localName],
+            storageAccess = hasAccess,
             lastLocalAt = p[Keys.lastLocalAt],
             localFailed = p[Keys.localFailed] ?: false,
             driveEmail = p[Keys.driveEmail],
@@ -133,25 +135,6 @@ class BackupRepository(
         val key = backupKey() ?: BackupCrypto.newBackupKey()
         val wrapped = withContext(Dispatchers.Default) { BackupCrypto.wrapKey(key, password) }
         saveKey(key, wrapped)
-    }
-
-    /** Remembers the document the user created or picked, keeping access across restarts. */
-    suspend fun setLocalTarget(uri: Uri) {
-        withContext(Dispatchers.IO) {
-            context.contentResolver.takePersistableUriPermission(
-                uri,
-                Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
-            )
-        }
-        // Release the grant on the file we used before, if it changed.
-        val previous = preferences.first()[Keys.localUri]
-        if (previous != null && previous != uri.toString()) releaseGrant(previous)
-        val name = displayName(uri)
-        store.edit {
-            it[Keys.localUri] = uri.toString()
-            if (name != null) it[Keys.localName] = name else it.remove(Keys.localName)
-            it[Keys.localFailed] = false
-        }
     }
 
     suspend fun setFrequency(frequency: BackupFrequency) {
@@ -190,11 +173,11 @@ class BackupRepository(
         val p = preferences.first()
         if (p[Keys.wrappedKey] == null) return BackupRun(local = false, drive = null)
         val file = buildFile()
-        val local = p[Keys.localUri]?.let { writeLocal(Uri.parse(it), file) } ?: false
+        val localOk = writeLocal(file)
         val driveOn = p[Keys.driveEmail] != null
         val due = forceDrive || isDue(p[Keys.lastDriveAt], BackupFrequency.fromId(p[Keys.driveFrequency]))
         val driveResult = if (driveOn && due) uploadToDrive(file, driveToken) else null
-        BackupRun(local, driveResult)
+        BackupRun(localOk, driveResult)
     }
 
     data class BackupRun(val local: Boolean, val drive: Boolean?)
@@ -230,14 +213,9 @@ class BackupRepository(
         BackupCrypto.seal(BackupPackage.pack(data, photos), key, header)
     }
 
-    private suspend fun writeLocal(uri: Uri, file: ByteArray): Boolean {
-        val ok = withContext(Dispatchers.IO) {
-            runCatching {
-                val stream = runCatching { context.contentResolver.openOutputStream(uri, "wt") }.getOrNull()
-                    ?: context.contentResolver.openOutputStream(uri, "w")
-                checkNotNull(stream).use { it.write(file) }
-            }.isSuccess
-        }
+    private suspend fun writeLocal(file: ByteArray): Boolean {
+        refreshAccess()
+        val ok = local.hasAccess() && local.write(file)
         store.edit {
             it[Keys.localFailed] = !ok
             if (ok) {
@@ -307,9 +285,8 @@ class BackupRepository(
     /** The Google account's email, or null if Drive won't say. */
     suspend fun driveEmail(token: String): String? = runCatching { drive.accountEmail(token) }.getOrNull()
 
-    suspend fun readFile(uri: Uri): ByteArray = withContext(Dispatchers.IO) {
-        context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: throw IOException("Couldn't open the file")
-    }
+    /** The backup in the phone's backup folder, or null if there is none (or no access yet). */
+    suspend fun readPhoneBackup(): ByteArray? = local.read()
 
     /**
      * Replaces all app data with the backup's. Throws [WrongPasswordException] or
@@ -334,7 +311,7 @@ class BackupRepository(
         saveKey(key, header.wrappedKey)
 
         when (source) {
-            is RestoreSource.File -> runCatching { setLocalTarget(source.uri) }
+            RestoreSource.Phone -> Unit
             is RestoreSource.Drive -> store.edit {
                 it[Keys.driveEmail] = source.email.orEmpty()
                 it[Keys.lastDriveAt] = header.createdAtEpochMs
@@ -356,25 +333,6 @@ class BackupRepository(
         store.edit {
             it[Keys.backupKey] = encrypted
             it[Keys.wrappedKey] = json.encodeToString(WrappedKey.serializer(), wrapped)
-        }
-    }
-
-    // ---- Helpers -----------------------------------------------------------------------------
-
-    private suspend fun displayName(uri: Uri): String? = withContext(Dispatchers.IO) {
-        runCatching {
-            context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
-                if (cursor.moveToFirst()) cursor.getString(0) else null
-            }
-        }.getOrNull()
-    }
-
-    private fun releaseGrant(uri: String) {
-        runCatching {
-            context.contentResolver.releasePersistableUriPermission(
-                Uri.parse(uri),
-                Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
-            )
         }
     }
 

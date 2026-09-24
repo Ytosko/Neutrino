@@ -104,11 +104,13 @@ Setup ends with a required backup; Google Drive is optional (**Settings → Back
   packed into one `.nbk` file ([format](app/src/main/java/dev/ytosko/neutrino/data/backup/BackupCrypto.kt)).
 - **Encryption:** AES-256-GCM with a random backup key. The key is wrapped with the user's password
   (PBKDF2-HMAC-SHA256), so scheduled backups run without asking and only a restore needs the password.
-- **Local:** written to a file the user picks with the system file picker (no storage permission), refreshed daily
-  and shortly after meals change (WorkManager).
+- **Local:** written automatically to a fixed file in a hidden folder in shared storage, so it survives uninstalling
+  and a new install finds it without a file picker. This needs "All files access" (Android 11+) or the storage
+  permission (Android 9–10); the app touches nothing else. Refreshed daily and shortly after meals change (WorkManager).
 - **Google Drive:** the hidden app folder, `drive.appdata` scope only, via Google Play services authorization and
   the Drive REST API. Daily, weekly or monthly; each upload replaces the previous file.
-- **Restore:** *Welcome → Restore from a backup*, from Drive or a file.
+- **Restore:** *Welcome → Restore it*: checks this phone and the Google accounts you pick, lists what it finds
+  (newest marked *Latest*) and restores the chosen backup with its password.
 
 Drive backup only works in builds signed with a certificate registered for the OAuth client, so forks need their
 own Google Cloud OAuth client ([docs/SIGNING.md](docs/SIGNING.md)). The backup file works everywhere.

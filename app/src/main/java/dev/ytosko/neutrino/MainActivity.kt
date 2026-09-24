@@ -20,6 +20,12 @@ class MainActivity : ComponentActivity() {
     /** Resolved once from settings; the splash screen stays up until it's known. */
     private val startDestination = MutableStateFlow<Route?>(null)
 
+    override fun onResume() {
+        super.onResume()
+        // "All files access" can be switched off in system settings while Neutrino is closed.
+        appContainer.backups.refreshAccess()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         val splash = installSplashScreen()
         super.onCreate(savedInstanceState)

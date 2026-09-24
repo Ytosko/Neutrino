@@ -108,10 +108,7 @@ fun AiSetupForm(
                 }
             },
             supportingText = {
-                Text(
-                    if (state.hasSavedKey && state.keyInput.isBlank()) stringResource(R.string.ai_key_saved_hint)
-                    else stringResource(R.string.ai_key_helper, state.provider.displayName),
-                )
+                Text(stringResource(R.string.ai_key_helper, state.provider.displayName))
             },
             isError = state.check is KeyCheck.Failed,
             modifier = Modifier.fillMaxWidth(),

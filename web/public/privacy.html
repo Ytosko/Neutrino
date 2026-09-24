@@ -75,7 +75,7 @@
           <svg class="icon" aria-hidden="true"><use href="/assets/img/icons.svg#i-shield-check"/></svg>
           <div>
             <p><strong>Neutrino does not collect, store or sell your personal data.</strong> The Neutrino project runs no servers for the app, and requires no account.</p>
-            <p>Your meal photos go directly from your device to the AI provider <em>you</em> choose, using <em>your</em> API key. Nutrition data is saved to Health Connect on your device. Backups are encrypted on your device and saved to a file you choose, and optionally to your own Google Drive.</p>
+            <p>Your meal photos go directly from your device to the AI provider <em>you</em> choose, using <em>your</em> API key. Nutrition data is saved to Health Connect on your device. Backups are encrypted on your device and saved automatically in a hidden folder on your device, and optionally to your own Google Drive.</p>
           </div>
         </div>
 
@@ -125,7 +125,7 @@
         <h2 id="google-drive">Google Drive backups (optional)</h2>
         <p>If you choose to connect your Google account, Neutrino requests the <code>https://www.googleapis.com/auth/drive.appdata</code> scope. This allows the app to read and write <strong>only its own private application data folder</strong> in your Google Drive. That folder is hidden from your Drive file list. Neutrino <strong>cannot see, open, change or delete any of your other Drive files</strong>.</p>
         <ul>
-          <li><strong>What is stored:</strong> one backup file containing your settings (including your AI API key), meal history with small meal photos, water log and personal food list. The same encrypted file is also saved to the location you pick on your device.</li>
+          <li><strong>What is stored:</strong> one backup file containing your settings (including your AI API key), meal history with small meal photos, water log and personal food list. The same encrypted file is also kept in a hidden folder on your device.</li>
           <li><strong>Encryption:</strong> backups are encrypted on your device with a password you set before they are uploaded. Neutrino's maintainers have no access to your Drive, your backup files or your password.</li>
           <li><strong>When:</strong> on the schedule you choose (daily, weekly or monthly) or when you tap “Back up now”. Each upload replaces the previous one.</li>
           <li><strong>Your Google account email</strong> is shown in the app so you know which account holds your backup. It is not sent anywhere else.</li>
@@ -151,7 +151,7 @@
         <h2 id="retention">Retention &amp; deletion</h2>
         <ul>
           <li><strong>On your device:</strong> app data remains until you delete it in the app, clear the app's storage or uninstall it.</li>
-          <li><strong>Local backup files:</strong> remain where you saved them until you delete them.</li>
+          <li><strong>Local backup:</strong> kept in a hidden folder in your device's shared storage so it survives reinstalling Neutrino. It stays until you delete it or reset the device. To save it there, Neutrino asks for Android's "All files access"; it uses that access only for its own backup file.</li>
           <li><strong>Health Connect:</strong> records Neutrino wrote remain in Health Connect even after uninstalling, until you delete them in Health Connect settings.</li>
           <li><strong>Google Drive:</strong> the latest backup remains in Neutrino's hidden folder until you delete it as described above.</li>
           <li><strong>AI providers:</strong> retention is governed by your provider's policy.</li>

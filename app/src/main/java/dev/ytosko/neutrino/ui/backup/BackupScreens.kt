@@ -1,7 +1,6 @@
 package dev.ytosko.neutrino.ui.backup
 
 import android.app.Activity
-import android.content.ActivityNotFoundException
 import android.text.format.DateUtils
 import android.text.format.Formatter
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -52,6 +51,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.ytosko.neutrino.R
 import dev.ytosko.neutrino.data.backup.BackupCrypto
@@ -85,7 +85,7 @@ fun BackupSetupScreen(
                     Text(stringResource(R.string.backup_finish))
                 }
             } else {
-                CreateBackupButton(state, actions::createFile)
+                CreateBackupButton(state, actions::createBackup)
             }
             SnackbarHost(actions.snackbar)
         },
@@ -96,7 +96,7 @@ fun BackupSetupScreen(
                 if (!state.backup.passwordSet) PasswordFields(state, viewModel)
                 Text(stringResource(R.string.backup_where), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else {
-                LocalBackupCard(state, onBackUpNow = null, onChangeLocation = null)
+                LocalBackupCard(state, onBackUpNow = null, onAllowAccess = actions::createBackup)
                 DriveSection(state, viewModel)
             }
             SecurityNote()
@@ -117,7 +117,7 @@ fun BackupSettingsScreen(viewModel: BackupViewModel, onBack: () -> Unit) {
         subtitle = if (backup.configured) null else stringResource(R.string.backup_body),
         onBack = onBack,
         bottomBar = {
-            if (state.loaded && !backup.configured) CreateBackupButton(state, actions::createFile)
+            if (state.loaded && !backup.configured) CreateBackupButton(state, actions::createBackup)
             SnackbarHost(actions.snackbar)
         },
     ) {
@@ -128,10 +128,10 @@ fun BackupSettingsScreen(viewModel: BackupViewModel, onBack: () -> Unit) {
                     PasswordFields(state, viewModel)
                     Text(stringResource(R.string.backup_where), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                // Password known (e.g. after a Drive restore) but no file yet: just pick where.
+                // Password known (e.g. after a Drive restore) but storage access is off.
                 !backup.configured -> Text(stringResource(R.string.backup_where), style = MaterialTheme.typography.bodyMedium)
                 else -> {
-                    LocalBackupCard(state, onBackUpNow = viewModel::backUpNow, onChangeLocation = actions::createFile)
+                    LocalBackupCard(state, onBackUpNow = viewModel::backUpNow, onAllowAccess = actions::createBackup)
                     DriveSection(state, viewModel)
                     OutlinedButton(
                         onClick = { changingPassword = true },
@@ -161,23 +161,27 @@ fun BackupSettingsScreen(viewModel: BackupViewModel, onBack: () -> Unit) {
 
 // ---- Launchers and messages -------------------------------------------------------------------
 
-/** Holds the system pickers and Google consent launcher, and turns messages into snackbars. */
-private class BackupActions(val snackbar: SnackbarHostState, private val launchCreate: () -> Unit) {
-    fun createFile() = launchCreate()
+/** Holds storage access and the Google consent launcher, and turns messages into snackbars. */
+private class BackupActions(val snackbar: SnackbarHostState, private val start: () -> Unit) {
+    /** Makes sure Neutrino can write its backup folder, then backs up. */
+    fun createBackup() = start()
 }
 
 @Composable
 private fun rememberBackupActions(viewModel: BackupViewModel): BackupActions {
     val snackbar = remember { SnackbarHostState() }
     val context = LocalContext.current
-    val fileName = stringResource(R.string.backup_file_name)
-    val configured = viewModel.state.collectAsStateWithLifecycle().value.backup.configured
 
-    val create = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(BACKUP_MIME)) { uri ->
-        if (uri != null) {
-            if (configured) viewModel.changeLocation(uri) else viewModel.createBackup(uri)
-        }
+    // Storage access can change in system settings while this screen is in the background.
+    LifecycleResumeEffect(viewModel) {
+        viewModel.refreshAccess()
+        onPauseOrDispose { }
     }
+    val withAccess = rememberStorageAccess(
+        hasAccess = viewModel::hasStorageAccess,
+        settingsIntent = viewModel::storageSettingsIntent,
+        onChecked = viewModel::refreshAccess,
+    )
     val consent = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
         viewModel.onConsentResult(if (result.resultCode == Activity.RESULT_OK) result.data else null)
     }
@@ -199,19 +203,8 @@ private fun rememberBackupActions(viewModel: BackupViewModel): BackupActions {
             )
         }
     }
-    return remember(create) {
-        BackupActions(snackbar) {
-            try {
-                create.launch(fileName)
-            } catch (_: ActivityNotFoundException) {
-                // No document UI on this device; nothing sensible to fall back to.
-            }
-        }
-    }
+    return BackupActions(snackbar) { withAccess { viewModel.createBackup() } }
 }
-
-/** Generic type so every file manager accepts it; the .nbk name identifies the file. */
-private const val BACKUP_MIME = "application/octet-stream"
 
 // ---- Pieces ------------------------------------------------------------------------------------
 
@@ -230,7 +223,7 @@ private fun CreateBackupButton(state: BackupUiState, onClick: () -> Unit) {
         } else {
             Icon(painterResource(R.drawable.ic_archive), contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.size(Spacing.xs))
-            Text(stringResource(if (state.backup.passwordSet) R.string.backup_choose_location else R.string.backup_create))
+            Text(stringResource(if (state.backup.passwordSet) R.string.backup_allow_storage else R.string.backup_create))
         }
     }
 }
@@ -282,25 +275,21 @@ private fun PasswordFields(state: BackupUiState, viewModel: BackupViewModel) {
 }
 
 @Composable
-private fun LocalBackupCard(state: BackupUiState, onBackUpNow: (() -> Unit)?, onChangeLocation: (() -> Unit)?) {
+private fun LocalBackupCard(state: BackupUiState, onBackUpNow: (() -> Unit)?, onAllowAccess: () -> Unit) {
     val backup = state.backup
     val colors = NeutrinoTheme.colors
+    val problem = backup.localFailed || !backup.storageAccess
     BackupCard {
         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md), verticalAlignment = Alignment.CenterVertically) {
-            if (backup.localFailed) {
+            if (problem) {
                 IconBadge(R.drawable.ic_circle_alert, container = MaterialTheme.colorScheme.errorContainer, content = MaterialTheme.colorScheme.error, size = 40.dp)
             } else {
-                IconBadge(R.drawable.ic_check, container = colors.proteinContainer, content = colors.protein, size = 40.dp)
+                IconBadge(R.drawable.ic_smartphone, container = colors.proteinContainer, content = colors.protein, size = 40.dp)
             }
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    stringResource(if (onBackUpNow == null) R.string.backup_saved_title else R.string.backup_on_phone),
+                    stringResource(if (onBackUpNow == null && !problem) R.string.backup_saved_title else R.string.backup_on_phone),
                     style = MaterialTheme.typography.titleSmall,
-                )
-                Text(
-                    backup.localName ?: stringResource(R.string.backup_file_name),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Text(
                     backupLine(backup.lastLocalAt, backup.lastSizeBytes),
@@ -309,20 +298,17 @@ private fun LocalBackupCard(state: BackupUiState, onBackUpNow: (() -> Unit)?, on
                 )
             }
         }
-        if (backup.localFailed) {
+        if (problem) {
             Text(stringResource(R.string.backup_local_failed), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-        }
-        if (onBackUpNow != null && onChangeLocation != null) {
-            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                FilledTonalButton(onClick = onBackUpNow, enabled = state.work == null, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) {
-                    if (state.work == BackupWork.BackingUp) {
-                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                    } else {
-                        Text(stringResource(R.string.backup_now))
-                    }
-                }
-                OutlinedButton(onClick = onChangeLocation, enabled = state.work == null, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) {
-                    Text(stringResource(R.string.backup_change_location))
+            FilledTonalButton(onClick = onAllowAccess, enabled = state.work == null, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                Text(stringResource(R.string.backup_allow_storage))
+            }
+        } else if (onBackUpNow != null) {
+            FilledTonalButton(onClick = onBackUpNow, enabled = state.work == null, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                if (state.work == BackupWork.BackingUp) {
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                } else {
+                    Text(stringResource(R.string.backup_now))
                 }
             }
         }

@@ -111,6 +111,7 @@ fun NeutrinoNavHost(startDestination: Route, modifier: Modifier = Modifier) {
             RestoreScreen(
                 viewModel = viewModel { RestoreViewModel(container.backups) },
                 onBack = navController::popBackStack,
+                onStartFresh = { navController.navigate(Route.SetupHealth) { popUpTo<Route.Welcome>() } },
                 onRestored = {
                     navController.navigate(Route.RestoreHealth) { popUpTo(navController.graph.id) { inclusive = true } }
                 },

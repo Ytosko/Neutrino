@@ -2,7 +2,6 @@ package dev.ytosko.neutrino.ui.backup
 
 import android.app.PendingIntent
 import android.content.Intent
-import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.ytosko.neutrino.data.backup.BackupCrypto
@@ -59,15 +58,18 @@ class BackupViewModel(private val backups: BackupRepository) : ViewModel() {
     fun onConfirmChange(value: String) = _state.update { it.copy(confirm = value) }
     fun togglePasswordVisible() = _state.update { it.copy(passwordVisible = !it.passwordVisible) }
 
-    /** First backup: locks the key with the typed password, remembers [uri] and writes the file. */
-    fun createBackup(uri: Uri) {
+    /**
+     * First backup: locks the key with the typed password and writes the file to the fixed folder.
+     * Call once storage access is granted.
+     */
+    fun createBackup() {
         val current = _state.value
         if (current.work != null) return
         val needsPassword = !current.backup.passwordSet
         if (needsPassword && !current.passwordValid) return
+        backups.refreshAccess()
         run(BackupWork.Creating) {
             if (needsPassword) backups.setPassword(current.password.toCharArray())
-            backups.setLocalTarget(uri)
             val result = backups.backUp()
             backups.schedule()
             _state.update { it.copy(password = "", confirm = "") }
@@ -75,10 +77,11 @@ class BackupViewModel(private val backups: BackupRepository) : ViewModel() {
         }
     }
 
-    fun changeLocation(uri: Uri) = run(BackupWork.BackingUp) {
-        backups.setLocalTarget(uri)
-        _messages.send(if (backups.backUp().local) BackupMessage.BackedUp else BackupMessage.Failed)
-    }
+    /** Re-checks storage access, e.g. when returning from the system permission screen. */
+    fun refreshAccess() = backups.refreshAccess()
+
+    fun hasStorageAccess(): Boolean = backups.local.hasAccess()
+    fun storageSettingsIntent() = backups.local.accessSettingsIntent()
 
     fun backUpNow() = run(BackupWork.BackingUp) {
         val result = backups.backUp(forceDrive = true)
@@ -92,7 +95,7 @@ class BackupViewModel(private val backups: BackupRepository) : ViewModel() {
     }
 
     fun connectDrive() = run(BackupWork.ConnectingDrive) {
-        when (val outcome = backups.auth.authorize()) {
+        when (val outcome = backups.auth.authorize(chooseAccount = true)) {
             is GoogleDriveAuth.Outcome.Token -> backups.connectDrive(outcome.accessToken)
             is GoogleDriveAuth.Outcome.NeedsConsent -> _consent.send(outcome.intent)
         }

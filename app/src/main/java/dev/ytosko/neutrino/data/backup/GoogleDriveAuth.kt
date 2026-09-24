@@ -35,11 +35,17 @@ class GoogleDriveAuth(private val context: Context) {
     val isAvailable: Boolean
         get() = GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(context) == ConnectionResult.SUCCESS
 
-    /** Asks for a token, for [email]'s account when known. Throws if Play services fails. */
-    suspend fun authorize(email: String? = null): Outcome {
+    /**
+     * Asks for a token, for [email]'s account when known. [chooseAccount] always shows Google's
+     * account picker, e.g. to connect or to check another account. Throws if Play services fails.
+     */
+    suspend fun authorize(email: String? = null, chooseAccount: Boolean = false): Outcome {
         val request = AuthorizationRequest.builder()
             .setRequestedScopes(listOf(Scope(DRIVE_APPDATA)))
-            .apply { if (email != null) setAccount(Account(email, ACCOUNT_TYPE)) }
+            .apply {
+                if (email != null) setAccount(Account(email, ACCOUNT_TYPE))
+                if (chooseAccount) setPrompt(AuthorizationRequest.Prompt.SELECT_ACCOUNT)
+            }
             .build()
         val result = client.authorize(request).await()
         val pending = result.pendingIntent

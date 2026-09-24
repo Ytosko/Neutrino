@@ -117,7 +117,7 @@ class AiSetupViewModel(
             _state.update { it.copy(saving = true) }
             settings.saveAiProvider(snapshot.provider, snapshot.keyInput.ifBlank { null }, model)
             onSaved()
-            _state.update { it.copy(saving = false, keyInput = "", keyVisible = false, hasSavedKey = true) }
+            _state.update { it.copy(saving = false, keyVisible = false, hasSavedKey = true) }
             _saved.send(Unit)
         }
     }
@@ -125,10 +125,13 @@ class AiSetupViewModel(
     private suspend fun load(provider: AiProvider) {
         checkJob?.cancel()
         val current = settings.settings.first()
-        val hasKey = provider in current.providersWithKey
+        // Show the saved key (masked until the eye icon is tapped) so it can be checked or edited.
+        val savedKey = if (provider in current.providersWithKey) settings.apiKey(provider) else null
+        val hasKey = savedKey != null
         _state.value = AiSetupUiState(
             loaded = true,
             provider = provider,
+            keyInput = savedKey.orEmpty(),
             hasSavedKey = hasKey,
             selectedModel = current.models[provider],
             photoDetail = current.photoDetail,
