@@ -106,6 +106,7 @@ fun HomeScreen(
     onOpenSettings: () -> Unit,
     onOpenAiSettings: () -> Unit,
     onPhotoSelected: (uri: Uri, fromCamera: Boolean) -> Unit,
+    onAddManually: () -> Unit,
     savedResult: Boolean?,
     onSavedResultShown: () -> Unit,
     modifier: Modifier = Modifier,
@@ -149,8 +150,14 @@ fun HomeScreen(
     val waterAdded = stringResource(R.string.home_water_added)
 
     fun startLogging() {
+        showSheet = true
+    }
+
+    /** Photo analysis needs an AI provider; adding foods by hand does not. */
+    fun withAi(action: () -> Unit) {
+        showSheet = false
         if (aiReady) {
-            showSheet = true
+            action()
         } else {
             scope.launch {
                 val result = snackbar.showSnackbar(aiNeeded, actionLabel = setUp, duration = SnackbarDuration.Long)
@@ -261,18 +268,22 @@ fun HomeScreen(
                     modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.sm),
                 )
                 SheetOption(R.drawable.ic_camera, stringResource(R.string.home_take_photo)) {
-                    showSheet = false
-                    val uri = newCaptureUri(context)
-                    pendingCapture = uri.toString()
-                    try {
-                        camera.launch(uri)
-                    } catch (_: ActivityNotFoundException) {
-                        scope.launch { snackbar.showSnackbar(noCamera) }
+                    withAi {
+                        val uri = newCaptureUri(context)
+                        pendingCapture = uri.toString()
+                        try {
+                            camera.launch(uri)
+                        } catch (_: ActivityNotFoundException) {
+                            scope.launch { snackbar.showSnackbar(noCamera) }
+                        }
                     }
                 }
                 SheetOption(R.drawable.ic_image, stringResource(R.string.home_choose_photo)) {
+                    withAi { gallery.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
+                }
+                SheetOption(R.drawable.ic_search, stringResource(R.string.home_add_manually)) {
                     showSheet = false
-                    gallery.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                    onAddManually()
                 }
             }
         }

@@ -6,6 +6,9 @@ import dev.ytosko.neutrino.data.ai.AiClient
 import dev.ytosko.neutrino.data.ai.AiProvider
 import dev.ytosko.neutrino.data.ai.GeminiClient
 import dev.ytosko.neutrino.data.ai.OpenAiClient
+import dev.ytosko.neutrino.data.food.FoodCatalog
+import dev.ytosko.neutrino.data.food.FoodRepository
+import dev.ytosko.neutrino.data.food.OpenFoodFactsClient
 import dev.ytosko.neutrino.data.health.HealthConnectManager
 import dev.ytosko.neutrino.data.meal.MealDatabase
 import dev.ytosko.neutrino.data.meal.MealRepository
@@ -47,7 +50,19 @@ class AppContainer(application: Application) {
 
     val photos = PhotoProcessor(application)
 
-    val meals = MealRepository(MealDatabase.create(application), healthConnect, photos)
+    private val database = MealDatabase.create(application)
+
+    val catalog = FoodCatalog { application.assets.open("foods.json").bufferedReader().use { it.readText() } }
+
+    val foods = FoodRepository(database.foods(), catalog)
+
+    val openFoodFacts = OpenFoodFactsClient(
+        http = http,
+        json = json,
+        userAgent = "Neutrino/${BuildConfig.VERSION_NAME} (Android; privacy@ytosko.dev)",
+    )
+
+    val meals = MealRepository(database, healthConnect, photos, foods)
 
     val aiClients: Map<AiProvider, AiClient> = mapOf(
         AiProvider.Gemini to GeminiClient(http, json),

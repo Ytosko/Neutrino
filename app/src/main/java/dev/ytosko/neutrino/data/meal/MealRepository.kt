@@ -1,6 +1,9 @@
 package dev.ytosko.neutrino.data.meal
 
+import dev.ytosko.neutrino.data.food.FoodRepository
 import dev.ytosko.neutrino.data.health.HealthConnectManager
+import dev.ytosko.neutrino.domain.food.Food
+import dev.ytosko.neutrino.domain.food.Portion
 import dev.ytosko.neutrino.domain.MealType
 import dev.ytosko.neutrino.domain.Nutrition
 import dev.ytosko.neutrino.domain.TokenUsage
@@ -29,10 +32,18 @@ data class DaySummary(
     val totals: Nutrition get() = meals.fold(Nutrition.ZERO) { acc, meal -> acc + meal.nutrition }
 }
 
+/** One reviewed line: a food, how much of it, and what that amount contains. */
+data class DraftItem(
+    val food: Food,
+    val portion: Portion,
+    val grams: Double,
+    val nutrition: Nutrition,
+)
+
 /** A meal the user approved on the review screen, ready to save. */
 data class MealDraft(
     val name: String,
-    val nutrition: Nutrition,
+    val items: List<DraftItem>,
     val mealType: MealType,
     val eatenAt: Instant,
     val zone: ZoneId,
@@ -40,7 +51,9 @@ data class MealDraft(
     val provider: String?,
     val model: String?,
     val usage: TokenUsage?,
-)
+) {
+    val nutrition: Nutrition get() = items.fold(Nutrition.ZERO) { acc, item -> acc + item.nutrition }
+}
 
 /** Result of saving: whether Health Connect received it too. */
 data class SaveResult(val id: String, val syncedToHealthConnect: Boolean)
@@ -49,6 +62,7 @@ class MealRepository(
     private val db: MealDatabase,
     private val healthConnect: HealthConnectManager,
     private val photos: PhotoProcessor,
+    private val foods: FoodRepository,
 ) {
 
     fun observeDay(date: LocalDate, zone: ZoneId): Flow<DaySummary> {
@@ -70,14 +84,15 @@ class MealRepository(
             healthConnect.writeMeal(id, draft.name, draft.nutrition, draft.mealType, draft.eatenAt, draft.zone)
         }.getOrDefault(false)
         val thumbnail = draft.photoJpeg?.let { photos.saveThumbnail(it, id) }
-        db.meals().insert(
+        val nutrition = draft.nutrition
+        db.meals().insertWithItems(
             MealEntity(
                 id = id,
                 name = draft.name,
-                calories = draft.nutrition.calories,
-                proteinG = draft.nutrition.proteinG,
-                carbsG = draft.nutrition.carbsG,
-                fatG = draft.nutrition.fatG,
+                calories = nutrition.calories,
+                proteinG = nutrition.proteinG,
+                carbsG = nutrition.carbsG,
+                fatG = nutrition.fatG,
                 mealType = draft.mealType.name,
                 eatenAtEpochMs = draft.eatenAt.toEpochMilli(),
                 zoneId = draft.zone.id,
@@ -89,7 +104,25 @@ class MealRepository(
                 outputTokens = draft.usage?.output ?: 0,
                 createdAtEpochMs = System.currentTimeMillis(),
             ),
+            draft.items.mapIndexed { index, item ->
+                MealItemEntity(
+                    mealId = id,
+                    position = index,
+                    foodId = item.food.id,
+                    name = item.food.name,
+                    category = item.food.category.key,
+                    quantity = item.portion.quantity,
+                    unit = item.portion.unit.key,
+                    grams = item.grams,
+                    calories = item.nutrition.calories,
+                    proteinG = item.nutrition.proteinG,
+                    carbsG = item.nutrition.carbsG,
+                    fatG = item.nutrition.fatG,
+                )
+            },
         )
+        // Teach the directory: every food eaten moves up the user's search results.
+        draft.items.forEach { foods.recordUse(it.food, draft.mealType, it.portion) }
         return SaveResult(id, synced)
     }
 

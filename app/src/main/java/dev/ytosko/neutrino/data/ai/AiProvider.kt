@@ -1,6 +1,9 @@
 package dev.ytosko.neutrino.data.ai
 
+import dev.ytosko.neutrino.domain.FoodEstimate
 import dev.ytosko.neutrino.domain.MealAnalysis
+import dev.ytosko.neutrino.domain.MealAnalysisParser
+import dev.ytosko.neutrino.domain.TokenUsage
 
 /** AI providers Neutrino can call with the user's own API key. */
 enum class AiProvider(
@@ -47,20 +50,33 @@ sealed class AiException(message: String, cause: Throwable? = null) : Exception(
     class RateLimited : AiException("Rate limit or quota exceeded")
     class Network(cause: Throwable) : AiException("Network error", cause)
     class Unexpected(val code: Int) : AiException("Unexpected response ($code)")
-    /** The model answered but gave no usable nutrition (blocked, refused, or unparseable). */
-    class NoResult : AiException("No usable analysis in the response")
+    /** The model answered but gave no usable result (blocked, refused, or unparseable). */
+    class NoResult : AiException("No usable answer in the response")
 }
+
+/** Raw model reply: the JSON text plus token usage. */
+data class JsonReply(val text: String, val usage: TokenUsage?)
+
+/** An image to send with a prompt. */
+class ImageInput(val jpeg: ByteArray, val detail: PhotoDetail)
 
 interface AiClient {
     /** Lists vision-capable models available to [apiKey]. Doubles as a key check. */
     suspend fun listModels(apiKey: String): ModelChoices
 
-    /** Analyses a JPEG meal photo with [prompt] and returns the model's estimate. */
-    suspend fun analyze(
-        apiKey: String,
-        model: String,
-        jpeg: ByteArray,
-        prompt: String,
-        detail: PhotoDetail,
-    ): MealAnalysis
+    /** Sends [prompt] (and optionally an image) and returns the model's JSON reply. */
+    suspend fun generateJson(apiKey: String, model: String, prompt: String, schema: JsonSchema, image: ImageInput? = null): JsonReply
+}
+
+/** Analyses a meal photo; the reply lists each food with its portion and nutrition. */
+suspend fun AiClient.analyzeMeal(apiKey: String, model: String, jpeg: ByteArray, detail: PhotoDetail): MealAnalysis {
+    val reply = generateJson(apiKey, model, AnalysisPrompt.MEAL, AnalysisPrompt.MEAL_SCHEMA, ImageInput(jpeg, detail))
+    return MealAnalysisParser.parse(reply.text)?.copy(usage = reply.usage) ?: throw AiException.NoResult()
+}
+
+/** Estimates nutrition for a food the user typed (text only, far cheaper than a photo). */
+suspend fun AiClient.estimateFood(apiKey: String, model: String, name: String): Pair<FoodEstimate, TokenUsage?> {
+    val reply = generateJson(apiKey, model, AnalysisPrompt.customFood(name), AnalysisPrompt.FOOD_SCHEMA)
+    val estimate = MealAnalysisParser.parseFoodEstimate(reply.text) ?: throw AiException.NoResult()
+    return estimate to reply.usage
 }

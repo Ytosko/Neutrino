@@ -29,6 +29,7 @@ import dev.ytosko.neutrino.ui.ai.AiSetupViewModel
 import dev.ytosko.neutrino.ui.components.SetupScaffold
 import dev.ytosko.neutrino.ui.health.HealthConnectScreen
 import dev.ytosko.neutrino.ui.health.HealthConnectViewModel
+import dev.ytosko.neutrino.ui.food.FoodSearchViewModel
 import dev.ytosko.neutrino.ui.home.HomeScreen
 import dev.ytosko.neutrino.ui.home.HomeViewModel
 import dev.ytosko.neutrino.ui.review.ReviewScreen
@@ -46,7 +47,7 @@ sealed interface Route {
     @Serializable data object Settings : Route
     @Serializable data object SettingsAi : Route
     @Serializable data object SettingsHealth : Route
-    @Serializable data class Review(val photoUri: String, val fromCamera: Boolean) : Route
+    @Serializable data class Review(val photoUri: String? = null, val fromCamera: Boolean = false) : Route
 }
 
 private const val KEY_SAVED_RESULT = "meal_saved_synced"
@@ -85,6 +86,7 @@ fun NeutrinoNavHost(startDestination: Route, modifier: Modifier = Modifier) {
                 onOpenSettings = { navController.navigate(Route.Settings) },
                 onOpenAiSettings = { navController.navigate(Route.SettingsAi) },
                 onPhotoSelected = { uri, fromCamera -> navController.navigate(Route.Review(uri.toString(), fromCamera)) },
+                onAddManually = { navController.navigate(Route.Review()) },
                 savedResult = savedResult,
                 onSavedResultShown = { entry.savedStateHandle[KEY_SAVED_RESULT] = null },
             )
@@ -94,19 +96,25 @@ fun NeutrinoNavHost(startDestination: Route, modifier: Modifier = Modifier) {
             val context = LocalContext.current
             val container = context.appContainer
             val reviewViewModel: ReviewViewModel = viewModel {
-                val uri = Uri.parse(route.photoUri)
+                val uri = route.photoUri?.let(Uri::parse)
                 ReviewViewModel(
                     photoUri = uri,
                     settings = container.settings,
                     clients = container.aiClients,
                     photos = container.photos,
                     meals = container.meals,
+                    foods = container.foods,
                     // Camera captures are temporary; delete once the photo is prepared.
-                    onPhotoConsumed = { if (route.fromCamera) runCatching { context.contentResolver.delete(uri, null, null) } },
+                    onPhotoConsumed = { if (route.fromCamera && uri != null) runCatching { context.contentResolver.delete(uri, null, null) } },
                 )
             }
             ReviewScreen(
                 viewModel = reviewViewModel,
+                searchViewModel = { key, mealType ->
+                    viewModel(key = key) {
+                        FoodSearchViewModel(container.foods, container.openFoodFacts, container.settings, container.aiClients, mealType)
+                    }
+                },
                 onBack = navController::popBackStack,
                 onSaved = { synced ->
                     navController.previousBackStackEntry?.savedStateHandle?.set(KEY_SAVED_RESULT, synced)

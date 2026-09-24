@@ -94,6 +94,9 @@
             <tr><td>Water intake you log</td><td>To log hydration</td><td>Written to Health Connect on your device.</td></tr>
             <tr><td>Settings (provider, model, meal times, time zone, cuisine, units)</td><td>To configure the app</td><td>Stored on your device.</td></tr>
             <tr><td>Photo date and time (from image metadata, if present)</td><td>To assign the meal to the right time and meal type</td><td>Used on your device. We do not use location data.</td></tr>
+            <tr><td>Your food list (foods you've logged, custom foods, portions and how often you eat them)</td><td>To show your usual foods first when you search</td><td>Stored on your device.</td></tr>
+            <tr><td>Food search text (only for packaged products, after you type 3+ letters)</td><td>To find packaged products and their nutrition labels</td><td>Sent to Open Food Facts (openfoodfacts.org). No other data is sent with it.</td></tr>
+            <tr><td>Names of new foods you add</td><td>To estimate nutrition for foods not in any list</td><td>Sent to the AI provider you selected, using your API key.</td></tr>
           </tbody>
         </table>
         <p>To take a meal photo, Neutrino opens your phone's camera app. It does not request the camera permission itself. To choose an existing photo it uses the Android photo picker, so it never gets access to your whole gallery. Photos are resized and stripped of metadata (including location) on your device before they are sent. Temporary camera files are deleted after analysis.</p>
@@ -105,7 +108,10 @@
           <li>Google Gemini API: <a href="https://ai.google.dev/gemini-api/terms" rel="noopener">ai.google.dev/gemini-api/terms</a></li>
           <li>OpenAI: <a href="https://openai.com/policies/" rel="noopener">openai.com/policies</a></li>
         </ul>
-        <p>Neutrino does not send your nutrition history, Health Connect data or any other personal data to AI providers. Only the photo you are analyzing and the settings needed for the prompt (such as your cuisine preference and local time) are sent.</p>
+        <p>Neutrino does not send your nutrition history, Health Connect data or any other personal data to AI providers. Only the photo you are analyzing, or the name of a new food you add, is sent with the analysis instructions.</p>
+
+        <h3>Open Food Facts</h3>
+        <p>When you search for a food and type three or more letters, Neutrino also searches <a href="https://world.openfoodfacts.org" rel="noopener">Open Food Facts</a>, a free, open database of packaged products, so you can log branded items. Only the search text is sent, along with the app's name and version, which Open Food Facts asks apps to identify themselves with. Open Food Facts' own <a href="https://world.openfoodfacts.org/privacy" rel="noopener">privacy policy</a> applies to those requests. Built-in foods and your own food list are searched on your device without any network request.</p>
 
         <h2 id="health-connect">Health Connect</h2>
         <p>With your permission, Neutrino writes data to <a href="https://developer.android.com/health-and-fitness/guides/health-connect" rel="noopener">Health Connect</a>, Android's on-device health data store. Neutrino requests only these permissions:</p>

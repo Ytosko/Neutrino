@@ -6,7 +6,9 @@ import androidx.lifecycle.viewModelScope
 import dev.ytosko.neutrino.data.ai.AiClient
 import dev.ytosko.neutrino.data.ai.AiException
 import dev.ytosko.neutrino.data.ai.AiProvider
-import dev.ytosko.neutrino.data.ai.AnalysisPrompt
+import dev.ytosko.neutrino.data.ai.analyzeMeal
+import dev.ytosko.neutrino.data.food.FoodRepository
+import dev.ytosko.neutrino.data.meal.DraftItem
 import dev.ytosko.neutrino.data.meal.MealDraft
 import dev.ytosko.neutrino.data.meal.MealRepository
 import dev.ytosko.neutrino.data.meal.PhotoProcessor
@@ -16,8 +18,11 @@ import dev.ytosko.neutrino.domain.MealType
 import dev.ytosko.neutrino.domain.MealWindows
 import dev.ytosko.neutrino.domain.Nutrition
 import dev.ytosko.neutrino.domain.TokenUsage
-import dev.ytosko.neutrino.domain.roundGrams
-import dev.ytosko.neutrino.domain.roundKcal
+import dev.ytosko.neutrino.domain.food.Food
+import dev.ytosko.neutrino.domain.food.FoodUnit
+import dev.ytosko.neutrino.domain.food.Portion
+import dev.ytosko.neutrino.domain.food.ScanFoods
+import dev.ytosko.neutrino.ui.food.formatQuantity
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -29,13 +34,12 @@ import java.time.Instant
 import java.time.LocalTime
 import java.time.ZoneId
 import java.time.ZonedDateTime
-
-enum class Macro { Calories, Carbs, Protein, Fat }
+import kotlin.math.roundToInt
 
 sealed interface ReviewPhase {
     data object Preparing : ReviewPhase
     data class Analyzing(val model: String) : ReviewPhase
-    /** Values are ready to review (from the AI, or entered manually after a failure). */
+    /** Items are ready to review (from the photo, or added by hand). */
     data object Ready : ReviewPhase
     data class Failed(val reason: FailureReason) : ReviewPhase
     data object Saving : ReviewPhase
@@ -49,67 +53,74 @@ sealed interface FailureReason {
     data class Ai(val error: AiException) : FailureReason
 }
 
-/** Portion multipliers offered on the review screen. */
-val PORTIONS = listOf(0.5, 1.0, 1.5, 2.0)
+/** One editable line: which food, and how much ("1.5" "plate"). */
+data class ReviewItem(
+    val key: Long,
+    val food: Food,
+    val quantityText: String,
+    val unit: FoodUnit,
+) {
+    val quantity: Double? get() = quantityText.replace(',', '.').toDoubleOrNull()?.takeIf { it > 0 }
+    val grams: Double? get() = quantity?.let { food.grams(it, unit) }
+    val nutrition: Nutrition get() = grams?.let { food.per100g * (it / 100.0) } ?: Nutrition.ZERO
+}
 
 data class ReviewUiState(
     val phase: ReviewPhase = ReviewPhase.Preparing,
     val photo: ByteArray? = null,
+    /** What the user typed; empty means "name it after the foods". */
     val name: String = "",
-    /** Editable text per macro, always for the currently selected [portion]. */
-    val fields: Map<Macro, String> = Macro.entries.associateWith { "" },
-    val portion: Double = 1.0,
+    val suggestedName: String = "",
+    val items: List<ReviewItem> = emptyList(),
     val mealType: MealType = MealType.Snack,
     val mealTypeChosenByUser: Boolean = false,
     val eatenAt: ZonedDateTime = ZonedDateTime.now(),
     val usage: TokenUsage? = null,
     val model: String? = null,
 ) {
-    val nutrition: Nutrition
-        get() = Nutrition(
-            calories = fields.number(Macro.Calories),
-            proteinG = fields.number(Macro.Protein),
-            carbsG = fields.number(Macro.Carbs),
-            fatG = fields.number(Macro.Fat),
-        )
+    val nutrition: Nutrition get() = items.fold(Nutrition.ZERO) { acc, item -> acc + item.nutrition }
 
-    val canSave: Boolean get() = phase == ReviewPhase.Ready && name.isNotBlank() && !nutrition.isEmpty
+    val displayName: String
+        get() = name.trim().ifEmpty { suggestedName.ifEmpty { items.joinToString(", ") { it.food.name.substringBefore(" (") } } }
+
+    val canSave: Boolean
+        get() = phase == ReviewPhase.Ready && items.isNotEmpty() && items.all { it.grams != null } && displayName.isNotBlank()
 }
 
-private fun Map<Macro, String>.number(macro: Macro): Double = this[macro]?.replace(',', '.')?.toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0
-
-internal fun Nutrition.toFields(): Map<Macro, String> = mapOf(
-    Macro.Calories to calories.roundKcal().toString(),
-    Macro.Carbs to carbsG.roundGrams().format(),
-    Macro.Protein to proteinG.roundGrams().format(),
-    Macro.Fat to fatG.roundGrams().format(),
-)
-
-private fun Double.format(): String = if (this % 1.0 == 0.0) toLong().toString() else toString()
-
 class ReviewViewModel(
-    private val photoUri: Uri,
+    /** Null when adding foods by hand (no photo). */
+    private val photoUri: Uri?,
     private val settings: SettingsRepository,
     private val clients: Map<AiProvider, AiClient>,
     private val photos: PhotoProcessor,
     private val meals: MealRepository,
+    private val foods: FoodRepository,
     private val zone: ZoneId = ZoneId.systemDefault(),
     private val mealWindows: MealWindows = MealWindows(),
     private val onPhotoConsumed: () -> Unit = {},
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow(ReviewUiState(eatenAt = ZonedDateTime.now(zone)))
+    private val now = ZonedDateTime.now(zone)
+    private val _state = MutableStateFlow(
+        ReviewUiState(
+            phase = if (photoUri == null) ReviewPhase.Ready else ReviewPhase.Preparing,
+            eatenAt = now,
+            mealType = mealWindows.mealAt(now.toLocalTime()),
+        ),
+    )
     val state: StateFlow<ReviewUiState> = _state.asStateFlow()
 
     private var prepared: PreparedPhoto? = null
     private var provider: AiProvider? = null
     private var job: Job? = null
+    private var nextKey = 0L
 
     init {
-        analyze()
+        if (photoUri != null) analyze()
     }
 
     fun analyze() {
+        val uri = photoUri ?: return
         job?.cancel()
         job = viewModelScope.launch {
             val current = settings.settings.first()
@@ -121,7 +132,7 @@ class ReviewViewModel(
             }
             provider = activeProvider
 
-            val photo = prepared ?: runCatching { photos.prepare(photoUri, current.photoDetail.maxEdgePx) }
+            val photo = prepared ?: runCatching { photos.prepare(uri, current.photoDetail.maxEdgePx) }
                 .onSuccess { onPhotoConsumed() }
                 .getOrElse {
                     fail(FailureReason.PhotoUnreadable)
@@ -144,17 +155,19 @@ class ReviewViewModel(
                 return@launch
             }
             try {
-                val result = clients.getValue(activeProvider).analyze(apiKey, model, photo.jpeg, AnalysisPrompt.DEFAULT, current.photoDetail)
-                if (result.nutrition.isEmpty) {
+                val result = clients.getValue(activeProvider).analyzeMeal(apiKey, model, photo.jpeg, current.photoDetail)
+                val resolved = result.items
+                    .filter { !it.nutrition.isEmpty }
+                    .map { ScanFoods.resolve(it, foods.findByName(it.name)) }
+                if (resolved.isEmpty()) {
                     _state.update { it.copy(usage = result.usage) }
                     fail(FailureReason.NoFood)
                 } else {
                     _state.update {
                         it.copy(
                             phase = ReviewPhase.Ready,
-                            name = result.foodName,
-                            fields = result.nutrition.toFields(),
-                            portion = 1.0,
+                            suggestedName = result.foodName,
+                            items = resolved.map { r -> newItem(r.food, r.portion) },
                             usage = result.usage,
                         )
                     }
@@ -165,21 +178,33 @@ class ReviewViewModel(
         }
     }
 
-    /** Lets the user type values themselves when the AI can't help. */
+    /** Continue without the AI: the user adds foods from search. */
     fun enterManually() = _state.update { it.copy(phase = ReviewPhase.Ready) }
 
     fun setName(value: String) = _state.update { it.copy(name = value.take(80)) }
 
-    fun setField(macro: Macro, value: String) {
-        val cleaned = value.filter { it.isDigit() || it == '.' || it == ',' }.take(7)
-        _state.update { it.copy(fields = it.fields + (macro to cleaned)) }
+    fun addItem(food: Food, portion: Portion) = _state.update { it.copy(items = it.items + newItem(food, portion)) }
+
+    /** Swaps the food on a line, keeping the amount when the unit still makes sense. */
+    fun replaceFood(key: Long, food: Food, portion: Portion) = updateItem(key) { item ->
+        val keep = item.quantity?.let { q -> food.grams(q, item.unit)?.let { Portion(q, item.unit) } }
+        val use = keep ?: portion
+        item.copy(food = food, quantityText = formatQuantity(use.quantity), unit = use.unit)
     }
 
-    /** Scales every value by the change in portion, e.g. 1× → ½× halves them. */
-    fun setPortion(portion: Double) = _state.update {
-        if (portion == it.portion) it
-        else it.copy(portion = portion, fields = (it.nutrition * (portion / it.portion)).toFields())
+    fun setQuantity(key: Long, text: String) = updateItem(key) {
+        it.copy(quantityText = text.filter { c -> c.isDigit() || c == '.' || c == ',' }.take(6))
     }
+
+    /** Changes the unit and converts the amount so the weight stays the same (1 plate → 250 g). */
+    fun setUnit(key: Long, unit: FoodUnit) = updateItem(key) { item ->
+        val grams = item.grams
+        val perUnit = item.food.grams(1.0, unit)
+        val converted = if (grams != null && perUnit != null && perUnit > 0) roundForUnit(grams / perUnit, unit) else item.quantity
+        item.copy(unit = unit, quantityText = converted?.let(::formatQuantity) ?: item.quantityText)
+    }
+
+    fun removeItem(key: Long) = _state.update { it.copy(items = it.items.filterNot { item -> item.key == key }) }
 
     fun setMealType(type: MealType) = _state.update { it.copy(mealType = type, mealTypeChosenByUser = true) }
 
@@ -195,8 +220,15 @@ class ReviewViewModel(
             _state.update { it.copy(phase = ReviewPhase.Saving) }
             val result = meals.saveMeal(
                 MealDraft(
-                    name = snapshot.name.trim(),
-                    nutrition = snapshot.nutrition,
+                    name = snapshot.displayName,
+                    items = snapshot.items.map { item ->
+                        DraftItem(
+                            food = item.food,
+                            portion = Portion(item.quantity ?: 0.0, item.unit),
+                            grams = item.grams ?: 0.0,
+                            nutrition = item.nutrition,
+                        )
+                    },
                     mealType = snapshot.mealType,
                     eatenAt = snapshot.eatenAt.toInstant(),
                     zone = zone,
@@ -210,12 +242,27 @@ class ReviewViewModel(
         }
     }
 
+    private fun newItem(food: Food, portion: Portion) =
+        ReviewItem(key = nextKey++, food = food, quantityText = formatQuantity(portion.quantity), unit = portion.unit)
+
+    private fun updateItem(key: Long, transform: (ReviewItem) -> ReviewItem) = _state.update {
+        it.copy(items = it.items.map { item -> if (item.key == key) transform(item) else item })
+    }
+
     private fun fail(reason: FailureReason) = _state.update { it.copy(phase = ReviewPhase.Failed(reason)) }
 
     /** Photo time if it's plausible (in the past, within a week), otherwise now. */
     private fun resolveEatenAt(takenAt: Instant?): ZonedDateTime {
-        val now = Instant.now()
-        val valid = takenAt?.takeIf { !it.isAfter(now) && it.isAfter(now.minusSeconds(7 * 24 * 3600)) }
-        return (valid ?: now).atZone(zone)
+        val nowInstant = Instant.now()
+        val valid = takenAt?.takeIf { !it.isAfter(nowInstant) && it.isAfter(nowInstant.minusSeconds(7 * 24 * 3600)) }
+        return (valid ?: nowInstant).atZone(zone)
     }
 }
+
+/** Grams and ml as whole numbers; household units to the nearest quarter. */
+internal fun roundForUnit(value: Double, unit: FoodUnit): Double =
+    if (unit.isMass || unit.isVolume) {
+        if (unit == FoodUnit.Kilogram || unit == FoodUnit.Liter) (value * 100).roundToInt() / 100.0 else value.roundToInt().toDouble()
+    } else {
+        ((value * 4).roundToInt() / 4.0).coerceAtLeast(0.25)
+    }

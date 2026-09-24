@@ -36,7 +36,9 @@ based on your local time, so they show up in Google Health, Fitbit and any other
 
 ## Planned features
 
-- Photo → foods, portions and macros via Gemini or OpenAI (pluggable providers)
+- Photo → list of foods with portions via Gemini or OpenAI (pluggable providers)
+- Food search: your foods first, built-in foods, Open Food Facts, or AI for anything new
+- Portions in everyday units (plate, bowl, piece, cup) as well as g, kg, ml, L
 - Model picker, which lists vision-capable models your key can access
 - Automatic meal type from your time zone and configurable meal windows
 - Cuisine hints for better recognition of regional food (e.g. Bangladeshi)
@@ -94,6 +96,25 @@ No DI framework, no analytics, no Google Play Services dependency for core featu
 Open the repository root in Android Studio to run it on a device or emulator.
 Release signing and Google OAuth setup: [docs/SIGNING.md](docs/SIGNING.md).
 
+## Food data
+
+Search is designed so most logging works offline and gets faster the more you use it:
+
+1. **Your foods**, everything you've logged, ranked by how often, how recently and at which meal you eat it.
+2. **Built-in foods** in [`app/src/main/assets/foods.json`](app/src/main/assets/foods.json) (about 200 items):
+   - generic foods from **USDA FoodData Central, SR Legacy** (public domain), and
+   - common **Bangladeshi and South Asian dishes** with household units (plate, bowl, piece). These values are
+     approximate estimates; corrections with sources are very welcome.
+3. **Packaged products** from [Open Food Facts](https://world.openfoodfacts.org) (online; data under the
+   [ODbL](https://opendatacommons.org/licenses/odbl/1-0/)).
+4. **New foods**: anything else is estimated once by your AI provider from its name and saved to your foods.
+
+The built-in list is generated from [`tools/fooddb/foods_spec.py`](tools/fooddb/foods_spec.py):
+
+```bash
+python tools/fooddb/build_foods.py path/to/FoodData_Central_sr_legacy_food_csv_2018-04.zip
+```
+
 ## Brand
 
 Primary colour `#FF5757`. Font: [Plus Jakarta Sans](https://github.com/tokotype/PlusJakartaSans) (OFL).
@@ -118,7 +139,8 @@ For security issues, see [SECURITY.md](SECURITY.md).
 ## License
 
 Neutrino is licensed under the [GNU General Public License v3.0](LICENSE).
-Icons on the website are from [Lucide](https://lucide.dev) (ISC).
+Icons are from [Lucide](https://lucide.dev) (ISC). Food data: USDA FoodData Central (public domain) and
+Open Food Facts (ODbL).
 
 Health Connect, Google Health, Fitbit and Gemini are trademarks of Google LLC. OpenAI is a
 trademark of OpenAI. Neutrino is not affiliated with or endorsed by either.

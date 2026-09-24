@@ -59,8 +59,6 @@
     <string name="review_name">Meal name</string>
     <string name="review_meal_type">Meal</string>
     <string name="review_time">Time</string>
-    <string name="review_portion">How much did you eat?</string>
-    <string name="review_nutrition">Nutrition (whole portion)</string>
     <string name="review_calories">Calories (kcal)</string>
     <string name="review_carbs">Carbs (g)</string>
     <string name="review_protein">Protein (g)</string>
@@ -76,6 +74,53 @@
     <string name="review_ai_not_set">Connect an AI provider in Settings first.</string>
     <string name="review_time_ok">OK</string>
     <string name="review_photo_desc">Photo of your meal</string>
+
+    <!-- Units -->
+    <string name="unit_g">g</string>
+    <string name="unit_kg">kg</string>
+    <string name="unit_ml">ml</string>
+    <string name="unit_l">L</string>
+    <string name="unit_plate">plate</string>
+    <string name="unit_bowl">bowl</string>
+    <string name="unit_cup">cup</string>
+    <string name="unit_glass">glass</string>
+    <string name="unit_piece">piece</string>
+    <string name="unit_slice">slice</string>
+    <string name="unit_tbsp">tbsp</string>
+    <string name="unit_tsp">tsp</string>
+    <string name="unit_handful">handful</string>
+    <string name="unit_scoop">scoop</string>
+    <string name="unit_serving">serving</string>
+    <string name="unit_can">can</string>
+
+    <!-- Food search -->
+    <string name="food_search_hint">Search food, e.g. rice, dal, biryani</string>
+    <string name="food_search_close">Close search</string>
+    <string name="food_section_usual">Your usual for %1$s</string>
+    <string name="food_section_yours">Your foods</string>
+    <string name="food_section_builtin">Foods</string>
+    <string name="food_section_packaged">Packaged products (Open Food Facts)</string>
+    <string name="food_packaged_loading">Searching packaged products…</string>
+    <string name="food_packaged_offline">Packaged product search isn\'t available right now. Check your connection or try again later.</string>
+    <string name="food_custom">Add “%1$s” as a new food</string>
+    <string name="food_custom_body">AI estimates its nutrition once; it\'s saved to your foods.</string>
+    <string name="food_custom_estimating">Estimating “%1$s”…</string>
+    <string name="food_custom_needs_ai">Connect an AI provider in Settings to add new foods.</string>
+    <string name="food_empty_hint">Start typing to find a food. Foods you log appear here first next time.</string>
+    <string name="food_per_portion">%1$d kcal · %2$s</string>
+    <string name="food_source_packaged">Packaged</string>
+
+    <!-- Review items -->
+    <string name="review_items">What did you eat?</string>
+    <string name="review_add_food">Add food</string>
+    <string name="review_change_food">Change food</string>
+    <string name="review_remove_item">Remove %1$s</string>
+    <string name="review_amount">Amount</string>
+    <string name="review_unit">Unit</string>
+    <string name="review_total">Total</string>
+    <string name="review_no_items">Add the foods in this meal. Search by name, and pick how much you ate.</string>
+    <string name="review_name_hint">Named after your foods if left empty</string>
+    <string name="home_add_manually">Add foods without a photo</string>
 
     <!-- Common -->
     <string name="action_back">Back</string>

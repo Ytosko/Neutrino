@@ -40,7 +40,7 @@ class ProviderClientsTest {
     @Test
     fun `gemini sends key as header, lean config, and parses answer and usage`() = runTest {
         respond(200, geminiOk)
-        val result = gemini().analyze("KEY", "gemini-2.5-flash", jpeg, "prompt", PhotoDetail.Low)
+        val result = gemini().analyzeMeal("KEY", "gemini-2.5-flash", jpeg, PhotoDetail.Low)
 
         assertEquals("Rice and curry", result.foodName)
         assertEquals(63.0, result.nutrition.carbsG, 0.0)
@@ -64,7 +64,7 @@ class ProviderClientsTest {
         respond(400, """{"error":{"message":"thinking level minimal is not supported"}}""")
         respond(400, """{"error":{"message":"Unknown field thinkingLevel"}}""")
         respond(200, geminiOk)
-        val result = gemini().analyze("KEY", "gemini-3.8-flash", jpeg, "prompt", PhotoDetail.Standard)
+        val result = gemini().analyzeMeal("KEY", "gemini-3.8-flash", jpeg, PhotoDetail.Standard)
         assertEquals(540.0, result.nutrition.calories, 0.0)
 
         assertEquals("\"minimal\"", nextConfig()["thinkingConfig"]!!.jsonObject["thinkingLevel"].toString())
@@ -75,7 +75,7 @@ class ProviderClientsTest {
     @Test
     fun `gemini stops at the first accepted configuration`() = runTest {
         respond(200, geminiOk)
-        gemini().analyze("KEY", "gemini-3.8-flash", jpeg, "prompt", PhotoDetail.Standard)
+        gemini().analyzeMeal("KEY", "gemini-3.8-flash", jpeg, PhotoDetail.Standard)
         assertEquals("\"minimal\"", nextConfig()["thinkingConfig"]!!.jsonObject["thinkingLevel"].toString())
         assertEquals(1, server.requestCount)
     }
@@ -83,19 +83,19 @@ class ProviderClientsTest {
     @Test(expected = AiException.InvalidKey::class)
     fun `gemini invalid key is not retried`() = runTest {
         respond(400, """{"error":{"status":"INVALID_ARGUMENT","details":[{"reason":"API_KEY_INVALID"}]}}""")
-        gemini().analyze("BAD", "gemini-2.5-flash", jpeg, "prompt", PhotoDetail.Standard)
+        gemini().analyzeMeal("BAD", "gemini-2.5-flash", jpeg, PhotoDetail.Standard)
     }
 
     @Test(expected = AiException.RateLimited::class)
     fun `rate limits are reported`() = runTest {
         respond(429, "{}")
-        gemini().analyze("KEY", "gemini-2.5-flash", jpeg, "prompt", PhotoDetail.Standard)
+        gemini().analyzeMeal("KEY", "gemini-2.5-flash", jpeg, PhotoDetail.Standard)
     }
 
     @Test(expected = AiException.NoResult::class)
     fun `blocked or empty gemini answer is NoResult`() = runTest {
         respond(200, """{"promptFeedback":{"blockReason":"SAFETY"}}""")
-        gemini().analyze("KEY", "gemini-2.5-flash", jpeg, "prompt", PhotoDetail.Standard)
+        gemini().analyzeMeal("KEY", "gemini-2.5-flash", jpeg, PhotoDetail.Standard)
     }
 
     @Test
@@ -105,7 +105,7 @@ class ProviderClientsTest {
             """{"choices":[{"message":{"content":"{\"calories\":300,\"protein_g\":20,\"carbs_g\":30,\"fat_g\":10,\"food_name\":\"Salad\"}"}}],
                "usage":{"prompt_tokens":120,"completion_tokens":30}}""",
         )
-        val result = openAi().analyze("sk-test", "gpt-5-mini", jpeg, "prompt", PhotoDetail.Low)
+        val result = openAi().analyzeMeal("sk-test", "gpt-5-mini", jpeg, PhotoDetail.Low)
         assertEquals("Salad", result.foodName)
         assertEquals(150, result.usage!!.total)
 
@@ -121,11 +121,49 @@ class ProviderClientsTest {
     fun `openai falls back to json_object without reasoning_effort on 400`() = runTest {
         respond(400, """{"error":{"message":"Unsupported parameter: reasoning_effort"}}""")
         respond(200, """{"choices":[{"message":{"content":"{\"calories\":100,\"protein_g\":1,\"carbs_g\":20,\"fat_g\":1,\"food_name\":\"Apple\"}"}}]}""")
-        openAi().analyze("sk-test", "gpt-4o-mini", jpeg, "prompt", PhotoDetail.Standard)
+        openAi().analyzeMeal("sk-test", "gpt-4o-mini", jpeg, PhotoDetail.Standard)
 
         server.takeRequest()
         val retry = json.parseToJsonElement(server.takeRequest().body!!.utf8()).jsonObject
         assertFalse("reasoning_effort" in retry)
         assertEquals("\"json_object\"", retry["response_format"]!!.jsonObject["type"].toString())
+    }
+
+    @Test
+    fun `itemized gemini reply becomes items with totals`() = runTest {
+        respond(
+            200,
+            """{"candidates":[{"content":{"parts":[{"text":"{\"food_name\":\"Rice and dal\",\"items\":[{\"name\":\"White rice\",\"quantity\":1,\"unit\":\"plate\",\"grams\":250,\"calories\":325,\"protein_g\":6.7,\"carbs_g\":70,\"fat_g\":0.7},{\"name\":\"Masoor dal\",\"quantity\":1,\"unit\":\"bowl\",\"grams\":200,\"calories\":170,\"protein_g\":9,\"carbs_g\":22,\"fat_g\":5}]}"}]}}]}""",
+        )
+        val result = gemini().analyzeMeal("KEY", "gemini-2.5-flash", jpeg, PhotoDetail.Standard)
+        assertEquals(2, result.items.size)
+        assertEquals("plate", result.items[0].unit)
+        assertEquals(495.0, result.nutrition.calories, 0.001)
+    }
+
+    @Test
+    fun `custom food estimate is text only and uses the food schema`() = runTest {
+        respond(
+            200,
+            """{"candidates":[{"content":{"parts":[{"text":"{\"name\":\"Beef tehari\",\"category\":\"ricedish\",\"kcal_100g\":200,\"protein_100g\":8,\"carbs_100g\":24,\"fat_100g\":8,\"units\":[{\"unit\":\"plate\",\"grams\":300}],\"g_per_ml\":0}"}]}}]}""",
+        )
+        val (estimate, _) = gemini().estimateFood("KEY", "gemini-2.5-flash", "beef tehari")
+        assertEquals(300.0, estimate.unitGrams["plate"]!!, 0.0)
+        assertEquals(200.0, estimate.per100g.calories, 0.0)
+        assertEquals(null, estimate.gramsPerMl)
+
+        val body = server.takeRequest().body!!.utf8()
+        assertFalse("no image for text-only requests", body.contains("inline_data"))
+        assertFalse(body.contains("mediaResolution"))
+        assertTrue(body.contains("beef tehari"))
+    }
+
+    @Test
+    fun `schemas render in each provider dialect`() {
+        val gemini = AnalysisPrompt.MEAL_SCHEMA.gemini().toString()
+        assertTrue(gemini.contains("\"type\":\"ARRAY\""))
+        val openAi = AnalysisPrompt.MEAL_SCHEMA.openAi().toString()
+        assertTrue(openAi.contains("\"additionalProperties\":false"))
+        assertTrue(openAi.contains("\"required\":[\"name\",\"quantity\""))
     }
 }
