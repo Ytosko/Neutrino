@@ -89,6 +89,8 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.androidx.work.runtime)
+    implementation(libs.play.services.auth)
     implementation(libs.androidx.health.connect)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.okhttp)

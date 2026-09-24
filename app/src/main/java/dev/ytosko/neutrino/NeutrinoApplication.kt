@@ -6,6 +6,9 @@ import dev.ytosko.neutrino.data.ai.AiClient
 import dev.ytosko.neutrino.data.ai.AiProvider
 import dev.ytosko.neutrino.data.ai.GeminiClient
 import dev.ytosko.neutrino.data.ai.OpenAiClient
+import dev.ytosko.neutrino.data.backup.BackupRepository
+import dev.ytosko.neutrino.data.backup.DriveClient
+import dev.ytosko.neutrino.data.backup.GoogleDriveAuth
 import dev.ytosko.neutrino.data.food.FoodCatalog
 import dev.ytosko.neutrino.data.food.FoodRepository
 import dev.ytosko.neutrino.data.food.OpenFoodFactsClient
@@ -15,6 +18,11 @@ import dev.ytosko.neutrino.data.meal.MealRepository
 import dev.ytosko.neutrino.data.meal.PhotoProcessor
 import dev.ytosko.neutrino.data.security.SecretCipher
 import dev.ytosko.neutrino.data.settings.SettingsRepository
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
@@ -30,7 +38,13 @@ class NeutrinoApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         container = AppContainer(this)
+        // Keep the daily backup scheduled once backups are set up (a no-op if already queued).
+        appScope.launch {
+            if (container.backups.state.first().passwordSet) container.backups.schedule()
+        }
     }
+
+    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 }
 
 /** App-wide singletons. */
@@ -44,7 +58,9 @@ class AppContainer(application: Application) {
         .callTimeout(120, TimeUnit.SECONDS)
         .build()
 
-    val settings = SettingsRepository(application, SecretCipher())
+    private val cipher = SecretCipher()
+
+    val settings = SettingsRepository(application, cipher)
 
     val healthConnect = HealthConnectManager(application)
 
@@ -62,7 +78,17 @@ class AppContainer(application: Application) {
         userAgent = "Neutrino/${BuildConfig.VERSION_NAME} (Android; privacy@ytosko.dev)",
     )
 
-    val meals = MealRepository(database, healthConnect, photos, foods)
+    val backups = BackupRepository(
+        context = application,
+        db = database,
+        settings = settings,
+        cipher = cipher,
+        drive = DriveClient(http, json),
+        auth = GoogleDriveAuth(application),
+        json = json,
+    )
+
+    val meals = MealRepository(database, healthConnect, photos, foods, onChanged = backups::scheduleSoon)
 
     val aiClients: Map<AiProvider, AiClient> = mapOf(
         AiProvider.Gemini to GeminiClient(http, json),

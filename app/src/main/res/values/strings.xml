@@ -133,6 +133,10 @@
     <string name="review_remove">Remove</string>
     <string name="review_when">When</string>
     <string name="review_date">Date</string>
+    <string name="review_discard_title">Discard this meal?</string>
+    <string name="review_discard_body">The foods you added won\'t be saved.</string>
+    <string name="review_discard">Discard</string>
+    <string name="review_keep_editing">Keep editing</string>
     <string name="review_disclaimer_short">Estimates only, check before saving</string>
     <string name="food_not_found">Couldn’t recognise “%1$s” as a food. Check the spelling or try a simpler name.</string>
 
@@ -210,6 +214,93 @@
     <string name="settings_terms">Terms of Use</string>
     <string name="settings_source">Source code (GPL-3.0)</string>
     <string name="settings_version">Version %1$s</string>
+    <string name="settings_section_backup">Backup</string>
+    <string name="settings_backup_off">Not set up. Your data isn\'t protected yet</string>
+    <string name="settings_backup_last">Last backup: %1$s</string>
+    <string name="settings_backup_attention">Needs attention</string>
+
+    <!-- Backup -->
+    <string name="backup_title">Back up your data</string>
+    <string name="backup_body">Neutrino keeps everything on your phone. A backup brings back your meals, foods and AI settings if you reinstall the app or change phones.</string>
+    <string name="backup_settings_title">Backup</string>
+    <string name="backup_password">Backup password</string>
+    <string name="backup_password_confirm">Repeat password</string>
+    <string name="backup_password_helper">At least %1$d characters. You\'ll need it to restore. Neutrino can\'t recover a forgotten password.</string>
+    <string name="backup_password_short">Use at least %1$d characters</string>
+    <string name="backup_password_mismatch">Passwords don\'t match</string>
+    <string name="backup_show_password">Show password</string>
+    <string name="backup_hide_password">Hide password</string>
+    <string name="backup_where">Next, choose where to save the backup file, for example Downloads.</string>
+    <string name="backup_create">Create backup</string>
+    <string name="backup_file_name" translatable="false">Neutrino backup.nbk</string>
+    <string name="backup_working">Backing up…</string>
+    <string name="backup_on_phone">On this phone</string>
+    <string name="backup_saved_title">Backup saved</string>
+    <string name="backup_file_line">%1$s · %2$s</string>
+    <string name="backup_never">Not backed up yet</string>
+    <string name="backup_now">Back up now</string>
+    <string name="backup_change_location">Change file</string>
+    <string name="backup_just_now">Just now</string>
+    <string name="backup_choose_location">Choose where to save</string>
+    <string name="backup_local_failed">Neutrino can\'t write to the backup file any more. Choose where to save it again.</string>
+    <string name="backup_drive">Google Drive</string>
+    <string name="backup_drive_pitch">To not lose your data, connect your Google account</string>
+    <string name="backup_drive_pitch_body">Neutrino keeps a copy in a private folder in your Google Drive that only this app can open. It can\'t see your other files.</string>
+    <string name="backup_drive_connect">Connect Google account</string>
+    <string name="backup_drive_account">Google account</string>
+    <string name="backup_drive_last">Last Drive backup: %1$s</string>
+    <string name="backup_drive_frequency">Back up to Drive</string>
+    <string name="backup_daily">Daily</string>
+    <string name="backup_weekly">Weekly</string>
+    <string name="backup_monthly">Monthly</string>
+    <string name="backup_drive_disconnect">Disconnect</string>
+    <string name="backup_drive_disconnect_title">Stop Google Drive backups?</string>
+    <string name="backup_drive_disconnect_body">Neutrino stops uploading and removes its access to your Drive. The backup already in Drive stays there until you delete it in Drive settings.</string>
+    <string name="backup_drive_sign_in">Sign in to Google again to keep Drive backups going.</string>
+    <string name="backup_drive_failed">The last Drive backup didn\'t finish. Neutrino will try again.</string>
+    <string name="backup_drive_unavailable">Google Drive backup needs Google Play services, which this phone doesn\'t have. Your backup file still protects your data.</string>
+    <string name="backup_drive_cancelled">Google account not connected</string>
+    <string name="backup_change_password">Change backup password</string>
+    <string name="backup_change_password_body">New backups will use the new password. Backups made before keep the old one.</string>
+    <string name="backup_password_changed">Backup password changed</string>
+    <string name="backup_done">Backed up</string>
+    <string name="backup_done_drive">Backed up here and to Google Drive</string>
+    <string name="backup_failed">Backup failed. Try again.</string>
+    <string name="backup_security_note">Backups are encrypted on your phone with your password before they\'re saved anywhere. Nobody can open them without it, not even Google or Neutrino\'s developer.</string>
+    <string name="backup_finish">Finish</string>
+    <string name="backup_save">Save</string>
+    <string name="backup_cancel">Cancel</string>
+    <string name="home_backup_title">Protect your data</string>
+    <string name="home_backup_body">Set up a backup so you don\'t lose your meals and settings.</string>
+    <string name="home_backup_problem">Your backup needs attention.</string>
+
+    <!-- Restore -->
+    <string name="welcome_restore">Restore from a backup</string>
+    <string name="restore_title">Restore your data</string>
+    <string name="restore_body">Bring back your meals, foods and AI settings from a Neutrino backup.</string>
+    <string name="restore_from_drive">From Google Drive</string>
+    <string name="restore_from_drive_body">Find the backup in your Google account</string>
+    <string name="restore_from_file">From a backup file</string>
+    <string name="restore_from_file_body">Pick a .nbk file on this phone</string>
+    <string name="restore_searching">Looking for your backup…</string>
+    <string name="restore_found">Backup found</string>
+    <string name="restore_found_line">%1$s · %2$s · %3$s · %4$s</string>
+    <plurals name="restore_meals">
+        <item quantity="one">%d meal</item>
+        <item quantity="other">%d meals</item>
+    </plurals>
+    <plurals name="restore_foods">
+        <item quantity="one">%d food</item>
+        <item quantity="other">%d foods</item>
+    </plurals>
+    <string name="restore_password_prompt">Enter the backup password you chose when you set up backups.</string>
+    <string name="restore_button">Restore</string>
+    <string name="restore_working">Restoring…</string>
+    <string name="restore_none_in_drive">No Neutrino backup was found in this Google account.</string>
+    <string name="restore_wrong_password">That password doesn\'t open this backup.</string>
+    <string name="restore_bad_file">This file can\'t be restored: %1$s</string>
+    <string name="restore_failed">Couldn\'t get the backup. Check your connection and try again.</string>
+    <string name="restore_other">Choose another backup</string>
 
     <string name="url_source" translatable="false">https://github.com/Ytosko/Nutrino</string>
     <string name="url_privacy" translatable="false">https://neutrino.ytosko.dev/privacy</string>

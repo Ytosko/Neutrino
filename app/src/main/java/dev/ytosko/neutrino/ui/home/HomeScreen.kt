@@ -80,7 +80,10 @@ import dev.ytosko.neutrino.domain.MealType
 import dev.ytosko.neutrino.domain.MealWindows
 import dev.ytosko.neutrino.domain.roundGrams
 import dev.ytosko.neutrino.domain.roundKcal
+import dev.ytosko.neutrino.data.backup.BackupState
 import dev.ytosko.neutrino.ui.components.IconBadge
+import dev.ytosko.neutrino.ui.food.FoodIcon
+import dev.ytosko.neutrino.domain.food.FoodCategory
 import dev.ytosko.neutrino.ui.components.MacroStat
 import dev.ytosko.neutrino.ui.components.NeutrinoLogo
 import dev.ytosko.neutrino.ui.components.mealTypeLabel
@@ -105,6 +108,8 @@ fun HomeScreen(
     viewModel: HomeViewModel,
     onOpenSettings: () -> Unit,
     onOpenAiSettings: () -> Unit,
+    backup: BackupState?,
+    onOpenBackup: () -> Unit,
     onPhotoSelected: (uri: Uri, fromCamera: Boolean) -> Unit,
     onAddManually: () -> Unit,
     savedResult: Boolean?,
@@ -227,6 +232,9 @@ fun HomeScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             val itemModifier = Modifier.widthIn(max = 600.dp)
+            if (backup != null && backup.needsAttention) {
+                item(key = "backup") { BackupReminder(backup, onOpenBackup, itemModifier) }
+            }
             item { DailyTotalsCard(summary, itemModifier) }
             item {
                 WaterCard(
@@ -302,6 +310,38 @@ fun HomeScreen(
             },
             dismissButton = { TextButton(onClick = { mealToDelete = null }) { Text(stringResource(R.string.home_cancel)) } },
         )
+    }
+}
+
+/** Nudges towards a backup until one exists, and flags backups that stopped working. */
+@Composable
+private fun BackupReminder(backup: BackupState, onOpen: () -> Unit, modifier: Modifier = Modifier) {
+    val problem = backup.configured
+    Card(
+        onClick = onOpen,
+        modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(
+            containerColor = if (problem) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.primaryContainer,
+        ),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(Spacing.md),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+        ) {
+            val content = if (problem) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimaryContainer
+            Icon(painterResource(if (problem) R.drawable.ic_circle_alert else R.drawable.ic_shield_check), contentDescription = null, tint = content)
+            Column(modifier = Modifier.weight(1f)) {
+                Text(stringResource(R.string.home_backup_title), style = MaterialTheme.typography.titleSmall, color = content)
+                Text(
+                    stringResource(if (problem) R.string.home_backup_problem else R.string.home_backup_body),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = content,
+                )
+            }
+            Icon(painterResource(R.drawable.ic_chevron_right), contentDescription = null, tint = content, modifier = Modifier.size(20.dp))
+        }
     }
 }
 
@@ -398,7 +438,7 @@ private fun MealRow(meal: LoggedMeal, onDelete: () -> Unit, modifier: Modifier =
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
-            Thumbnail(meal.thumbnailPath)
+            Thumbnail(meal.thumbnailPath, meal.category)
             Column(modifier = Modifier.weight(1f)) {
                 Text(meal.name, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Text(
@@ -433,9 +473,13 @@ private fun MacroText(letter: String, grams: Double, color: androidx.compose.ui.
 }
 
 @Composable
-private fun Thumbnail(path: String?) {
+private fun Thumbnail(path: String?, category: FoodCategory?) {
     val bitmap by produceState<ImageBitmap?>(null, path) {
         value = path?.let { withContext(Dispatchers.IO) { BitmapFactory.decodeFile(it)?.asImageBitmap() } }
+    }
+    if (path == null && category != null) {
+        FoodIcon(category, size = 56.dp)
+        return
     }
     Box(
         modifier = Modifier

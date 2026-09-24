@@ -10,6 +10,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -26,6 +27,11 @@ import dev.ytosko.neutrino.R
 import dev.ytosko.neutrino.appContainer
 import dev.ytosko.neutrino.ui.ai.AiSetupForm
 import dev.ytosko.neutrino.ui.ai.AiSetupViewModel
+import dev.ytosko.neutrino.ui.backup.BackupSettingsScreen
+import dev.ytosko.neutrino.ui.backup.BackupSetupScreen
+import dev.ytosko.neutrino.ui.backup.BackupViewModel
+import dev.ytosko.neutrino.ui.backup.RestoreScreen
+import dev.ytosko.neutrino.ui.backup.RestoreViewModel
 import dev.ytosko.neutrino.ui.components.SetupScaffold
 import dev.ytosko.neutrino.ui.health.HealthConnectScreen
 import dev.ytosko.neutrino.ui.health.HealthConnectViewModel
@@ -36,6 +42,7 @@ import dev.ytosko.neutrino.ui.review.ReviewScreen
 import dev.ytosko.neutrino.ui.review.ReviewViewModel
 import dev.ytosko.neutrino.ui.settings.SettingsScreen
 import dev.ytosko.neutrino.ui.welcome.WelcomeScreen
+import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 
 /** Type-safe navigation destinations. */
@@ -48,19 +55,26 @@ sealed interface Route {
     @Serializable data object SettingsAi : Route
     @Serializable data object SettingsHealth : Route
     @Serializable data class Review(val photoUri: String? = null, val fromCamera: Boolean = false) : Route
+    @Serializable data object SetupBackup : Route
+    @Serializable data object SettingsBackup : Route
+    @Serializable data object Restore : Route
+    @Serializable data object RestoreHealth : Route
 }
 
 private const val KEY_SAVED_RESULT = "meal_saved_synced"
 
 
-private const val SETUP_STEPS = 2
+private const val SETUP_STEPS = 3
 
 @Composable
 fun NeutrinoNavHost(startDestination: Route, modifier: Modifier = Modifier) {
     val navController = rememberNavController()
     NavHost(navController = navController, startDestination = startDestination, modifier = modifier) {
         composable<Route.Welcome> {
-            WelcomeScreen(onGetStarted = { navController.navigate(Route.SetupHealth) })
+            WelcomeScreen(
+                onGetStarted = { navController.navigate(Route.SetupHealth) },
+                onRestore = { navController.navigate(Route.Restore) },
+            )
         }
         composable<Route.SetupHealth> {
             HealthConnectScreen(
@@ -74,17 +88,53 @@ fun NeutrinoNavHost(startDestination: Route, modifier: Modifier = Modifier) {
             AiScreen(
                 onBack = navController::popBackStack,
                 onboarding = true,
-                onSaved = { navController.finishOnboarding() },
+                onSaved = { navController.navigate(Route.SetupBackup) },
+            )
+        }
+        composable<Route.SetupBackup> {
+            val container = LocalContext.current.appContainer
+            val scope = rememberCoroutineScope()
+            BackupSetupScreen(
+                viewModel = backupViewModel(),
+                step = 3 to SETUP_STEPS,
+                onBack = navController::popBackStack,
+                onFinish = {
+                    scope.launch {
+                        container.settings.setOnboardingComplete()
+                        navController.finishOnboarding()
+                    }
+                },
+            )
+        }
+        composable<Route.Restore> {
+            val container = LocalContext.current.appContainer
+            RestoreScreen(
+                viewModel = viewModel { RestoreViewModel(container.backups) },
+                onBack = navController::popBackStack,
+                onRestored = {
+                    navController.navigate(Route.RestoreHealth) { popUpTo(navController.graph.id) { inclusive = true } }
+                },
+            )
+        }
+        composable<Route.RestoreHealth> {
+            // Health Connect permission doesn't survive a reinstall, so ask again after a restore.
+            HealthConnectScreen(
+                viewModel = healthConnectViewModel(),
+                onBack = null,
+                onContinue = { navController.finishOnboarding() },
             )
         }
         composable<Route.Home> { entry ->
             val container = LocalContext.current.appContainer
             val homeViewModel: HomeViewModel = viewModel { HomeViewModel(container.meals, container.settings) }
             val savedResult by entry.savedStateHandle.getStateFlow<Boolean?>(KEY_SAVED_RESULT, null).collectAsStateWithLifecycle()
+            val backup by container.backups.state.collectAsStateWithLifecycle(initialValue = null)
             HomeScreen(
                 viewModel = homeViewModel,
+                backup = backup,
                 onOpenSettings = { navController.navigate(Route.Settings) },
                 onOpenAiSettings = { navController.navigate(Route.SettingsAi) },
+                onOpenBackup = { navController.navigate(Route.SettingsBackup) },
                 onPhotoSelected = { uri, fromCamera -> navController.navigate(Route.Review(uri.toString(), fromCamera)) },
                 onAddManually = { navController.navigate(Route.Review()) },
                 savedResult = savedResult,
@@ -120,17 +170,23 @@ fun NeutrinoNavHost(startDestination: Route, modifier: Modifier = Modifier) {
                     navController.popBackStack()
                 },
                 onOpenAiSettings = { navController.navigate(Route.SettingsAi) },
+                onDiscard = navController::popBackStack,
             )
         }
         composable<Route.Settings> {
             val container = LocalContext.current.appContainer
             SettingsScreen(
                 settings = container.settings.settings,
+                backup = container.backups.state,
+                onOpenBackup = { navController.navigate(Route.SettingsBackup) },
                 healthViewModel = healthConnectViewModel(),
                 onBack = navController::popBackStack,
                 onOpenAi = { navController.navigate(Route.SettingsAi) },
                 onOpenHealthConnect = { navController.navigate(Route.SettingsHealth) },
             )
+        }
+        composable<Route.SettingsBackup> {
+            BackupSettingsScreen(viewModel = backupViewModel(), onBack = navController::popBackStack)
         }
         composable<Route.SettingsAi> {
             AiScreen(onBack = navController::popBackStack, onboarding = false, onSaved = navController::popBackStack)
@@ -152,6 +208,12 @@ private fun NavHostController.finishOnboarding() {
 }
 
 @Composable
+private fun backupViewModel(): BackupViewModel {
+    val container = LocalContext.current.appContainer
+    return viewModel { BackupViewModel(container.backups) }
+}
+
+@Composable
 private fun healthConnectViewModel(): HealthConnectViewModel {
     val container = LocalContext.current.appContainer
     return viewModel { HealthConnectViewModel(container.healthConnect) }
@@ -164,7 +226,7 @@ private fun AiScreen(onBack: () -> Unit, onboarding: Boolean, onSaved: () -> Uni
         AiSetupViewModel(
             settings = container.settings,
             clients = container.aiClients,
-            onSaved = { if (onboarding) container.settings.setOnboardingComplete() },
+            // During setup, onboarding finishes after the backup step.
         )
     }
     val state by viewModel.state.collectAsStateWithLifecycle()

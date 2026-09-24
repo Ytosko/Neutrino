@@ -64,7 +64,8 @@ def main(zip_path):
             "n": f["name"],
             "k": f["cat"],
             "e": round(kcal, 1), "p": round(p, 2), "c": round(c, 2), "f": round(fat, 2),
-            "u": f["units"],
+            # Liquids list their household units in ml (a 330 ml can); the app stores grams.
+            "u": {k: round(v * f["ml"], 1) for k, v in f["units"].items()} if f["ml"] else f["units"],
             "a": f["aliases"],
             "s": f["src"],
         }

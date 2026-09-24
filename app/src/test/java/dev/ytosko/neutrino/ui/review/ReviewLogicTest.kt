@@ -80,6 +80,16 @@ class ReviewLogicTest {
     }
 
     @Test
+    fun `drinks show household units in ml, foods in grams`() {
+        val cola = rice.copy(id = "cola", name = "Cola", category = FoodCategory.Drink, unitGrams = mapOf(FoodUnit.Can to 343.2), density = 1.04)
+        val can = cola.unitSize(FoodUnit.Can)!!
+        assertTrue(can.inMl)
+        assertEquals(330.0, can.amount, 0.001)
+        assertFalse(rice.unitSize(FoodUnit.Plate)!!.inMl)
+        assertNull("mass units have no size hint", cola.unitSize(FoodUnit.Gram))
+    }
+
+    @Test
     fun `unit changes round sensibly`() {
         assertEquals(250.0, roundForUnit(249.6, FoodUnit.Gram), 0.0)
         assertEquals(1.5, roundForUnit(1.46, FoodUnit.Plate), 0.0)

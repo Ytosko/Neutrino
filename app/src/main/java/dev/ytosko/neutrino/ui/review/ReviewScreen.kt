@@ -26,6 +26,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.activity.compose.BackHandler
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -123,6 +124,7 @@ fun ReviewScreen(
     searchViewModel: @Composable (key: String, mealType: MealType) -> FoodSearchViewModel,
     onSaved: (syncedToHealthConnect: Boolean) -> Unit,
     onOpenAiSettings: () -> Unit,
+    onDiscard: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val phase = state.phase
@@ -131,7 +133,12 @@ fun ReviewScreen(
     var editingKey by remember { mutableStateOf<Long?>(null) }
     var showMealDetails by remember { mutableStateOf(false) }
     var showPhoto by remember { mutableStateOf(false) }
+    var confirmDiscard by remember { mutableStateOf(false) }
     LaunchedEffect(phase) { if (phase is ReviewPhase.Saved) onSaved(phase.syncedToHealthConnect) }
+
+    // Back closes the screen straight away when there's nothing to lose; otherwise ask first.
+    val hasWork = state.items.isNotEmpty() || state.nameEditedByUser
+    BackHandler(enabled = hasWork && phase !is ReviewPhase.Saved) { confirmDiscard = true }
 
     fun openSearch(target: SearchTarget) {
         searchCount++
@@ -257,6 +264,22 @@ fun ReviewScreen(
     if (showPhoto) {
         val photo = state.photo
         if (photo == null) showPhoto = false else PhotoDialog(photo) { showPhoto = false }
+    }
+
+    if (confirmDiscard) {
+        AlertDialog(
+            onDismissRequest = { confirmDiscard = false },
+            title = { Text(stringResource(R.string.review_discard_title)) },
+            text = { Text(stringResource(R.string.review_discard_body)) },
+            confirmButton = {
+                TextButton(onClick = { confirmDiscard = false; onDiscard() }) {
+                    Text(stringResource(R.string.review_discard), color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDiscard = false }) { Text(stringResource(R.string.review_keep_editing)) }
+            },
+        )
     }
 }
 
@@ -527,8 +550,8 @@ private fun ItemDialog(
         else -> 0.5
     }
     fun unitText(option: FoodUnit): String {
-        val grams = item.food.grams(1.0, option)
-        return if (option.isMass || option.isVolume || grams == null) "" else " · ${grams.roundGrams().fmt()} g"
+        val size = item.food.unitSize(option) ?: return ""
+        return " · ${size.amount.roundGrams().fmt()} ${if (size.inMl) "ml" else "g"}"
     }
     val nutrition = quantity?.let { item.food.nutrition(it, unit) }
     val colors = NeutrinoTheme.colors

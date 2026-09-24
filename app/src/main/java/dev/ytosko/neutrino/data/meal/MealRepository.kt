@@ -3,6 +3,7 @@ package dev.ytosko.neutrino.data.meal
 import dev.ytosko.neutrino.data.food.FoodRepository
 import dev.ytosko.neutrino.data.health.HealthConnectManager
 import dev.ytosko.neutrino.domain.food.Food
+import dev.ytosko.neutrino.domain.food.FoodCategory
 import dev.ytosko.neutrino.domain.food.Portion
 import dev.ytosko.neutrino.domain.MealType
 import dev.ytosko.neutrino.domain.Nutrition
@@ -22,6 +23,8 @@ data class LoggedMeal(
     val eatenAt: Instant,
     val thumbnailPath: String?,
     val syncedToHealthConnect: Boolean,
+    /** First food's category, for the icon when there's no photo. */
+    val category: FoodCategory? = null,
 )
 
 data class DaySummary(
@@ -63,6 +66,8 @@ class MealRepository(
     private val healthConnect: HealthConnectManager,
     private val photos: PhotoProcessor,
     private val foods: FoodRepository,
+    /** Called after meals or water change, e.g. to schedule a backup. */
+    private val onChanged: () -> Unit = {},
 ) {
 
     fun observeDay(date: LocalDate, zone: ZoneId): Flow<DaySummary> {
@@ -70,7 +75,7 @@ class MealRepository(
         val to = date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
         return combine(db.meals().observeBetween(from, to), db.water().observeBetween(from, to)) { meals, water ->
             DaySummary(
-                meals = meals.map { it.toLoggedMeal() },
+                meals = meals.map { it.meal.toLoggedMeal(it.firstCategory?.let(FoodCategory::fromKey)) },
                 waterMl = water.sumOf { it.amountMl },
                 waterEntries = water.map { it.id },
             )
@@ -123,6 +128,7 @@ class MealRepository(
         )
         // Teach the directory: every food eaten moves up the user's search results.
         draft.items.forEach { foods.recordUse(it.food, draft.mealType, it.portion) }
+        onChanged()
         return SaveResult(id, synced)
     }
 
@@ -131,6 +137,7 @@ class MealRepository(
         healthConnect.deleteMeal(id)
         db.meals().delete(id)
         photos.deleteThumbnail(meal.thumbnailPath)
+        onChanged()
     }
 
     suspend fun addWater(amountMl: Int, zone: ZoneId = ZoneId.systemDefault()): Boolean {
@@ -138,15 +145,17 @@ class MealRepository(
         val now = Instant.now()
         val synced = runCatching { healthConnect.writeWater(id, amountMl, now, zone) }.getOrDefault(false)
         db.water().insert(WaterEntity(id, amountMl, now.toEpochMilli(), zone.id, synced))
+        onChanged()
         return synced
     }
 
     suspend fun deleteWater(id: String) {
         healthConnect.deleteWater(id)
         db.water().delete(id)
+        onChanged()
     }
 
-    private fun MealEntity.toLoggedMeal() = LoggedMeal(
+    private fun MealEntity.toLoggedMeal(category: FoodCategory?) = LoggedMeal(
         id = id,
         name = name,
         nutrition = Nutrition(calories, proteinG, carbsG, fatG),
@@ -154,5 +163,6 @@ class MealRepository(
         eatenAt = Instant.ofEpochMilli(eatenAtEpochMs),
         thumbnailPath = thumbnailPath,
         syncedToHealthConnect = syncedToHealthConnect,
+        category = category,
     )
 }

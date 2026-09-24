@@ -44,7 +44,7 @@ based on your local time, so they show up in Google Health, Fitbit and any other
 - Cuisine hints for better recognition of regional food (e.g. Bangladeshi)
 - Water logging
 - Writes `NutritionRecord` / `HydrationRecord` to Health Connect
-- WhatsApp-style backups: mandatory first local backup, optional Google Drive (`drive.appdata`)
+- WhatsApp-style encrypted backups: required backup file, optional Google Drive (`drive.appdata`), restore on reinstall
 
 ## Repository layout
 
@@ -86,7 +86,7 @@ Or without Docker: `python -m http.server 8080 --directory web/public` (clean UR
 ## Android app
 
 Kotlin, Jetpack Compose and Material 3. Minimum Android 9 (API 28), targets Android 16 (API 36).
-No DI framework, no analytics, no Google Play Services dependency for core features.
+No DI framework, no analytics. Google Play services is used only for optional Drive backup.
 
 ```bash
 ./gradlew assembleDebug          # build app/build/outputs/apk/debug/app-debug.apk
@@ -95,6 +95,23 @@ No DI framework, no analytics, no Google Play Services dependency for core featu
 
 Open the repository root in Android Studio to run it on a device or emulator.
 Release signing and Google OAuth setup: [docs/SIGNING.md](docs/SIGNING.md).
+
+## Backups
+
+Setup ends with a required backup; Google Drive is optional (**Settings → Backup**).
+
+- **Contents:** AI settings and API keys, meals with their photo thumbnails, water and the personal food directory,
+  packed into one `.nbk` file ([format](app/src/main/java/dev/ytosko/neutrino/data/backup/BackupCrypto.kt)).
+- **Encryption:** AES-256-GCM with a random backup key. The key is wrapped with the user's password
+  (PBKDF2-HMAC-SHA256), so scheduled backups run without asking and only a restore needs the password.
+- **Local:** written to a file the user picks with the system file picker (no storage permission), refreshed daily
+  and shortly after meals change (WorkManager).
+- **Google Drive:** the hidden app folder, `drive.appdata` scope only, via Google Play services authorization and
+  the Drive REST API. Daily, weekly or monthly; each upload replaces the previous file.
+- **Restore:** *Welcome → Restore from a backup*, from Drive or a file.
+
+Drive backup only works in builds signed with a certificate registered for the OAuth client, so forks need their
+own Google Cloud OAuth client ([docs/SIGNING.md](docs/SIGNING.md)). The backup file works everywhere.
 
 ## Food data
 

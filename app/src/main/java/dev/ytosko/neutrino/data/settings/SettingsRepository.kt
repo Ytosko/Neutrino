@@ -10,6 +10,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dev.ytosko.neutrino.data.ai.AiProvider
 import dev.ytosko.neutrino.data.ai.PhotoDetail
+import dev.ytosko.neutrino.data.backup.SettingsSnapshot
 import dev.ytosko.neutrino.data.security.SecretCipher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -81,6 +82,36 @@ class SettingsRepository(context: Context, private val cipher: SecretCipher) {
 
     suspend fun setPhotoDetail(detail: PhotoDetail) {
         store.edit { it[Keys.photoDetail] = detail.id }
+    }
+
+    /** Everything a backup needs, including decrypted API keys (the backup itself is encrypted). */
+    suspend fun snapshot(): SettingsSnapshot {
+        val p = preferences.first()
+        return SettingsSnapshot(
+            activeProvider = p[Keys.activeProvider],
+            models = AiProvider.entries.mapNotNull { provider -> p[Keys.model(provider)]?.let { provider.id to it } }.toMap(),
+            apiKeys = AiProvider.entries.mapNotNull { provider -> apiKey(provider)?.let { provider.id to it } }.toMap(),
+            photoDetail = p[Keys.photoDetail],
+        )
+    }
+
+    /** Replaces AI settings with a backup's, re-encrypting keys for this install, and finishes onboarding. */
+    suspend fun restore(snapshot: SettingsSnapshot) {
+        val encrypted = withContext(Dispatchers.IO) {
+            snapshot.apiKeys.mapNotNull { (id, key) -> AiProvider.fromId(id)?.let { it to cipher.encrypt(key) } }.toMap()
+        }
+        store.edit { p ->
+            AiProvider.entries.forEach { provider ->
+                p.remove(Keys.model(provider))
+                p.remove(Keys.apiKey(provider))
+            }
+            snapshot.models.forEach { (id, model) -> AiProvider.fromId(id)?.let { p[Keys.model(it)] = model } }
+            encrypted.forEach { (provider, key) -> p[Keys.apiKey(provider)] = key }
+            val active = AiProvider.fromId(snapshot.activeProvider)
+            if (active != null) p[Keys.activeProvider] = active.id else p.remove(Keys.activeProvider)
+            snapshot.photoDetail?.let { p[Keys.photoDetail] = it }
+            p[Keys.onboardingComplete] = true
+        }
     }
 
     suspend fun setOnboardingComplete() {

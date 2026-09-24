@@ -75,7 +75,7 @@
           <svg class="icon" aria-hidden="true"><use href="/assets/img/icons.svg#i-shield-check"/></svg>
           <div>
             <p><strong>Neutrino does not collect, store or sell your personal data.</strong> The Neutrino project runs no servers for the app, and requires no account.</p>
-            <p>Your meal photos go directly from your device to the AI provider <em>you</em> choose, using <em>your</em> API key. Nutrition data is saved to Health Connect on your device. Optional backups are encrypted on your device and stored locally or in your own Google Drive.</p>
+            <p>Your meal photos go directly from your device to the AI provider <em>you</em> choose, using <em>your</em> API key. Nutrition data is saved to Health Connect on your device. Backups are encrypted on your device and saved to a file you choose, and optionally to your own Google Drive.</p>
           </div>
         </div>
 
@@ -125,11 +125,11 @@
         <h2 id="google-drive">Google Drive backups (optional)</h2>
         <p>If you choose to connect your Google account, Neutrino requests the <code>https://www.googleapis.com/auth/drive.appdata</code> scope. This allows the app to read and write <strong>only its own private application data folder</strong> in your Google Drive. That folder is hidden from your Drive file list. Neutrino <strong>cannot see, open, change or delete any of your other Drive files</strong>.</p>
         <ul>
-          <li><strong>What is stored:</strong> backup files containing your settings, meal history and, only if you enable it, your API key.</li>
+          <li><strong>What is stored:</strong> one backup file containing your settings (including your AI API key), meal history with small meal photos, water log and personal food list. The same encrypted file is also saved to the location you pick on your device.</li>
           <li><strong>Encryption:</strong> backups are encrypted on your device with a password you set before they are uploaded. Neutrino's maintainers have no access to your Drive, your backup files or your password.</li>
-          <li><strong>When:</strong> on the schedule you choose (daily, weekly or monthly) or when you tap “Back up now”.</li>
+          <li><strong>When:</strong> on the schedule you choose (daily, weekly or monthly) or when you tap “Back up now”. Each upload replaces the previous one.</li>
           <li><strong>Your Google account email</strong> is shown in the app so you know which account holds your backup. It is not sent anywhere else.</li>
-          <li><strong>Revoking access:</strong> disconnect in the app, or visit <a href="https://myaccount.google.com/permissions" rel="noopener">myaccount.google.com/permissions</a>. To delete stored backups, use the in-app “Delete Drive backup” option or, in Google Drive on the web, open Settings → Manage apps → Neutrino → Delete hidden app data.</li>
+          <li><strong>Revoking access:</strong> disconnect in the app, or visit <a href="https://myaccount.google.com/permissions" rel="noopener">myaccount.google.com/permissions</a>. Disconnecting stops uploads and removes Neutrino's access. To delete the stored backup, open Google Drive on the web, go to Settings → Manage apps → Neutrino and choose Delete hidden app data.</li>
         </ul>
 
         <h2 id="limited-use">Google API Services: Limited Use disclosure</h2>

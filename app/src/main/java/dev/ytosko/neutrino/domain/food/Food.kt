@@ -64,6 +64,8 @@ enum class FoodSource(val key: String) {
 
 data class Portion(val quantity: Double, val unit: FoodUnit)
 
+data class UnitSize(val amount: Double, val inMl: Boolean)
+
 data class Food(
     val id: String,
     val name: String,
@@ -97,6 +99,13 @@ data class Food(
         FoodUnit.Milliliter -> density?.let { quantity * it }
         FoodUnit.Liter -> density?.let { quantity * 1000 * it }
         else -> unitGrams[unit]?.let { quantity * it }
+    }
+
+    /** How big one household [unit] is, in ml for liquids ("can · 330 ml") and grams otherwise. */
+    fun unitSize(unit: FoodUnit): UnitSize? {
+        if (unit.isMass || unit.isVolume) return null
+        val grams = unitGrams[unit] ?: return null
+        return if (density != null && density > 0) UnitSize(grams / density, inMl = true) else UnitSize(grams, inMl = false)
     }
 
     fun nutrition(quantity: Double, unit: FoodUnit): Nutrition? = grams(quantity, unit)?.let { per100g * (it / 100.0) }

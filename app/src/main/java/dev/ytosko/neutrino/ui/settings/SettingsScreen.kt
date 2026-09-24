@@ -27,7 +27,9 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.ytosko.neutrino.BuildConfig
 import dev.ytosko.neutrino.R
+import dev.ytosko.neutrino.data.backup.BackupState
 import dev.ytosko.neutrino.data.settings.AppSettings
+import dev.ytosko.neutrino.ui.backup.formatWhen
 import dev.ytosko.neutrino.ui.components.IconBadge
 import dev.ytosko.neutrino.ui.components.SetupScaffold
 import dev.ytosko.neutrino.ui.health.HealthConnectViewModel
@@ -37,12 +39,15 @@ import kotlinx.coroutines.flow.Flow
 @Composable
 fun SettingsScreen(
     settings: Flow<AppSettings>,
+    backup: Flow<BackupState>,
+    onOpenBackup: () -> Unit,
     healthViewModel: HealthConnectViewModel,
     onBack: () -> Unit,
     onOpenAi: () -> Unit,
     onOpenHealthConnect: () -> Unit,
 ) {
     val appSettings by settings.collectAsStateWithLifecycle(initialValue = AppSettings())
+    val backupState by backup.collectAsStateWithLifecycle(initialValue = null)
     val health by healthViewModel.state.collectAsStateWithLifecycle()
     val uriHandler = LocalUriHandler.current
     LifecycleResumeEffect(Unit) {
@@ -75,6 +80,21 @@ fun SettingsScreen(
                     if (health.granted) R.string.settings_hc_status_connected else R.string.settings_hc_status_disconnected,
                 ),
                 onClick = onOpenHealthConnect,
+            )
+        }
+        Section(stringResource(R.string.settings_section_backup)) {
+            val current = backupState
+            SettingRow(
+                icon = R.drawable.ic_archive,
+                title = stringResource(R.string.backup_settings_title),
+                value = when {
+                    current == null -> null
+                    !current.configured -> stringResource(R.string.settings_backup_off)
+                    current.needsAttention -> stringResource(R.string.settings_backup_attention)
+                    else -> current.lastLocalAt?.let { stringResource(R.string.settings_backup_last, formatWhen(it)) }
+                        ?: stringResource(R.string.backup_never)
+                },
+                onClick = onOpenBackup,
             )
         }
         Section(stringResource(R.string.settings_section_about)) {

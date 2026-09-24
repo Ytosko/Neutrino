@@ -25,6 +25,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -50,7 +51,7 @@ import dev.ytosko.neutrino.ui.theme.NeutrinoTheme
 import dev.ytosko.neutrino.ui.theme.Spacing
 
 @Composable
-fun WelcomeScreen(onGetStarted: () -> Unit, modifier: Modifier = Modifier) {
+fun WelcomeScreen(onGetStarted: () -> Unit, onRestore: () -> Unit, modifier: Modifier = Modifier) {
     Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Column(modifier = Modifier.fillMaxSize()) {
             Column(
@@ -88,7 +89,7 @@ fun WelcomeScreen(onGetStarted: () -> Unit, modifier: Modifier = Modifier) {
                     )
                 }
             }
-            WelcomeFooter(onGetStarted = onGetStarted)
+            WelcomeFooter(onGetStarted = onGetStarted, onRestore = onRestore)
         }
     }
 }
@@ -145,7 +146,7 @@ private fun WelcomeHero() {
 }
 
 @Composable
-private fun WelcomeFooter(onGetStarted: () -> Unit) {
+private fun WelcomeFooter(onGetStarted: () -> Unit, onRestore: () -> Unit) {
     Surface(color = MaterialTheme.colorScheme.background) {
         Column(
             modifier = Modifier
@@ -169,7 +170,10 @@ private fun WelcomeFooter(onGetStarted: () -> Unit) {
                     modifier = Modifier.size(18.dp),
                 )
             }
-            LegalText(modifier = Modifier.padding(top = Spacing.sm))
+            TextButton(onClick = onRestore, modifier = Modifier.heightIn(min = 48.dp)) {
+                Text(stringResource(R.string.welcome_restore))
+            }
+            LegalText()
         }
     }
 }
@@ -213,5 +217,5 @@ private fun LegalText(modifier: Modifier = Modifier) {
 @Preview(name = "Dark", uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = true)
 @Composable
 private fun WelcomePreview() {
-    NeutrinoTheme { WelcomeScreen(onGetStarted = {}) }
+    NeutrinoTheme { WelcomeScreen(onGetStarted = {}, onRestore = {}) }
 }

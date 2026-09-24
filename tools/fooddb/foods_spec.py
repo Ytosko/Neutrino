@@ -8,7 +8,7 @@ Two kinds of entries:
                with sources are very welcome via pull request.
 
 Units map a unit name to grams for ONE unit (e.g. plate=250 means 1 plate = 250 g).
-`ml` is density in g/ml for foods that can be measured by volume (enables ml / L).
+`ml` is density in g/ml for foods that can be measured by volume (enables ml / L); their units are then given in ml.
 Aliases are extra search terms (Bangla romanisations, common names).
 """
 
