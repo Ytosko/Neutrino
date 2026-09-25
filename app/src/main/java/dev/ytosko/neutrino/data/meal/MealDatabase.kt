@@ -110,6 +110,8 @@ data class WaterEntity(
     val syncedToHealthConnect: Boolean,
 )
 
+data class TopFoodRow(val name: String, val category: String, val times: Int)
+
 /** A meal plus its first food's category, which picks the icon for meals without a photo. */
 data class MealWithCategory(
     @Embedded val meal: MealEntity,
@@ -123,6 +125,14 @@ interface MealDao {
         FROM meals WHERE eatenAtEpochMs >= :fromMs AND eatenAtEpochMs < :toMs ORDER BY eatenAtEpochMs""",
     )
     fun observeBetween(fromMs: Long, toMs: Long): Flow<List<MealWithCategory>>
+
+    @Query(
+        """SELECT i.name AS name, i.category AS category, COUNT(*) AS times FROM meal_items i
+        JOIN meals m ON m.id = i.mealId
+        WHERE m.eatenAtEpochMs >= :fromMs AND m.eatenAtEpochMs < :toMs
+        GROUP BY i.foodId ORDER BY times DESC, MAX(m.eatenAtEpochMs) DESC LIMIT :limit""",
+    )
+    fun observeTopFoods(fromMs: Long, toMs: Long, limit: Int): Flow<List<TopFoodRow>>
 
     @Query("SELECT * FROM meals WHERE id = :id")
     suspend fun get(id: String): MealEntity?

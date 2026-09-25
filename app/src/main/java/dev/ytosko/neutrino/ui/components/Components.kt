@@ -27,6 +27,11 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.ytosko.neutrino.R
 import dev.ytosko.neutrino.domain.MealType
+import dev.ytosko.neutrino.domain.Nutrition
+import dev.ytosko.neutrino.domain.insights.compactGrams
+import dev.ytosko.neutrino.domain.insights.compactNumber
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.ui.res.stringResource
 import dev.ytosko.neutrino.ui.theme.NeutrinoTheme
 import dev.ytosko.neutrino.ui.theme.Spacing
@@ -98,12 +103,38 @@ fun MacroStat(
             style = MaterialTheme.typography.titleLarge,
             color = color,
             textAlign = TextAlign.Center,
+            maxLines = 1,
         )
         Text(
             text = label,
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+    }
+}
+
+/**
+ * Carbs, protein, fat and kcal in four tiles. Numbers are shortened ("1.2kg", "12k") so even
+ * long ranges fit.
+ */
+@Composable
+fun TotalsCard(totals: Nutrition?, modifier: Modifier = Modifier) {
+    val colors = NeutrinoTheme.colors
+    val n = totals ?: Nutrition.ZERO
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(Spacing.sm),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+        ) {
+            MacroStat(compactGrams(n.carbsG), stringResource(R.string.macro_carbs), colors.carbs, Modifier.weight(1f))
+            MacroStat(compactGrams(n.proteinG), stringResource(R.string.macro_protein), colors.protein, Modifier.weight(1f))
+            MacroStat(compactGrams(n.fatG), stringResource(R.string.macro_fat), colors.fat, Modifier.weight(1f))
+            MacroStat(compactNumber(n.calories), stringResource(R.string.macro_energy), MaterialTheme.colorScheme.onSurface, Modifier.weight(1f))
+        }
     }
 }
 

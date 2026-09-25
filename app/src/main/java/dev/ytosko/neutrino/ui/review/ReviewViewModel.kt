@@ -115,6 +115,8 @@ class ReviewViewModel(
     logDate: LocalDate? = null,
 ) : ViewModel() {
 
+    private val pastDay: LocalDate? = logDate?.takeIf { it != LocalDate.now(zone) }
+
     private val now = ZonedDateTime.now(zone).let { current ->
         logDate?.takeIf { it != current.toLocalDate() }?.let { current.with(it) } ?: current
     }
@@ -284,8 +286,11 @@ class ReviewViewModel(
 
     /** Photo time if it's plausible (in the past, within a week), otherwise now. */
     private fun resolveEatenAt(takenAt: Instant?): ZonedDateTime {
+        // Logging for a past day: that day, at the photo's time if it was taken that day.
+        pastDay?.let { day ->
+            return takenAt?.atZone(zone)?.takeIf { it.toLocalDate() == day } ?: now
+        }
         val nowInstant = Instant.now()
-        // A photo's own capture time wins; otherwise the day being logged for.
         val valid = takenAt?.takeIf { !it.isAfter(nowInstant) && it.isAfter(nowInstant.minusSeconds(7 * 24 * 3600)) }
         return valid?.atZone(zone) ?: now
     }

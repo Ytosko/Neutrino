@@ -8,6 +8,9 @@ import dev.ytosko.neutrino.domain.food.Portion
 import dev.ytosko.neutrino.domain.MealType
 import dev.ytosko.neutrino.domain.Nutrition
 import dev.ytosko.neutrino.domain.TokenUsage
+import dev.ytosko.neutrino.domain.insights.FoodCount
+import dev.ytosko.neutrino.domain.insights.MealPoint
+import dev.ytosko.neutrino.domain.insights.WaterPoint
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import java.time.Instant
@@ -61,6 +64,10 @@ data class MealDraft(
 /** Result of saving: whether Health Connect received it too. */
 data class SaveResult(val id: String, val syncedToHealthConnect: Boolean)
 
+data class RangeData(val meals: List<MealPoint>, val water: List<WaterPoint>, val topFoods: List<FoodCount>)
+
+private const val TOP_FOODS = 5
+
 class MealRepository(
     private val db: MealDatabase,
     private val healthConnect: HealthConnectManager,
@@ -78,6 +85,30 @@ class MealRepository(
                 meals = meals.map { it.meal.toLoggedMeal(it.firstCategory?.let(FoodCategory::fromKey)) },
                 waterMl = water.sumOf { it.amountMl },
                 waterEntries = water.map { it.id },
+            )
+        }
+    }
+
+    /** Everything logged from [from] to [toInclusive], for the Health page charts. */
+    fun observeRange(from: LocalDate, toInclusive: LocalDate, zone: ZoneId): Flow<RangeData> {
+        val fromMs = from.atStartOfDay(zone).toInstant().toEpochMilli()
+        val toMs = toInclusive.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
+        return combine(
+            db.meals().observeBetween(fromMs, toMs),
+            db.water().observeBetween(fromMs, toMs),
+            db.meals().observeTopFoods(fromMs, toMs, TOP_FOODS),
+        ) { meals, water, top ->
+            RangeData(
+                meals = meals.map { row ->
+                    val meal = row.meal
+                    MealPoint(
+                        date = Instant.ofEpochMilli(meal.eatenAtEpochMs).atZone(zone).toLocalDate(),
+                        type = runCatching { MealType.valueOf(meal.mealType) }.getOrDefault(MealType.Snack),
+                        nutrition = Nutrition(meal.calories, meal.proteinG, meal.carbsG, meal.fatG),
+                    )
+                },
+                water = water.map { WaterPoint(Instant.ofEpochMilli(it.loggedAtEpochMs).atZone(zone).toLocalDate(), it.amountMl) },
+                topFoods = top.map { FoodCount(it.name, it.category, it.times) },
             )
         }
     }

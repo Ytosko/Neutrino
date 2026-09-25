@@ -1,5 +1,15 @@
 package dev.ytosko.neutrino.ui.home
 
+import dev.ytosko.neutrino.ui.insights.HealthViewModel
+import dev.ytosko.neutrino.ui.insights.HealthContent
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.graphics.Color
+import androidx.compose.material3.Surface
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.selection.selectable
+import androidx.activity.compose.BackHandler
 import java.time.Instant
 import java.time.ZoneOffset
 import java.time.temporal.ChronoUnit
@@ -89,6 +99,7 @@ import dev.ytosko.neutrino.domain.roundGrams
 import dev.ytosko.neutrino.domain.roundKcal
 import dev.ytosko.neutrino.data.backup.BackupState
 import dev.ytosko.neutrino.ui.components.IconBadge
+import dev.ytosko.neutrino.ui.components.TotalsCard
 import dev.ytosko.neutrino.ui.food.FoodIcon
 import dev.ytosko.neutrino.domain.food.FoodCategory
 import dev.ytosko.neutrino.ui.components.MacroStat
@@ -113,6 +124,7 @@ private val MEAL_ORDER = listOf(MealType.Breakfast, MealType.Lunch, MealType.Sna
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel,
+    healthViewModel: HealthViewModel,
     onOpenSettings: () -> Unit,
     onOpenAiSettings: () -> Unit,
     backup: BackupState?,
@@ -135,11 +147,15 @@ fun HomeScreen(
     var showSheet by rememberSaveable { mutableStateOf(false) }
     var pendingCapture by rememberSaveable { mutableStateOf<String?>(null) }
     var mealToDelete by remember { mutableStateOf<LoggedMeal?>(null) }
+    var tab by rememberSaveable { mutableStateOf(HomeTab.Days) }
 
     LifecycleResumeEffect(Unit) {
         viewModel.refreshDate()
+        healthViewModel.refreshDate()
         onPauseOrDispose { }
     }
+    // Back from Health returns to the day view before leaving the app.
+    BackHandler(enabled = tab == HomeTab.Health) { tab = HomeTab.Days }
 
     val savedSynced = stringResource(R.string.home_saved_synced)
     val savedLocal = stringResource(R.string.home_saved_local)
@@ -186,11 +202,31 @@ fun HomeScreen(
             .fillMaxSize()
             .nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
+            if (tab == HomeTab.Health) {
+                TopAppBar(
+                    title = {
+                        Text(
+                            stringResource(R.string.health_title),
+                            style = MaterialTheme.typography.titleLarge,
+                            modifier = Modifier.semantics { heading() },
+                        )
+                    },
+                    actions = {
+                        IconButton(onClick = onOpenSettings) {
+                            Icon(painterResource(R.drawable.ic_settings), contentDescription = stringResource(R.string.home_settings))
+                        }
+                    },
+                    scrollBehavior = scrollBehavior,
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.background,
+                        scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    ),
+                )
+                return@Scaffold
+            }
             TopAppBar(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        NeutrinoLogo(size = 32.dp)
-                        Spacer(Modifier.size(Spacing.sm))
                         // Tap the day to jump to any date; the arrows step one day at a time.
                         Column(
                             modifier = Modifier
@@ -231,8 +267,14 @@ fun HomeScreen(
                     IconButton(onClick = viewModel::nextDay, enabled = !isToday) {
                         Icon(painterResource(R.drawable.ic_chevron_right), contentDescription = stringResource(R.string.home_next_day))
                     }
-                    IconButton(onClick = onOpenSettings) {
-                        Icon(painterResource(R.drawable.ic_settings), contentDescription = stringResource(R.string.home_settings))
+                    if (isToday) {
+                        IconButton(onClick = onOpenSettings) {
+                            Icon(painterResource(R.drawable.ic_settings), contentDescription = stringResource(R.string.home_settings))
+                        }
+                    } else {
+                        IconButton(onClick = viewModel::showToday) {
+                            Icon(painterResource(R.drawable.ic_x), contentDescription = stringResource(R.string.home_back_to_today))
+                        }
                     }
                 },
                 scrollBehavior = scrollBehavior,
@@ -242,18 +284,21 @@ fun HomeScreen(
                 ),
             )
         },
-        floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = ::startLogging,
-                icon = { Icon(painterResource(R.drawable.ic_camera), contentDescription = null) },
-                text = { Text(stringResource(R.string.home_log_meal), style = MaterialTheme.typography.labelLarge) },
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-            )
-        },
+        bottomBar = { MainBottomBar(tab = tab, onTab = { tab = it }, onLog = ::startLogging) },
         snackbarHost = { SnackbarHost(snackbar) },
         containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
+        if (tab == HomeTab.Health) {
+            HealthContent(
+                viewModel = healthViewModel,
+                contentPadding = padding,
+                onOpenDay = { date ->
+                    viewModel.showDate(date)
+                    tab = HomeTab.Days
+                },
+            )
+            return@Scaffold
+        }
         val summary = day
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
@@ -261,7 +306,7 @@ fun HomeScreen(
                 start = Spacing.gutter,
                 end = Spacing.gutter,
                 top = padding.calculateTopPadding() + Spacing.xs,
-                bottom = padding.calculateBottomPadding() + 96.dp, // keep clear of the FAB
+                bottom = padding.calculateBottomPadding() + Spacing.lg,
             ),
             verticalArrangement = Arrangement.spacedBy(Spacing.md),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -270,16 +315,7 @@ fun HomeScreen(
             if (backup != null && backup.needsAttention) {
                 item(key = "backup") { BackupReminder(backup, onOpenBackup, itemModifier) }
             }
-            item { DailyTotalsCard(summary, itemModifier) }
-            if (!isToday) {
-                item(key = "back-to-today") {
-                    TextButton(onClick = viewModel::showToday, modifier = itemModifier.heightIn(min = 48.dp)) {
-                        Icon(painterResource(R.drawable.ic_calendar), contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.size(Spacing.xs))
-                        Text(stringResource(R.string.home_back_to_today))
-                    }
-                }
-            }
+            item { TotalsCard(summary?.totals, itemModifier) }
             item {
                 WaterCard(
                     waterMl = summary?.waterMl ?: 0,
@@ -424,28 +460,6 @@ private fun SheetOption(icon: Int, label: String, onClick: () -> Unit) {
     }
 }
 
-@Composable
-private fun DailyTotalsCard(summary: DaySummary?, modifier: Modifier = Modifier) {
-    val colors = NeutrinoTheme.colors
-    val totals = summary?.totals
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(Spacing.sm),
-            horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
-        ) {
-            MacroStat(grams(totals?.carbsG), stringResource(R.string.macro_carbs), colors.carbs, Modifier.weight(1f))
-            MacroStat(grams(totals?.proteinG), stringResource(R.string.macro_protein), colors.protein, Modifier.weight(1f))
-            MacroStat(grams(totals?.fatG), stringResource(R.string.macro_fat), colors.fat, Modifier.weight(1f))
-            MacroStat("${(totals?.calories ?: 0.0).roundKcal()}", stringResource(R.string.macro_energy), MaterialTheme.colorScheme.onSurface, Modifier.weight(1f))
-        }
-    }
-}
-
-private fun grams(value: Double?): String = "${(value ?: 0.0).roundGrams().let { if (it >= 100) it.toInt().toString() else it.toString().removeSuffix(".0") }}g"
 
 @Composable
 private fun WaterCard(waterMl: Int, isToday: Boolean, onAdd: () -> Unit, modifier: Modifier = Modifier) {
@@ -630,5 +644,74 @@ private fun DayPickerDialog(selected: LocalDate, onPick: (LocalDate) -> Unit, on
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.home_cancel)) } },
     ) {
         DatePicker(state = state)
+    }
+}
+
+enum class HomeTab { Days, Health }
+
+/** Days and Health tabs with the camera, the main action, raised in the middle. */
+@Composable
+private fun MainBottomBar(tab: HomeTab, onTab: (HomeTab) -> Unit, onLog: () -> Unit) {
+    // A plain background (not a Surface) so the raised camera button isn't clipped.
+    Box(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainer)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .height(76.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            NavTab(R.drawable.ic_calendar_days, stringResource(R.string.nav_days), tab == HomeTab.Days, Modifier.weight(1f)) {
+                onTab(HomeTab.Days)
+            }
+            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                val label = stringResource(R.string.nav_log_meal)
+                Surface(
+                    onClick = onLog,
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    shadowElevation = 6.dp,
+                    modifier = Modifier
+                        .offset(y = (-10).dp)
+                        .size(64.dp)
+                        .semantics { contentDescription = label },
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(painterResource(R.drawable.ic_camera), contentDescription = null, modifier = Modifier.size(28.dp))
+                    }
+                }
+            }
+            NavTab(R.drawable.ic_chart_column, stringResource(R.string.nav_health), tab == HomeTab.Health, Modifier.weight(1f)) {
+                onTab(HomeTab.Health)
+            }
+        }
+    }
+}
+
+@Composable
+private fun NavTab(icon: Int, label: String, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    val content = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+    Column(
+        modifier = modifier
+            .fillMaxHeight()
+            .selectable(selected = selected, role = Role.Tab, onClick = onClick),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Box(
+            modifier = Modifier
+                .clip(CircleShape)
+                .background(if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
+                .padding(horizontal = 20.dp, vertical = 4.dp),
+        ) {
+            Icon(painterResource(icon), contentDescription = null, tint = content, modifier = Modifier.size(24.dp))
+        }
+        Text(
+            label,
+            style = MaterialTheme.typography.labelMedium,
+            color = content,
+            modifier = Modifier.padding(top = 4.dp),
+        )
     }
 }

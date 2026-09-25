@@ -38,6 +38,7 @@ import dev.ytosko.neutrino.ui.health.HealthConnectViewModel
 import dev.ytosko.neutrino.ui.food.FoodSearchViewModel
 import dev.ytosko.neutrino.ui.home.HomeScreen
 import dev.ytosko.neutrino.ui.home.HomeViewModel
+import dev.ytosko.neutrino.ui.insights.HealthViewModel
 import dev.ytosko.neutrino.ui.review.ReviewScreen
 import dev.ytosko.neutrino.ui.review.ReviewViewModel
 import dev.ytosko.neutrino.ui.settings.SettingsScreen
@@ -131,8 +132,10 @@ fun NeutrinoNavHost(startDestination: Route, modifier: Modifier = Modifier) {
             val homeViewModel: HomeViewModel = viewModel { HomeViewModel(container.meals, container.settings) }
             val savedResult by entry.savedStateHandle.getStateFlow<Boolean?>(KEY_SAVED_RESULT, null).collectAsStateWithLifecycle()
             val backup by container.backups.state.collectAsStateWithLifecycle(initialValue = null)
+            val healthViewModel: HealthViewModel = viewModel { HealthViewModel(container.meals) }
             HomeScreen(
                 viewModel = homeViewModel,
+                healthViewModel = healthViewModel,
                 backup = backup,
                 onOpenSettings = { navController.navigate(Route.Settings) },
                 onOpenAiSettings = { navController.navigate(Route.SettingsAi) },
