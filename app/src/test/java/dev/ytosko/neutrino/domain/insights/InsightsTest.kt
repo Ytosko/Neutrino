@@ -78,4 +78,13 @@ class InsightsTest {
         assertEquals("2.3L", compactMl(2_250))
         assertEquals("45L", compactMl(45_000))
     }
+
+    @Test
+    fun `water switches to litres from one litre`() {
+        assertEquals("750 ml", formatWater(750))
+        assertEquals("1 L", formatWater(1_000))
+        assertEquals("1.25 L", formatWater(1_250))
+        assertEquals("2.5 L", formatWater(2_500))
+        assertEquals("10 L", formatWater(10_000))
+    }
 }

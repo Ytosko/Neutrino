@@ -1,5 +1,7 @@
 package dev.ytosko.neutrino.ui.home
 
+import java.time.LocalTime
+import java.time.Instant
 import dev.ytosko.neutrino.domain.MealWindows
 import dev.ytosko.neutrino.data.meal.StoredMeal
 import androidx.lifecycle.ViewModel
@@ -87,11 +89,18 @@ class HomeViewModel(
         viewModelScope.launch { meals.deleteWater(last) }
     }
 
+    /** Adds a glass to the shown day (a past day gets it at the current time of day), up to [MAX_WATER_ML]. */
     fun addWater(amountMl: Int = GLASS_ML) {
-        viewModelScope.launch { meals.addWater(amountMl, zone) }
+        val current = day.value?.waterMl ?: 0
+        if (current + amountMl > MAX_WATER_ML) return
+        val shown = _date.value
+        val at = if (shown == today.value) Instant.now() else shown.atTime(LocalTime.now(zone)).atZone(zone).toInstant()
+        viewModelScope.launch { meals.addWater(amountMl, zone, at) }
     }
 
     companion object {
         const val GLASS_ML = 250
+        /** Most water one day can hold; stops runaway taps. */
+        const val MAX_WATER_ML = 10_000
     }
 }

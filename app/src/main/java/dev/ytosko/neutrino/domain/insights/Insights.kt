@@ -168,3 +168,10 @@ fun compactMl(ml: Int): String {
         else -> compactNumber(ml / 1_000.0) + "L"
     }
 }
+
+/** Water for the day card: millilitres below a litre, then litres ("750 ml", "1.25 L"). */
+fun formatWater(ml: Int): String {
+    if (ml < 1_000) return "$ml ml"
+    val litres = String.format(Locale.US, "%.2f", ml / 1_000.0).trimEnd('0').trimEnd('.')
+    return "$litres L"
+}

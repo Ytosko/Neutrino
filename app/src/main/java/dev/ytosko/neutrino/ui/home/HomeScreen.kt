@@ -1,6 +1,7 @@
 package dev.ytosko.neutrino.ui.home
 
 import dev.ytosko.neutrino.domain.insights.compactNumber
+import dev.ytosko.neutrino.domain.insights.formatWater
 import dev.ytosko.neutrino.ui.components.mealTypeIcon
 import dev.ytosko.neutrino.ui.components.mealTypeColors
 import androidx.compose.animation.togetherWith
@@ -548,9 +549,10 @@ private fun WaterCard(waterMl: Int, isToday: Boolean, onRemove: () -> Unit, onAd
             Column(modifier = Modifier.weight(1f)) {
                 Text(stringResource(R.string.home_water), style = MaterialTheme.typography.titleMedium)
                 Text(
-                    stringResource(if (isToday) R.string.home_water_amount else R.string.home_water_amount_day, waterMl),
+                    stringResource(if (isToday) R.string.home_water_amount else R.string.home_water_amount_day, formatWater(waterMl)),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
                 )
             }
             if (waterMl > 0) {
@@ -562,11 +564,12 @@ private fun WaterCard(waterMl: Int, isToday: Boolean, onRemove: () -> Unit, onAd
                     )
                 }
             }
-            // Water is logged "now", so adding only makes sense on today.
-            if (isToday) {
-                FilledTonalButton(onClick = onAdd, modifier = Modifier.heightIn(min = 48.dp)) {
-                    Text(stringResource(R.string.home_add_glass))
-                }
+            FilledTonalButton(
+                onClick = onAdd,
+                enabled = waterMl + HomeViewModel.GLASS_ML <= HomeViewModel.MAX_WATER_ML,
+                modifier = Modifier.heightIn(min = 48.dp),
+            ) {
+                Text(stringResource(R.string.home_add_glass), maxLines = 1)
             }
         }
     }

@@ -41,7 +41,7 @@
     <string name="home_saved_synced">Saved to Health Connect</string>
     <string name="home_saved_local">Saved on this phone. Connect Health Connect to sync it.</string>
     <string name="home_water">Water</string>
-    <string name="home_water_amount">%1$d ml today</string>
+    <string name="home_water_amount">%1$s today</string>
     <string name="home_add_glass">+ 250 ml</string>
     <string name="home_water_added">Added 250 ml of water</string>
     <string name="home_delete_meal">Delete meal</string>
@@ -56,7 +56,7 @@
     <string name="home_next_day">Next day</string>
     <string name="home_back_to_today">Back to today</string>
     <string name="home_show_day">Show</string>
-    <string name="home_water_amount_day">%1$d ml</string>
+    <string name="home_water_amount_day">%1$s</string>
     <string name="home_empty_day_title">Nothing logged this day</string>
     <string name="home_empty_day_body">Forgot something? Tap Log a meal to add it to this day.</string>
     <string name="home_meal_deleted">Meal deleted</string>

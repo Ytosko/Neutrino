@@ -230,9 +230,10 @@ class MealRepository(
         onChanged()
     }
 
-    suspend fun addWater(amountMl: Int, zone: ZoneId = ZoneId.systemDefault()): Boolean {
+    /** Logs water at [at] (now by default; a past day passes a time on that day). */
+    suspend fun addWater(amountMl: Int, zone: ZoneId = ZoneId.systemDefault(), at: Instant = Instant.now()): Boolean {
         val id = UUID.randomUUID().toString()
-        val now = Instant.now()
+        val now = at
         val synced = runCatching { healthConnect.writeWater(id, amountMl, now, zone) }.getOrDefault(false)
         db.water().insert(WaterEntity(id, amountMl, now.toEpochMilli(), zone.id, synced))
         onChanged()
