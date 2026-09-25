@@ -2,4 +2,4 @@ Contact: mailto:privacy@ytosko.dev
 Expires: 2027-09-25T00:00:00.000Z
 Preferred-Languages: en
 Canonical: https://neutrino.ytosko.dev/.well-known/security.txt
-Policy: https://github.com/Ytosko/Nutrino/security/policy
+Policy: https://github.com/Ytosko/Neutrino/security/policy

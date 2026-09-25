@@ -23,7 +23,7 @@ Google Gemini or OpenAI API key, and estimates carbohydrates, protein, fat and c
 the numbers, and Neutrino saves them to **Health Connect** as breakfast, lunch, dinner or a snack
 based on your local time, so they show up in Google Health, Fitbit and any other app you allow.
 
-**[Download the latest APK](https://github.com/Ytosko/Nutrino/releases/latest)** · Android 9 and newer ·
+**[Download the latest APK](https://github.com/Ytosko/Neutrino/releases/latest)** · Android 9 and newer ·
 [how to install](docs/RELEASING.md#installing)
 
 ## Principles

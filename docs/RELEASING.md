@@ -1,6 +1,6 @@
 # Releasing Neutrino
 
-Releases are APKs on [GitHub Releases](https://github.com/Ytosko/Nutrino/releases), built and signed
+Releases are APKs on [GitHub Releases](https://github.com/Ytosko/Neutrino/releases), built and signed
 by GitHub Actions ([`.github/workflows/release.yml`](../.github/workflows/release.yml)) when a version
 tag is pushed. The signing key is stored as encrypted repository secrets that only the maintainer
 can set; it is never committed and never printed in logs.
