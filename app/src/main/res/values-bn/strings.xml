@@ -455,6 +455,7 @@
     <string name="lock_unlock">আনলক করুন</string>
     <string name="widget_name">Neutrino আজ</string>
     <string name="widget_description">আজকের কার্বস ও ক্যালরি, পানি, সর্বশেষ গ্লুকোজ রিডিং, আর খাবার লগ করার ক্যামেরা বাটন।</string>
+    <string name="widget_of_goal">%2$s এর %1$s</string>
     <string name="widget_totals">%1$s কার্বস · %2$s kcal</string>
     <string name="shortcut_log_meal">খাবার লগ করুন</string>
     <string name="shortcut_add_water">পানি যোগ করুন</string>

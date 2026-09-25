@@ -15,7 +15,7 @@ Faster logging, your glucose next to your meals, reports for your doctor, and Ne
 - **Lighter text:** text is 20% smaller throughout for a calmer, more compact look (never below a readable minimum, and your phone's text-size setting still applies).
 - **Health by calendar period:** Day, Week, Month and Year now show one real period at a time (today, this week, September 2026, 2026), with ‹ › arrows to step back and forth. Day splits into four 6-hour blocks, or 24 hours with "Hour by hour"; Year shows each month as a per-day average. Every card on the page follows the chosen period.
 - **Charts:** rounded pill bars on a faint track, a dashed goal line with a ✓ in bars that reached your goal, the current day or month in bold, the touched value in a bubble, and friendly illustrations when a day or range is empty.
-- **Widget:** the macro tiles grow to fill the widget, with even spacing and no empty bands.
+- **Widget:** carbs, protein, fat and calories are now rings, like a fitness app: the name curved along the top, the percentage of your goal in the middle and "243 of 150g" along the bottom (the amount in the middle when there is no goal), with even spacing.
 
 ### Logging
 - **Log again:** press and hold any meal on your day and choose **Log again** to log the same foods (no photo, no AI cost), with Undo. For a meal from another day, choose **Today** or **that day** (at the same time). **Delete meal** is in the same menu, so meal cards stay clean.

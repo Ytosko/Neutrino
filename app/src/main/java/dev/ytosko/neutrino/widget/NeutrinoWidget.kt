@@ -1,5 +1,8 @@
 package dev.ytosko.neutrino.widget
 
+import kotlin.math.roundToInt
+import androidx.glance.layout.size
+import android.graphics.Typeface
 import androidx.glance.ColorFilter
 import android.graphics.PathMeasure as AndroidPathMeasure
 import android.graphics.Path as AndroidPath
@@ -79,6 +82,15 @@ private data class WidgetData(
     val proteinProgress: Float?,
     val fatProgress: Float?,
     val kcalProgress: Float?,
+    /** Bare numbers ("243") and goals ("150g") for the line under each ring; goal null without one. */
+    val carbsNumber: String,
+    val proteinNumber: String,
+    val fatNumber: String,
+    val kcalNumber: String,
+    val carbsGoal: String?,
+    val proteinGoal: String?,
+    val fatGoal: String?,
+    val kcalGoal: String?,
     val water: String,
     /** "7.2 mmol/L · 6:08 PM", or null when hidden or there are no readings. */
     val glucose: String?,
@@ -146,6 +158,14 @@ class NeutrinoWidget : GlanceAppWidget() {
             proteinProgress = settings.proteinGoalG?.let { (n.proteinG / it).toFloat() },
             fatProgress = settings.fatGoalG?.let { (n.fatG / it).toFloat() },
             kcalProgress = settings.kcalGoal?.let { (n.calories / it).toFloat() },
+            carbsNumber = compactNumber(n.carbsG),
+            proteinNumber = compactNumber(n.proteinG),
+            fatNumber = compactNumber(n.fatG),
+            kcalNumber = compactNumber(n.calories),
+            carbsGoal = settings.carbGoalG?.let { compactGrams(it.toDouble()) },
+            proteinGoal = settings.proteinGoalG?.let { compactGrams(it.toDouble()) },
+            fatGoal = settings.fatGoalG?.let { compactGrams(it.toDouble()) },
+            kcalGoal = settings.kcalGoal?.let { compactNumber(it.toDouble()) },
             water = formatWater(day.waterMl),
             glucose = glucose,
             canAddWater = day.waterMl + GLASS_ML <= MAX_WATER_ML,
@@ -183,25 +203,26 @@ class NeutrinoWidget : GlanceAppWidget() {
                 }
             }
             if (showTiles) {
-                // Even gaps; the tiles take whatever height is left, so there are no empty bands.
-                Spacer(GlanceModifier.height(SECTION_GAP))
-                val tileWidth = (size.width - PADDING * 2 - TILE_GAP * 3) / 4
-                val tileHeight = (size.height - PADDING * 2 - HEADER_HEIGHT - BOTTOM_HEIGHT - SECTION_GAP * 2).coerceIn(48.dp, 120.dp)
+                // Four activity-style rings, as big as the space allows, with equal room above and below.
+                val cell = (size.width - PADDING * 2 - RING_GAP * 3) / 4
+                val diameter = minOf(cell, size.height - PADDING * 2 - HEADER_HEIGHT - BOTTOM_HEIGHT - 8.dp).coerceAtLeast(48.dp)
+                fun of(number: String, goal: String?) = goal?.let { context.getString(R.string.widget_of_goal, number, it) }
+                val tiles = listOf(
+                    Tile(data.carbs, of(data.carbsNumber, data.carbsGoal), context.getString(R.string.macro_carbs), MacroColor.Carbs, data.carbsProgress),
+                    Tile(data.protein, of(data.proteinNumber, data.proteinGoal), context.getString(R.string.macro_protein), MacroColor.Protein, data.proteinProgress),
+                    Tile(data.fat, of(data.fatNumber, data.fatGoal), context.getString(R.string.macro_fat), MacroColor.Fat, data.fatProgress),
+                    Tile(data.kcal, of(data.kcalNumber, data.kcalGoal), context.getString(R.string.health_calories), MacroColor.Kcal, data.kcalProgress),
+                )
+                Spacer(GlanceModifier.defaultWeight())
                 Row(modifier = GlanceModifier.fillMaxWidth()) {
-                    val tiles = listOf(
-                        Tile(data.carbs, context.getString(R.string.macro_carbs), MacroColor.Carbs, data.carbsProgress),
-                        Tile(data.protein, context.getString(R.string.macro_protein), MacroColor.Protein, data.proteinProgress),
-                        Tile(data.fat, context.getString(R.string.macro_fat), MacroColor.Fat, data.fatProgress),
-                        Tile(data.kcal, context.getString(R.string.macro_energy), MacroColor.Kcal, data.kcalProgress),
-                    )
                     tiles.forEachIndexed { index, tile ->
-                        if (index > 0) Spacer(GlanceModifier.width(TILE_GAP))
-                        MacroTile(context, tile, tileWidth, tileHeight)
+                        if (index > 0) Spacer(GlanceModifier.width(RING_GAP))
+                        Box(modifier = GlanceModifier.width(cell), contentAlignment = Alignment.Center) {
+                            MacroRing(context, tile, diameter)
+                        }
                     }
                 }
-                Spacer(GlanceModifier.height(SECTION_GAP))
             }
-            // Keeps the water row at the bottom (only takes space on very tall or squat widgets).
             Spacer(GlanceModifier.defaultWeight())
             Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = GlanceModifier.defaultWeight()) {
@@ -232,45 +253,41 @@ class NeutrinoWidget : GlanceAppWidget() {
     }
 
     /**
-     * A macro tile. Widgets can't draw shapes, so the goal ring is an image: a white mask tinted in
-     * the macro's day or night colour, over the tile's own day/night background.
+     * One macro as a ring, like a fitness app: the name curved along the top, the percentage of
+     * the goal in the middle and "243 of 150g" curved along the bottom. Widgets can't draw, so each
+     * layer is a white mask tinted with day/night colours: the faint track, the progress arc with
+     * the bottom line, and the name. Without a goal the middle shows the amount instead.
      */
     @Composable
-    private fun MacroTile(context: Context, tile: Tile, width: Dp, height: Dp) {
+    private fun MacroRing(context: Context, tile: Tile, diameter: Dp) {
         val density = context.resources.displayMetrics.density
-        Box(
-            modifier = GlanceModifier.width(width).height(height).cornerRadius(14.dp).background(TileFill),
-            contentAlignment = Alignment.Center,
-        ) {
-            if (tile.progress != null) {
-                val mask = ringMask(
-                    widthPx = (width.value * density).toInt().coerceAtLeast(1),
-                    heightPx = (height.value * density).toInt().coerceAtLeast(1),
-                    density = density,
-                    progress = tile.progress,
-                )
-                Image(
-                    ImageProvider(mask),
-                    contentDescription = null,
-                    colorFilter = ColorFilter.tint(tile.color.provider),
-                    modifier = GlanceModifier.fillMaxSize(),
-                )
-            }
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    tile.value,
-                    style = TextStyle(color = tile.color.provider, fontSize = if (height >= 70.dp) 15.sp else 12.sp, fontWeight = FontWeight.Bold),
-                    maxLines = 1,
-                )
-                Text(tile.label, style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 11.sp), maxLines = 1)
-            }
+        val px = (diameter.value * density).toInt().coerceAtLeast(1)
+        val layers = ringLayers(px, density, tile.progress ?: 0f, tile.label, tile.ofGoal)
+        val percent = tile.progress?.let { "${(it * 100).roundToInt()}%" }
+        Box(modifier = GlanceModifier.size(diameter), contentAlignment = Alignment.Center) {
+            Image(ImageProvider(layers.track), contentDescription = null, colorFilter = ColorFilter.tint(tile.color.track), modifier = GlanceModifier.fillMaxSize())
+            Image(
+                ImageProvider(layers.arc),
+                contentDescription = listOfNotNull(tile.label, tile.ofGoal ?: tile.value).joinToString(" "),
+                colorFilter = ColorFilter.tint(tile.color.provider),
+                modifier = GlanceModifier.fillMaxSize(),
+            )
+            Image(ImageProvider(layers.label), contentDescription = null, colorFilter = ColorFilter.tint(GlanceTheme.colors.onSurfaceVariant), modifier = GlanceModifier.fillMaxSize())
+            Text(
+                percent ?: tile.value,
+                style = TextStyle(
+                    color = if (percent != null) GlanceTheme.colors.onSurface else tile.color.provider,
+                    fontSize = (diameter.value * 0.2f).coerceIn(12f, 22f).sp,
+                    fontWeight = FontWeight.Bold,
+                ),
+                maxLines = 1,
+            )
         }
     }
 
     companion object {
         private val PADDING = 12.dp
-        private val TILE_GAP = 6.dp
-        private val SECTION_GAP = 10.dp
+        private val RING_GAP = 4.dp
         /** Measured: the "Today" line, and the water row with its buttons. */
         private val HEADER_HEIGHT = 18.dp
         private val BOTTOM_HEIGHT = 48.dp
@@ -284,7 +301,7 @@ class NeutrinoWidget : GlanceAppWidget() {
     }
 }
 
-private data class Tile(val value: String, val label: String, val color: MacroColor, val progress: Float?)
+private data class Tile(val value: String, val ofGoal: String?, val label: String, val color: MacroColor, val progress: Float?)
 
 /** The app's macro colours for light and dark home screens. */
 private enum class MacroColor(val day: Long, val night: Long) {
@@ -295,58 +312,74 @@ private enum class MacroColor(val day: Long, val night: Long) {
     ;
 
     val provider get() = androidx.glance.color.ColorProvider(day = androidx.compose.ui.graphics.Color(day), night = androidx.compose.ui.graphics.Color(night))
+
+    /** The ring's faint track in the same colour. */
+    val track get() = androidx.glance.color.ColorProvider(
+        day = androidx.compose.ui.graphics.Color(day).copy(alpha = 0.16f),
+        night = androidx.compose.ui.graphics.Color(night).copy(alpha = 0.22f),
+    )
 }
 
 private val WaterColor = androidx.glance.color.ColorProvider(day = androidx.compose.ui.graphics.Color(0xFF0369A1), night = androidx.compose.ui.graphics.Color(0xFF7DD3FC))
 private val WaterContainerColor = androidx.glance.color.ColorProvider(day = androidx.compose.ui.graphics.Color(0xFFE0F2FE), night = androidx.compose.ui.graphics.Color(0xFF1B3A4D))
 
-private val TileFill = androidx.glance.color.ColorProvider(day = androidx.compose.ui.graphics.Color(0xFFFFFFFF), night = androidx.compose.ui.graphics.Color(0xFF231A18))
+private class RingLayers(val track: Bitmap, val arc: Bitmap, val label: Bitmap)
 
 /**
- * The goal ring as a white mask (tinted by the widget): a faint track all round and the progress
- * from the top centre, clockwise, closing thicker once the goal is reached.
+ * White masks for one ring, [px] square: the full track; the progress arc from 12 o'clock,
+ * clockwise, plus [bottom] curved along the inside bottom; and [label] curved along the inside top.
  */
-private fun ringMask(widthPx: Int, heightPx: Int, density: Float, progress: Float): Bitmap {
-    val bitmap = Bitmap.createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888)
-    val canvas = AndroidCanvas(bitmap)
-    val radius = 14f * density
-    val done = progress >= 1f
-    val stroke = (if (done) 3f else 2.2f) * density
-    val inset = stroke / 2
-    val path = AndroidPath().apply {
-        val l = inset
-        val t = inset
-        val r = widthPx - inset
-        val b = heightPx - inset
-        val rr = radius - inset
-        moveTo((l + r) / 2, t)
-        lineTo(r - rr, t)
-        arcTo(RectF(r - 2 * rr, t, r, t + 2 * rr), -90f, 90f)
-        lineTo(r, b - rr)
-        arcTo(RectF(r - 2 * rr, b - 2 * rr, r, b), 0f, 90f)
-        lineTo(l + rr, b)
-        arcTo(RectF(l, b - 2 * rr, l + 2 * rr, b), 90f, 90f)
-        lineTo(l, t + rr)
-        arcTo(RectF(l, t, l + 2 * rr, t + 2 * rr), 180f, 90f)
-        close()
-    }
-    val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+private fun ringLayers(px: Int, density: Float, progress: Float, label: String, bottom: String?): RingLayers {
+    val stroke = px * 0.1f
+    val radius = px / 2f - stroke / 2 - density
+    val inner = radius - stroke / 2
+    val c = px / 2f
+    fun blank() = Bitmap.createBitmap(px, px, Bitmap.Config.ARGB_8888)
+    val ringPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
-        strokeWidth = 2.2f * density
-        color = 0x38FFFFFF
+        strokeWidth = stroke
+        color = 0xFFFFFFFF.toInt()
     }
-    canvas.drawPath(path, paint)
-    val fraction = progress.coerceIn(0f, 1f)
-    if (fraction > 0f) {
-        val measure = AndroidPathMeasure(path, false)
-        val part = AndroidPath()
-        measure.getSegment(0f, measure.length * fraction, part, true)
-        paint.color = 0xFFFFFFFF.toInt()
-        paint.strokeWidth = stroke
-        paint.strokeCap = if (done) Paint.Cap.BUTT else Paint.Cap.ROUND
-        canvas.drawPath(part, paint)
+    val oval = RectF(c - radius, c - radius, c + radius, c + radius)
+
+    val track = blank().also { AndroidCanvas(it).drawOval(oval, ringPaint) }
+
+    val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = 0xFFFFFFFF.toInt()
+        textSize = px * 0.125f
+        typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
     }
-    return bitmap
+    val gap = 1.5f * density
+    fun curved(canvas: AndroidCanvas, text: String, top: Boolean) {
+        // Along the top, letters stand outside the path, so the path sits a cap-height further in;
+        // along the bottom they stand inside it.
+        val metrics = textPaint.fontMetrics
+        val r = if (top) inner - gap + metrics.ascent * 0.72f else inner - gap - metrics.descent
+        val path = AndroidPath().apply {
+            addArc(RectF(c - r, c - r, c + r, c + r), 180f, if (top) 180f else -180f)
+        }
+        val length = Math.PI.toFloat() * r
+        var shown = text
+        while (shown.length > 1 && textPaint.measureText(shown) > length * 0.8f) shown = shown.dropLast(1)
+        if (shown != text) shown = shown.dropLast(1) + "…"
+        canvas.drawTextOnPath(shown, path, (length - textPaint.measureText(shown)) / 2, 0f, textPaint)
+    }
+
+    val arc = blank().also { bitmap ->
+        val canvas = AndroidCanvas(bitmap)
+        val fraction = progress.coerceIn(0f, 1f)
+        if (fraction > 0f) {
+            ringPaint.strokeCap = if (fraction >= 1f) Paint.Cap.BUTT else Paint.Cap.ROUND
+            canvas.drawArc(oval, -90f, 360f * fraction, false, ringPaint)
+        }
+        if (bottom != null) {
+            textPaint.textSize = px * 0.115f
+            curved(canvas, bottom, top = false)
+            textPaint.textSize = px * 0.125f
+        }
+    }
+    val labelMask = blank().also { curved(AndroidCanvas(it), label, top = true) }
+    return RingLayers(track, arc, labelMask)
 }
 
 /** Glucose magenta, as in the app. */

@@ -485,6 +485,7 @@
     <string name="lock_unlock">Unlock</string>
     <string name="widget_name">Neutrino today</string>
     <string name="widget_description">Today\'s carbs and calories, water, your latest glucose reading, and a camera button to log a meal.</string>
+    <string name="widget_of_goal">%1$s of %2$s</string>
     <string name="widget_totals">%1$s carbs · %2$s kcal</string>
     <string name="shortcut_log_meal">Log a meal</string>
     <string name="shortcut_add_water">Add water</string>
