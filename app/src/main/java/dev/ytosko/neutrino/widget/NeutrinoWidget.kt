@@ -187,8 +187,8 @@ class NeutrinoWidget : GlanceAppWidget() {
         ) {
             Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    // "Today · 26 September"
-                    context.getString(R.string.home_title) + " · " + LocalDate.now().format(DateTimeFormatter.ofPattern("d MMMM")),
+                    // "Today · 26 Sep"
+                    context.getString(R.string.home_title) + " · " + LocalDate.now().format(DateTimeFormatter.ofPattern("d MMM")),
                     style = TextStyle(color = colors.onSurface, fontSize = 15.sp, fontWeight = FontWeight.Bold),
                     maxLines = 1,
                 )
