@@ -1,8 +1,6 @@
 package dev.ytosko.neutrino.widget
 
-import kotlin.math.roundToInt
 import androidx.glance.layout.size
-import android.graphics.Typeface
 import androidx.glance.ColorFilter
 import android.graphics.PathMeasure as AndroidPathMeasure
 import android.graphics.Path as AndroidPath
@@ -211,7 +209,7 @@ class NeutrinoWidget : GlanceAppWidget() {
                     Tile(data.carbs, of(data.carbsNumber, data.carbsGoal), context.getString(R.string.macro_carbs), MacroColor.Carbs, data.carbsProgress),
                     Tile(data.protein, of(data.proteinNumber, data.proteinGoal), context.getString(R.string.macro_protein), MacroColor.Protein, data.proteinProgress),
                     Tile(data.fat, of(data.fatNumber, data.fatGoal), context.getString(R.string.macro_fat), MacroColor.Fat, data.fatProgress),
-                    Tile(data.kcal, of(data.kcalNumber, data.kcalGoal), context.getString(R.string.health_calories), MacroColor.Kcal, data.kcalProgress),
+                    Tile(data.kcal, of(data.kcalNumber, data.kcalGoal), context.getString(R.string.macro_energy), MacroColor.Kcal, data.kcalProgress),
                 )
                 Spacer(GlanceModifier.defaultWeight())
                 Row(modifier = GlanceModifier.fillMaxWidth()) {
@@ -253,17 +251,15 @@ class NeutrinoWidget : GlanceAppWidget() {
     }
 
     /**
-     * One macro as a ring, like a fitness app: the name curved along the top, the percentage of
-     * the goal in the middle and "243 of 150g" curved along the bottom. Widgets can't draw, so each
-     * layer is a white mask tinted with day/night colours: the faint track, the progress arc with
-     * the bottom line, and the name. Without a goal the middle shows the amount instead.
+     * One macro as a ring: progress toward the goal round the outside, and the amount with its
+     * name ("30g" over "Protein") in the middle. Widgets can't draw, so the track and the arc are
+     * white masks tinted with day/night colours. Without a goal only the track shows.
      */
     @Composable
     private fun MacroRing(context: Context, tile: Tile, diameter: Dp) {
         val density = context.resources.displayMetrics.density
         val px = (diameter.value * density).toInt().coerceAtLeast(1)
-        val layers = ringLayers(px, density, tile.progress ?: 0f, tile.label, tile.ofGoal)
-        val percent = tile.progress?.let { "${(it * 100).roundToInt()}%" }
+        val layers = ringLayers(px, density, tile.progress ?: 0f)
         Box(modifier = GlanceModifier.size(diameter), contentAlignment = Alignment.Center) {
             Image(ImageProvider(layers.track), contentDescription = null, colorFilter = ColorFilter.tint(tile.color.track), modifier = GlanceModifier.fillMaxSize())
             Image(
@@ -272,16 +268,22 @@ class NeutrinoWidget : GlanceAppWidget() {
                 colorFilter = ColorFilter.tint(tile.color.provider),
                 modifier = GlanceModifier.fillMaxSize(),
             )
-            Image(ImageProvider(layers.label), contentDescription = null, colorFilter = ColorFilter.tint(GlanceTheme.colors.onSurfaceVariant), modifier = GlanceModifier.fillMaxSize())
-            Text(
-                percent ?: tile.value,
-                style = TextStyle(
-                    color = if (percent != null) GlanceTheme.colors.onSurface else tile.color.provider,
-                    fontSize = (diameter.value * 0.2f).coerceIn(12f, 22f).sp,
-                    fontWeight = FontWeight.Bold,
-                ),
-                maxLines = 1,
-            )
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    tile.value,
+                    style = TextStyle(
+                        color = tile.color.provider,
+                        fontSize = (diameter.value * 0.19f).coerceIn(12f, 20f).sp,
+                        fontWeight = FontWeight.Bold,
+                    ),
+                    maxLines = 1,
+                )
+                Text(
+                    tile.label,
+                    style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 11.sp),
+                    maxLines = 1,
+                )
+            }
         }
     }
 
@@ -323,63 +325,29 @@ private enum class MacroColor(val day: Long, val night: Long) {
 private val WaterColor = androidx.glance.color.ColorProvider(day = androidx.compose.ui.graphics.Color(0xFF0369A1), night = androidx.compose.ui.graphics.Color(0xFF7DD3FC))
 private val WaterContainerColor = androidx.glance.color.ColorProvider(day = androidx.compose.ui.graphics.Color(0xFFE0F2FE), night = androidx.compose.ui.graphics.Color(0xFF1B3A4D))
 
-private class RingLayers(val track: Bitmap, val arc: Bitmap, val label: Bitmap)
+private class RingLayers(val track: Bitmap, val arc: Bitmap)
 
-/**
- * White masks for one ring, [px] square: the full track; the progress arc from 12 o'clock,
- * clockwise, plus [bottom] curved along the inside bottom; and [label] curved along the inside top.
- */
-private fun ringLayers(px: Int, density: Float, progress: Float, label: String, bottom: String?): RingLayers {
-    val stroke = px * 0.1f
+/** White masks for one ring, [px] square: the full track, and the progress arc from 12 o'clock, clockwise. */
+private fun ringLayers(px: Int, density: Float, progress: Float): RingLayers {
+    val stroke = px * 0.09f
     val radius = px / 2f - stroke / 2 - density
-    val inner = radius - stroke / 2
     val c = px / 2f
     fun blank() = Bitmap.createBitmap(px, px, Bitmap.Config.ARGB_8888)
-    val ringPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+    val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
         strokeWidth = stroke
         color = 0xFFFFFFFF.toInt()
     }
     val oval = RectF(c - radius, c - radius, c + radius, c + radius)
-
-    val track = blank().also { AndroidCanvas(it).drawOval(oval, ringPaint) }
-
-    val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = 0xFFFFFFFF.toInt()
-        textSize = px * 0.125f
-        typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-    }
-    val gap = 1.5f * density
-    fun curved(canvas: AndroidCanvas, text: String, top: Boolean) {
-        // Along the top, letters stand outside the path, so the path sits a cap-height further in;
-        // along the bottom they stand inside it.
-        val metrics = textPaint.fontMetrics
-        val r = if (top) inner - gap + metrics.ascent * 0.72f else inner - gap - metrics.descent
-        val path = AndroidPath().apply {
-            addArc(RectF(c - r, c - r, c + r, c + r), 180f, if (top) 180f else -180f)
-        }
-        val length = Math.PI.toFloat() * r
-        var shown = text
-        while (shown.length > 1 && textPaint.measureText(shown) > length * 0.8f) shown = shown.dropLast(1)
-        if (shown != text) shown = shown.dropLast(1) + "…"
-        canvas.drawTextOnPath(shown, path, (length - textPaint.measureText(shown)) / 2, 0f, textPaint)
-    }
-
+    val track = blank().also { AndroidCanvas(it).drawOval(oval, paint) }
     val arc = blank().also { bitmap ->
-        val canvas = AndroidCanvas(bitmap)
         val fraction = progress.coerceIn(0f, 1f)
         if (fraction > 0f) {
-            ringPaint.strokeCap = if (fraction >= 1f) Paint.Cap.BUTT else Paint.Cap.ROUND
-            canvas.drawArc(oval, -90f, 360f * fraction, false, ringPaint)
-        }
-        if (bottom != null) {
-            textPaint.textSize = px * 0.115f
-            curved(canvas, bottom, top = false)
-            textPaint.textSize = px * 0.125f
+            paint.strokeCap = if (fraction >= 1f) Paint.Cap.BUTT else Paint.Cap.ROUND
+            AndroidCanvas(bitmap).drawArc(oval, -90f, 360f * fraction, false, paint)
         }
     }
-    val labelMask = blank().also { curved(AndroidCanvas(it), label, top = true) }
-    return RingLayers(track, arc, labelMask)
+    return RingLayers(track, arc)
 }
 
 /** Glucose magenta, as in the app. */
