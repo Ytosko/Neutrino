@@ -12,6 +12,7 @@ Faster logging, your glucose next to your meals, reports for your doctor, and Ne
 - **Clearer warnings:** errors use a deeper red, so they no longer look like the brand colour.
 - **iPhone-style polish:** soft shadows instead of outlines; compact page headers whose title shrinks as you scroll; solid icon squares in Settings; iPhone-style alerts and floating messages; a sliding Day / Week / Month / Year control; a "Log a meal" sheet with big tiles; press and hold a meal or a glucose reading to lift it over a blurred background with its options.
 - **Motion and feel:** cards and buttons respond to a press, totals count up and goal rings glide to their new value, the water card is a glass that fills, and the phone gives a gentle tap for water, switches, saving and deleting.
+- **Lighter text:** text is 20% smaller throughout for a calmer, more compact look (never below a readable minimum, and your phone's text-size setting still applies).
 - **Charts:** softer gradient bars with the touched value in a bubble, and friendly illustrations when a day or range is empty.
 
 ### Logging

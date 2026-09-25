@@ -170,14 +170,14 @@ class NeutrinoWidget : GlanceAppWidget() {
             Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     context.getString(R.string.home_title),
-                    style = TextStyle(color = colors.onSurface, fontSize = 15.sp, fontWeight = FontWeight.Bold),
+                    style = TextStyle(color = colors.onSurface, fontSize = 12.sp, fontWeight = FontWeight.Bold),
                 )
                 Spacer(GlanceModifier.defaultWeight())
                 when {
-                    data.glucose != null -> Text(data.glucose, style = TextStyle(color = GlucoseColor, fontSize = 13.sp, fontWeight = FontWeight.Medium), maxLines = 1)
+                    data.glucose != null -> Text(data.glucose, style = TextStyle(color = GlucoseColor, fontSize = 11.sp, fontWeight = FontWeight.Medium), maxLines = 1)
                     !showTiles -> Text(
                         context.getString(R.string.widget_totals, data.carbs, data.kcal),
-                        style = TextStyle(color = colors.onSurfaceVariant, fontSize = 13.sp),
+                        style = TextStyle(color = colors.onSurfaceVariant, fontSize = 11.sp),
                         maxLines = 1,
                     )
                 }
@@ -201,8 +201,8 @@ class NeutrinoWidget : GlanceAppWidget() {
             Spacer(GlanceModifier.defaultWeight())
             Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = GlanceModifier.defaultWeight()) {
-                    Text(context.getString(R.string.home_water), style = TextStyle(color = colors.onSurfaceVariant, fontSize = 12.sp))
-                    Text(data.water, style = TextStyle(color = WaterColor, fontSize = 16.sp, fontWeight = FontWeight.Bold))
+                    Text(context.getString(R.string.home_water), style = TextStyle(color = colors.onSurfaceVariant, fontSize = 11.sp))
+                    Text(data.water, style = TextStyle(color = WaterColor, fontSize = 13.sp, fontWeight = FontWeight.Bold))
                 }
                 if (data.canAddWater) {
                     Button(
@@ -255,7 +255,7 @@ class NeutrinoWidget : GlanceAppWidget() {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
                     tile.value,
-                    style = TextStyle(color = tile.color.provider, fontSize = 15.sp, fontWeight = FontWeight.Bold),
+                    style = TextStyle(color = tile.color.provider, fontSize = 12.sp, fontWeight = FontWeight.Bold),
                     maxLines = 1,
                 )
                 Text(tile.label, style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 11.sp), maxLines = 1)
