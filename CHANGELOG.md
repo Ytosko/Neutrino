@@ -2,6 +2,19 @@
 
 Every release has a section here, headed `## [x.y.z] - YYYY-MM-DD` with an optional ` · Release name`. The release workflow publishes the section as the GitHub release notes (and the name as its title), and refuses to release a version that has none.
 
+## [1.0.2] - 2026-09-25 · v1.1-NeutrinoBuddy
+
+Everything you log now always reaches Health Connect, even if it wasn't connected at the time.
+
+### Health Connect sync
+- **Catch-up sync:** meals and water saved while Health Connect wasn't connected (for example before you granted access, or after access was turned off) are sent automatically as soon as it's connected again, with their original date and time. The "Not synced" label disappears once they're sent.
+- **Deletes catch up too:** if you delete a meal or remove a glass of water while Health Connect isn't connected, Neutrino remembers it and removes it from Health Connect later, so nothing you deleted lingers in Google Health. Tapping **Undo** before then cancels the delete.
+- **When it syncs:** when Neutrino starts, every time you return to it, right after you grant Health Connect access, and once a day in the background.
+
+### Install or update
+- **Already on 1.0.1:** download `neutrino-1.0.2.apk` below and open it. It installs over 1.0.1 and keeps all your data.
+- **New install:** Android 9 or newer. Allow installing from your browser or file manager when Android asks.
+
 ## [1.0.1] - 2026-09-25 · v1-NeutrinoBuddy
 
 The first public release of Neutrino: snap your plate, log your macros.
