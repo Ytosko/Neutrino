@@ -7,12 +7,12 @@ Every release has a section here, headed `## [x.y.z] - YYYY-MM-DD` with an optio
 Faster logging, your glucose next to your meals, reports for your doctor, and Neutrino in Bangla.
 
 ### A fresh new look
-- **Clean and colourful:** white cards on a soft grey page (deep blue-grey in dark mode) instead of pink everywhere, so food photos and numbers stand out.
+- **Warm and colourful:** Neutrino's warm blush background with white cards, so food photos and numbers stand out.
 - **Colours that mean something:** coral for Neutrino and its main buttons; amber carbs, teal protein, violet fat, blue water, magenta glucose, green for "in range"; each part of Settings has its own colour.
 - **Clearer warnings:** errors use a deeper red, so they no longer look like the brand colour.
 
 ### Logging
-- **Log again:** open any meal and choose ⋮ → **Log again today** to log the same foods now (no photo, no AI cost), with Undo. Deleting a meal is in the same menu, so meal cards stay clean.
+- **Log again:** press and hold any meal on your day and choose **Log again** to log the same foods (no photo, no AI cost), with Undo. For a meal from another day, choose **Today** or **that day** (at the same time). **Delete meal** is in the same menu, so meal cards stay clean.
 - **Home screen widget:** today's carbs, protein, fat and calories (with your goal rings), your water with a one-tap + 250 ml, a camera button that opens straight into logging a meal, and your latest glucose reading (you can hide it in Settings).
 - **App shortcuts:** long-press the Neutrino icon for "Log a meal" and "Add water".
 - **Daily goals:** optional carbs, protein, fat, calories and water targets (Settings → Daily goals). Progress fills the border of each total on your day, so nothing shifts; tap a total to see the exact figures.

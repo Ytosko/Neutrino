@@ -293,7 +293,7 @@ private enum class MacroColor(val day: Long, val night: Long) {
 private val WaterColor = androidx.glance.color.ColorProvider(day = androidx.compose.ui.graphics.Color(0xFF0369A1), night = androidx.compose.ui.graphics.Color(0xFF7DD3FC))
 private val WaterContainerColor = androidx.glance.color.ColorProvider(day = androidx.compose.ui.graphics.Color(0xFFE0F2FE), night = androidx.compose.ui.graphics.Color(0xFF1B3A4D))
 
-private val TileFill = androidx.glance.color.ColorProvider(day = androidx.compose.ui.graphics.Color(0xFFFFFFFF), night = androidx.compose.ui.graphics.Color(0xFF1A1D24))
+private val TileFill = androidx.glance.color.ColorProvider(day = androidx.compose.ui.graphics.Color(0xFFFFFFFF), night = androidx.compose.ui.graphics.Color(0xFF231A18))
 
 /**
  * The goal ring as a white mask (tinted by the widget): a faint track all round and the progress

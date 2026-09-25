@@ -127,9 +127,6 @@ fun ReviewScreen(
     onSaved: (syncedToHealthConnect: Boolean) -> Unit,
     onOpenAiSettings: () -> Unit,
     onDiscard: () -> Unit,
-    /** Only for a saved meal: log a copy today, or delete it. The day view does it and offers Undo. */
-    onLogAgain: (() -> Unit)? = null,
-    onDelete: (() -> Unit)? = null,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val phase = state.phase
@@ -159,8 +156,6 @@ fun ReviewScreen(
                 onDetails = { showMealDetails = true },
                 onPhoto = { showPhoto = true },
                 onSave = viewModel::save,
-                onLogAgain = onLogAgain.takeIf { state.editing },
-                onDelete = onDelete.takeIf { state.editing },
             )
         },
     ) { padding ->
@@ -299,11 +294,8 @@ private fun ReviewHeader(
     onDetails: () -> Unit,
     onPhoto: () -> Unit,
     onSave: () -> Unit,
-    onLogAgain: (() -> Unit)?,
-    onDelete: (() -> Unit)?,
 ) {
     val focus = LocalFocusManager.current
-    var menu by remember { mutableStateOf(false) }
     val timeFormatter = remember { DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT) }
     val dateFormatter = remember { DateTimeFormatter.ofPattern("d MMM") }
     val (typeColor, typeContainer) = mealTypeColors(state.mealType)
@@ -373,35 +365,6 @@ private fun ReviewHeader(
                     CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
                 } else {
                     Text(stringResource(R.string.review_save_short))
-                }
-            }
-            if (onLogAgain != null || onDelete != null) {
-                Box {
-                    IconButton(onClick = { menu = true }) {
-                        Icon(painterResource(R.drawable.ic_more_vertical), contentDescription = stringResource(R.string.meal_more))
-                    }
-                    DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                        if (onLogAgain != null) {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.meal_log_again_today)) },
-                                leadingIcon = { Icon(painterResource(R.drawable.ic_refresh), contentDescription = null) },
-                                onClick = {
-                                    menu = false
-                                    onLogAgain()
-                                },
-                            )
-                        }
-                        if (onDelete != null) {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.home_delete_meal), color = MaterialTheme.colorScheme.error) },
-                                leadingIcon = { Icon(painterResource(R.drawable.ic_trash), contentDescription = null, tint = MaterialTheme.colorScheme.error) },
-                                onClick = {
-                                    menu = false
-                                    onDelete()
-                                },
-                            )
-                        }
-                    }
                 }
             }
         }

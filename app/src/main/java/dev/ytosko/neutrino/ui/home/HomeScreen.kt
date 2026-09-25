@@ -1,5 +1,12 @@
 package dev.ytosko.neutrino.ui.home
 
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.material3.ButtonDefaults
 import dev.ytosko.neutrino.ui.theme.Tint
 import dev.ytosko.neutrino.domain.insights.compactNumber
@@ -163,8 +170,6 @@ fun HomeScreen(
     onOpenGlucoseDay: (LocalDate) -> Unit,
     savedResult: Boolean?,
     onSavedResultShown: () -> Unit,
-    mealAction: String?,
-    onMealActionHandled: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -177,6 +182,7 @@ fun HomeScreen(
     val glucoseRange by viewModel.glucoseRange.collectAsStateWithLifecycle()
     val mealGlucose by viewModel.mealGlucose.collectAsStateWithLifecycle()
     val goals by viewModel.goals.collectAsStateWithLifecycle()
+    val mealTipVisible by viewModel.mealTipVisible.collectAsStateWithLifecycle()
     var editingGlucose by remember { mutableStateOf<GlucoseEntity?>(null) }
     var addingGlucose by remember { mutableStateOf(false) }
     var pickingDate by remember { mutableStateOf(false) }
@@ -254,28 +260,24 @@ fun HomeScreen(
     }
 
     val loggedAgain = stringResource(R.string.home_logged_again)
-    fun logAgain(mealId: String) {
+    var logAgainChoice by remember { mutableStateOf<LoggedMeal?>(null) }
+    /** Logs a copy today (then shows today) or on the meal's own day, with Undo. */
+    fun logAgain(meal: LoggedMeal, onItsDay: Boolean) {
         scope.launch {
-            val id = viewModel.logAgainToday(mealId, mealWindows) ?: return@launch
+            val id = viewModel.logAgain(meal, onItsDay, mealWindows) ?: return@launch
+            if (!onItsDay) {
+                tab = HomeTab.Days
+                viewModel.showToday()
+            }
             snackbar.currentSnackbarData?.dismiss()
             val result = snackbar.showSnackbar(loggedAgain, actionLabel = undo, duration = SnackbarDuration.Long)
             if (result == SnackbarResult.ActionPerformed) viewModel.deleteMeal(id)
         }
     }
 
-    // From the meal page's menu: log a copy today, or delete it (both with Undo).
-    LaunchedEffect(mealAction) {
-        val action = mealAction ?: return@LaunchedEffect
-        onMealActionHandled()
-        val id = action.substringAfter(':')
-        when {
-            action.startsWith("again:") -> {
-                tab = HomeTab.Days
-                viewModel.showToday()
-                logAgain(id)
-            }
-            action.startsWith("delete:") -> deleteWithUndo(id)
-        }
+    /** A meal from today logs again straight away; one from another day asks which day. */
+    fun startLogAgain(meal: LoggedMeal) {
+        if (viewModel.isToday(meal)) logAgain(meal, onItsDay = false) else logAgainChoice = meal
     }
 
     fun openCamera() {
@@ -504,6 +506,9 @@ fun HomeScreen(
                 if (isToday) item { NextMealHint(mealWindows.nextMainMeal(LocalTime.now()), itemModifier) }
                 item { EmptyMeals(isToday, itemModifier) }
             }
+            if (mealTipVisible && summary != null && summary.meals.isNotEmpty()) {
+                item(key = "meal-tip") { MealTip(onDismiss = viewModel::mealTipDone, modifier = itemModifier.animateItem()) }
+            }
             summary?.meals?.groupBy { it.mealType }?.let { groups ->
                 MEAL_ORDER.filter { it in groups }.forEach { type ->
                     val meals = groups.getValue(type)
@@ -515,6 +520,15 @@ fun HomeScreen(
                             meal,
                             glucose = mealGlucose[meal.id],
                             onOpen = { onOpenMeal(meal.id) },
+                            onLogAgain = {
+                                viewModel.mealTipDone()
+                                startLogAgain(meal)
+                            },
+                            onDelete = {
+                                viewModel.mealTipDone()
+                                deleteWithUndo(meal.id)
+                            },
+                            onMenuShown = viewModel::mealTipDone,
                             modifier = itemModifier.animateItem(),
                         )
                     }
@@ -563,6 +577,29 @@ fun HomeScreen(
                 }
             }
         }
+    }
+
+    logAgainChoice?.let { meal ->
+        val day = remember(meal.id) { meal.eatenAt.atZone(ZoneId.systemDefault()).toLocalDate().format(DateTimeFormatter.ofPattern("EEE, d MMM")) }
+        AlertDialog(
+            onDismissRequest = { logAgainChoice = null },
+            title = { Text(stringResource(R.string.log_again_title)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                    Text(stringResource(R.string.log_again_body, meal.name), style = MaterialTheme.typography.bodyMedium)
+                    LogAgainOption(R.drawable.ic_calendar_days, stringResource(R.string.log_again_today), stringResource(R.string.log_again_today_body)) {
+                        logAgainChoice = null
+                        logAgain(meal, onItsDay = false)
+                    }
+                    LogAgainOption(R.drawable.ic_history, day, stringResource(R.string.log_again_that_day_body)) {
+                        logAgainChoice = null
+                        logAgain(meal, onItsDay = true)
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = { TextButton(onClick = { logAgainChoice = null }) { Text(stringResource(R.string.home_cancel)) } },
+        )
     }
 
     if (addingGlucose) {
@@ -722,41 +759,91 @@ private fun WaterCard(waterMl: Int, goalMl: Int?, isToday: Boolean, onRemove: ()
 }
 
 @Composable
-private fun MealRow(meal: LoggedMeal, glucose: MealGlucose?, onOpen: () -> Unit, modifier: Modifier = Modifier) {
+private fun MealRow(
+    meal: LoggedMeal,
+    glucose: MealGlucose?,
+    onOpen: () -> Unit,
+    onLogAgain: () -> Unit,
+    onDelete: () -> Unit,
+    onMenuShown: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val colors = NeutrinoTheme.colors
     val time = remember(meal.eatenAt) {
         meal.eatenAt.atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT))
     }
-    Card(
-        onClick = onOpen,
-        modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
-        border = CardDefaults.outlinedCardBorder(),
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(Spacing.sm),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(Spacing.md),
-        ) {
-            Thumbnail(meal.thumbnailPath, meal.category)
-            Column(modifier = Modifier.weight(1f)) {
-                Text(meal.name, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Text(
-                    stringResource(R.string.home_meal_line, time, meal.nutrition.calories.roundKcal()),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+    val haptics = LocalHapticFeedback.current
+    var menu by remember { mutableStateOf(false) }
+    val logAgainLabel = stringResource(R.string.meal_log_again)
+    val deleteLabel = stringResource(R.string.home_delete_meal)
+    Box(modifier = modifier.fillMaxWidth()) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(MaterialTheme.shapes.large)
+                .combinedClickable(
+                    onClickLabel = stringResource(R.string.meal_open),
+                    onLongClickLabel = stringResource(R.string.meal_actions),
+                    onClick = onOpen,
+                    onLongClick = {
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        menu = true
+                        onMenuShown()
+                    },
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm), modifier = Modifier.padding(top = 2.dp)) {
-                    MacroText(stringResource(R.string.macro_letter_carbs), meal.nutrition.carbsG, colors.carbs)
-                    MacroText(stringResource(R.string.macro_letter_protein), meal.nutrition.proteinG, colors.protein)
-                    MacroText(stringResource(R.string.macro_letter_fat), meal.nutrition.fatG, colors.fat)
-                    if (!meal.syncedToHealthConnect) {
-                        Text(stringResource(R.string.home_not_synced), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+                .semantics {
+                    // Screen readers offer both actions directly, without the long-press.
+                    customActions = listOf(
+                        CustomAccessibilityAction(logAgainLabel) { onLogAgain(); true },
+                        CustomAccessibilityAction(deleteLabel) { onDelete(); true },
+                    )
+                },
+            shape = MaterialTheme.shapes.large,
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
+            border = CardDefaults.outlinedCardBorder(),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(Spacing.sm),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+            ) {
+                Thumbnail(meal.thumbnailPath, meal.category)
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(meal.name, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        stringResource(R.string.home_meal_line, time, meal.nutrition.calories.roundKcal()),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm), modifier = Modifier.padding(top = 2.dp)) {
+                        MacroText(stringResource(R.string.macro_letter_carbs), meal.nutrition.carbsG, colors.carbs)
+                        MacroText(stringResource(R.string.macro_letter_protein), meal.nutrition.proteinG, colors.protein)
+                        MacroText(stringResource(R.string.macro_letter_fat), meal.nutrition.fatG, colors.fat)
+                        if (!meal.syncedToHealthConnect) {
+                            Text(stringResource(R.string.home_not_synced), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+                        }
                     }
+                    if (glucose != null) MealGlucoseLine(glucose)
                 }
-                if (glucose != null) MealGlucoseLine(glucose)
             }
+        }
+        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+            DropdownMenuItem(
+                text = { Text(logAgainLabel) },
+                leadingIcon = { Icon(painterResource(R.drawable.ic_refresh), contentDescription = null) },
+                onClick = {
+                    menu = false
+                    onLogAgain()
+                },
+            )
+            DropdownMenuItem(
+                text = { Text(deleteLabel, color = MaterialTheme.colorScheme.error) },
+                leadingIcon = { Icon(painterResource(R.drawable.ic_trash), contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                onClick = {
+                    menu = false
+                    onDelete()
+                },
+            )
         }
     }
 }
@@ -907,3 +994,49 @@ private fun MealGlucoseLine(glucose: MealGlucose) {
     }
 }
 
+
+
+/** One-time hint that meals can be pressed and held. */
+@Composable
+private fun MealTip(onDismiss: () -> Unit, modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(MaterialTheme.shapes.medium)
+            .background(NeutrinoTheme.colors.indigo.container)
+            .padding(start = Spacing.md, top = 4.dp, bottom = 4.dp, end = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+    ) {
+        Icon(painterResource(R.drawable.ic_info), contentDescription = null, tint = NeutrinoTheme.colors.indigo.content, modifier = Modifier.size(18.dp))
+        Text(
+            stringResource(R.string.meal_tip),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f),
+        )
+        IconButton(onClick = onDismiss) {
+            Icon(painterResource(R.drawable.ic_x), contentDescription = stringResource(R.string.meal_tip_dismiss), modifier = Modifier.size(18.dp))
+        }
+    }
+}
+
+/** A choice in the "Log again on…" dialog. */
+@Composable
+private fun LogAgainOption(icon: Int, title: String, body: String, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(MaterialTheme.shapes.medium)
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(vertical = Spacing.sm, horizontal = Spacing.xs),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+    ) {
+        IconBadge(icon, container = NeutrinoTheme.colors.coral.container, content = NeutrinoTheme.colors.coral.content, size = 40.dp)
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.titleSmall)
+            Text(body, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}

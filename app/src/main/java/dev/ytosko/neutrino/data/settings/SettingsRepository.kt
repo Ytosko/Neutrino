@@ -70,6 +70,8 @@ data class AppSettings(
     val weeklySummary: Boolean = false,
     /** Show the latest glucose reading on the home screen widget. */
     val widgetShowsGlucose: Boolean = true,
+    /** The "press and hold a meal" tip was seen (dismissed or used). */
+    val mealTipDone: Boolean = false,
 ) {
     val promptHints: PromptHints get() = PromptHints(cuisine, aiNotes.takeIf { it.isNotBlank() })
     val aiReady: Boolean
@@ -113,6 +115,7 @@ class SettingsRepository(context: Context, private val cipher: SecretCipher) {
         val hideInRecents = booleanPreferencesKey("hide_in_recents")
         val weeklySummary = booleanPreferencesKey("weekly_summary")
         val widgetGlucose = booleanPreferencesKey("widget_glucose")
+        val mealTipDone = booleanPreferencesKey("meal_tip_done")
         fun model(provider: AiProvider) = stringPreferencesKey("ai_model_${provider.id}")
         fun apiKey(provider: AiProvider) = stringPreferencesKey("ai_key_${provider.id}")
     }
@@ -158,6 +161,7 @@ class SettingsRepository(context: Context, private val cipher: SecretCipher) {
             hideInRecents = p[Keys.hideInRecents] ?: false,
             weeklySummary = p[Keys.weeklySummary] ?: false,
             widgetShowsGlucose = p[Keys.widgetGlucose] ?: true,
+            mealTipDone = p[Keys.mealTipDone] ?: false,
         )
     }
 
@@ -291,6 +295,10 @@ class SettingsRepository(context: Context, private val cipher: SecretCipher) {
 
     suspend fun setWeeklySummary(enabled: Boolean) {
         store.edit { it[Keys.weeklySummary] = enabled }
+    }
+
+    suspend fun setMealTipDone() {
+        store.edit { it[Keys.mealTipDone] = true }
     }
 
     suspend fun setWidgetShowsGlucose(enabled: Boolean) {

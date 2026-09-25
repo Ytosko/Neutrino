@@ -95,8 +95,6 @@ sealed interface Route {
 
 private const val KEY_SAVED_RESULT = "meal_saved_synced"
 
-/** "again:<meal id>" or "delete:<meal id>", from the meal page's menu to the day view. */
-private const val KEY_MEAL_ACTION = "meal_action"
 
 
 private const val SETUP_STEPS = 3
@@ -164,7 +162,6 @@ fun NeutrinoNavHost(startDestination: Route, modifier: Modifier = Modifier) {
             val container = LocalContext.current.appContainer
             val homeViewModel: HomeViewModel = viewModel { HomeViewModel(container.meals, container.settings, container.glucose) }
             val savedResult by entry.savedStateHandle.getStateFlow<Boolean?>(KEY_SAVED_RESULT, null).collectAsStateWithLifecycle()
-            val mealAction by entry.savedStateHandle.getStateFlow<String?>(KEY_MEAL_ACTION, null).collectAsStateWithLifecycle()
             val backup by container.backups.state.collectAsStateWithLifecycle(initialValue = null)
             val healthViewModel: HealthViewModel = viewModel { HealthViewModel(container.meals, container.glucose, container.settings) }
             HomeScreen(
@@ -182,8 +179,6 @@ fun NeutrinoNavHost(startDestination: Route, modifier: Modifier = Modifier) {
                 onOpenGlucoseDay = { date -> navController.navigate(Route.GlucoseDay(date.toEpochDay())) },
                 savedResult = savedResult,
                 onSavedResultShown = { entry.savedStateHandle[KEY_SAVED_RESULT] = null },
-                mealAction = mealAction,
-                onMealActionHandled = { entry.savedStateHandle[KEY_MEAL_ACTION] = null },
             )
         }
         composable<Route.Review> { entry ->
@@ -218,18 +213,6 @@ fun NeutrinoNavHost(startDestination: Route, modifier: Modifier = Modifier) {
                 },
                 onOpenAiSettings = { navController.navigate(Route.SettingsAi) },
                 onDiscard = navController::popBackStack,
-                onLogAgain = route.editMealId?.let { id ->
-                    {
-                        navController.previousBackStackEntry?.savedStateHandle?.set(KEY_MEAL_ACTION, "again:$id")
-                        navController.popBackStack()
-                    }
-                },
-                onDelete = route.editMealId?.let { id ->
-                    {
-                        navController.previousBackStackEntry?.savedStateHandle?.set(KEY_MEAL_ACTION, "delete:$id")
-                        navController.popBackStack()
-                    }
-                },
             )
         }
         composable<Route.Settings> {

@@ -73,10 +73,25 @@ class HomeViewModel(
         .map { DailyGoals(it.carbGoalG, it.proteinGoalG, it.fatGoalG, it.kcalGoal, it.waterGoalMl) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DailyGoals())
 
-    /** Logs a copy of meal [mealId] today, now. Returns the new meal's id for Undo. */
-    suspend fun logAgainToday(mealId: String, mealWindows: MealWindows): String? {
-        val at = Instant.now()
-        return meals.logAgain(mealId, at, zone, mealWindows.mealAt(at, zone))?.id
+    /**
+     * Logs a copy of [meal]: today at the current time (meal type from the clock), or [onItsDay]
+     * at the same time and type as the original. Returns the new meal's id for Undo.
+     */
+    suspend fun logAgain(meal: LoggedMeal, onItsDay: Boolean, mealWindows: MealWindows): String? {
+        val at = if (onItsDay) meal.eatenAt else Instant.now()
+        val type = if (onItsDay) meal.mealType else mealWindows.mealAt(at, zone)
+        return meals.logAgain(meal.id, at, zone, type)?.id
+    }
+
+    fun isToday(meal: LoggedMeal): Boolean = meal.eatenAt.atZone(zone).toLocalDate() == today.value
+
+    /** The "press and hold" tip shows until it's dismissed or a meal is long-pressed. */
+    val mealTipVisible: StateFlow<Boolean> = settings.settings
+        .map { !it.mealTipDone }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    fun mealTipDone() {
+        viewModelScope.launch { settings.setMealTipDone() }
     }
 
     /** Now on today, or the current time of day on a past day. */
