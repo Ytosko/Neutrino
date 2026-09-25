@@ -2,9 +2,9 @@
 
 Every release has a section here, headed `## [x.y.z] - YYYY-MM-DD` with an optional ` · Release name`. The release workflow publishes the section as the GitHub release notes (and the name as its title), and refuses to release a version that has none.
 
-## [Unreleased]
+## [1.0.4] - 2026-09-26 · v1.3-NeutrinoBuddy
 
-Faster logging, your glucose next to your meals, reports for your doctor, and Neutrino in Bangla.
+A fresh new look, a Health page by day, week, month and year, a home screen widget, faster logging, your glucose next to your meals, reports for your doctor, and Neutrino in Bangla.
 
 ### A fresh new look
 - **Warm and colourful:** Neutrino's warm blush background with white cards, so food photos and numbers stand out.
