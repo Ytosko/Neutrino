@@ -31,16 +31,20 @@ Paste the result as the value of `NEUTRINO_KEYSTORE_BASE64`.
 ## Publishing a release
 
 1. Make sure `main` is green in **Actions → CI**.
-2. Tag and push:
+2. Add a section for the version to [`CHANGELOG.md`](../CHANGELOG.md), e.g.
+   `## [1.0.2] - 2026-10-01 · Release name`, describing what's new. Write each paragraph and bullet on
+   one line (GitHub shows line breaks as-is). This becomes the release notes and title; the release
+   fails without it. Commit and push.
+3. Tag and push:
 
    ```bash
    git tag v1.0.0
    git push origin v1.0.0
    ```
 
-3. The **Release** workflow tests, builds with `versionName` 1.0.0 (`versionCode` 10000), checks the
+4. The **Release** workflow tests, builds with `versionName` 1.0.0 (`versionCode` 10000), checks the
    APK is signed with the registered key (SHA-1 `A5:52:B9:…:5C:72`, see [SIGNING.md](SIGNING.md)),
-   and publishes `neutrino-1.0.0.apk` with its SHA-256 checksum and generated release notes.
+   and publishes `neutrino-1.0.0.apk` with its SHA-256 checksum, using the CHANGELOG section as the notes.
 
 Version codes come from the tag (`major × 10000 + minor × 100 + patch`), so each release installs
 over the previous one.
