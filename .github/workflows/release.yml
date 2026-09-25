@@ -1,0 +1,71 @@
+name: Release
+
+# Push a tag like v1.0.0 to build, test, sign and publish the APK on GitHub Releases.
+# Needs four repository secrets (Settings > Secrets and variables > Actions), see docs/RELEASING.md:
+#   NEUTRINO_KEYSTORE_BASE64, NEUTRINO_KEYSTORE_PASSWORD, NEUTRINO_KEY_ALIAS, NEUTRINO_KEY_PASSWORD
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 25
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Version from tag
+        id: version
+        run: echo "name=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Restore signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.NEUTRINO_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.NEUTRINO_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.NEUTRINO_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.NEUTRINO_KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then echo "::error::Signing secrets are missing, see docs/RELEASING.md"; exit 1; fi
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
+          {
+            echo "storeFile=$RUNNER_TEMP/release.jks"
+            echo "storePassword=$STORE_PASSWORD"
+            echo "keyAlias=$KEY_ALIAS"
+            echo "keyPassword=$KEY_PASSWORD"
+          } > keystore.properties
+
+      - name: Test and build
+        run: ./gradlew --no-daemon -PversionName=${{ steps.version.outputs.name }} testDebugUnitTest assembleRelease
+
+      - name: Check the signing certificate
+        # Only builds signed with the registered key can use Google Drive backup, so refuse anything else.
+        run: |
+          APK=app/build/outputs/apk/release/app-release.apk
+          APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+          "$APKSIGNER" verify --print-certs "$APK" | tee certs.txt
+          grep -qi "SHA-1 digest: a552b9634ff966585a64280484cb904038565c72" certs.txt \
+            || { echo "::error::APK is not signed with the Neutrino release key"; exit 1; }
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.name }}
+        run: |
+          cp app/build/outputs/apk/release/app-release.apk "neutrino-$VERSION.apk"
+          sha256sum "neutrino-$VERSION.apk" > "neutrino-$VERSION.apk.sha256"
+          gh release create "$GITHUB_REF_NAME" "neutrino-$VERSION.apk" "neutrino-$VERSION.apk.sha256" \
+            --title "Neutrino $VERSION" --generate-notes
+
+      - name: Remove signing key
+        if: always()
+        run: rm -f keystore.properties "$RUNNER_TEMP/release.jks"

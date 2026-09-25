@@ -82,19 +82,19 @@
             breakfast, lunch, dinner or a snack based on your local time.
           </p>
           <div class="hero-actions">
-            <a class="btn btn-primary" href="https://github.com/Ytosko/Nutrino" rel="noopener">
+            <a class="btn btn-primary" href="https://github.com/Ytosko/Nutrino/releases/latest" rel="noopener">
+              <svg class="icon icon-sm" aria-hidden="true"><use href="/assets/img/icons.svg#i-download"/></svg>
+              Download for Android
+            </a>
+            <a class="btn btn-secondary" href="https://github.com/Ytosko/Nutrino" rel="noopener">
               <svg class="icon icon-sm" aria-hidden="true"><use href="/assets/img/icons.svg#i-github"/></svg>
               View on GitHub
-            </a>
-            <a class="btn btn-secondary" href="#privacy">
-              Our privacy promise
-              <svg class="icon icon-sm" aria-hidden="true"><use href="/assets/img/icons.svg#i-arrow-right"/></svg>
             </a>
           </div>
           <ul class="hero-note">
             <li><svg class="icon icon-sm" aria-hidden="true"><use href="/assets/img/icons.svg#i-check"/></svg>No account</li>
             <li><svg class="icon icon-sm" aria-hidden="true"><use href="/assets/img/icons.svg#i-check"/></svg>No ads or tracking</li>
-            <li><svg class="icon icon-sm" aria-hidden="true"><use href="/assets/img/icons.svg#i-check"/></svg>Coming soon to Google Play</li>
+            <li><svg class="icon icon-sm" aria-hidden="true"><use href="/assets/img/icons.svg#i-check"/></svg>Free APK · Android 9 and newer</li>
           </ul>
         </div>
 
@@ -144,7 +144,7 @@
             <span class="badge"><svg class="icon icon-sm"><use href="/assets/img/icons.svg#i-heart-pulse"/></svg></span>
             <span>Synced<small>Shows up in Google Health</small></span>
           </div>
-          <figcaption id="mock-cap" class="mock-caption">Illustrative preview. The app is in active development.</figcaption>
+          <figcaption id="mock-cap" class="mock-caption">Illustrative preview of the review screen.</figcaption>
         </figure>
       </div>
     </section>
@@ -265,7 +265,7 @@
         <div class="section-head">
           <span class="kicker">Features</span>
           <h2 id="features-title">Small app, carefully built</h2>
-          <p>Everything you need to log meals fast, and nothing that gets in your way.</p>
+          <p>Everything you need to log meals fast and understand your eating, and nothing that gets in your way.</p>
         </div>
         <div class="features">
           <article class="feature">
@@ -281,12 +281,27 @@
           <article class="feature">
             <span class="ic"><svg class="icon" aria-hidden="true"><use href="/assets/img/icons.svg#i-clock"/></svg></span>
             <h3>Knows what meal it is</h3>
-            <p>Breakfast, lunch, dinner or snack, chosen from your time zone and your own meal windows.</p>
+            <p>Breakfast, lunch, dinner or snack, chosen from your time zone and your own meal times.</p>
           </article>
           <article class="feature">
             <span class="ic"><svg class="icon" aria-hidden="true"><use href="/assets/img/icons.svg#i-utensils"/></svg></span>
             <h3>Understands local food</h3>
-            <p>Tell it your cuisine, like Bangladeshi, Indian or Mexican, for better recognition of bhaat, dal, biryani and more.</p>
+            <p>A built-in list of everyday and Bangladeshi dishes, packaged foods from Open Food Facts, and your cuisine as a hint for the AI.</p>
+          </article>
+          <article class="feature">
+            <span class="ic"><svg class="icon" aria-hidden="true"><use href="/assets/img/icons.svg#i-chart-column"/></svg></span>
+            <h3>See your trends</h3>
+            <p>Calories, carbs, protein and fat for the last 30 days, 12 weeks, 12 months or 7 years. Touch any bar to read it.</p>
+          </article>
+          <article class="feature">
+            <span class="ic"><svg class="icon" aria-hidden="true"><use href="/assets/img/icons.svg#i-bell"/></svg></span>
+            <h3>Gentle reminders</h3>
+            <p>Breakfast, lunch and dinner reminders at times you choose, skipped when you've already logged that meal.</p>
+          </article>
+          <article class="feature">
+            <span class="ic"><svg class="icon" aria-hidden="true"><use href="/assets/img/icons.svg#i-pencil"/></svg></span>
+            <h3>Fix anything later</h3>
+            <p>Browse any past day, edit a meal's foods and amounts, or delete with undo. Health Connect stays in sync.</p>
           </article>
           <article class="feature">
             <span class="ic"><svg class="icon" aria-hidden="true"><use href="/assets/img/icons.svg#i-droplet"/></svg></span>
@@ -308,11 +323,11 @@
         <div class="section-head" style="margin:0">
           <span class="kicker">Backups</span>
           <h2 id="backup-title">Don't lose a thing, even if you reinstall</h2>
-          <p>Like the chat apps you already use: an encrypted local backup is created on day one. Connect your Google account to keep a copy in your own Drive, daily, weekly or monthly.</p>
+          <p>Like the chat apps you already use: an encrypted backup is saved on your phone automatically, and it stays even if you uninstall the app. Connect your Google account to keep a copy in your own Drive, daily, weekly or monthly.</p>
           <ul class="pill-row" aria-label="Backup options">
             <li class="pill">Encrypted before upload</li>
             <li class="pill">Private app folder in your Drive</li>
-            <li class="pill">Restore on a new phone</li>
+            <li class="pill">Restore after reinstalling</li>
           </ul>
         </div>
         <div class="backup-card" aria-hidden="true">
@@ -365,6 +380,14 @@
             <div class="answer"><p>Not yet. Neutrino is built for Android and Health Connect. Android 14 and newer include Health Connect; on older versions you can install it from Google Play.</p></div>
           </details>
           <details>
+            <summary>How do I install it?<svg class="icon" aria-hidden="true"><use href="/assets/img/icons.svg#i-plus"/></svg></summary>
+            <div class="answer"><p>Download the latest APK from <a href="https://github.com/Ytosko/Nutrino/releases/latest" rel="noopener">GitHub Releases</a> on your phone and open it. Android will ask you to allow installing apps from your browser or file manager; allow it once. Updates install the same way, over the existing app, keeping your data.</p><p>Each release lists a SHA-256 checksum, and releases are signed with the same key every time, so Android only accepts genuine updates.</p></div>
+          </details>
+          <details>
+            <summary>Why does Neutrino ask for access to all files?<svg class="icon" aria-hidden="true"><use href="/assets/img/icons.svg#i-plus"/></svg></summary>
+            <div class="answer"><p>So its encrypted backup can live outside the app and survive an uninstall, the way chat apps keep their local backups. Neutrino only reads and writes its own backup file. The code is open source, so anyone can check.</p></div>
+          </details>
+          <details>
             <summary>What happens if I uninstall or clear the app's data?<svg class="icon" aria-hidden="true"><use href="/assets/img/icons.svg#i-plus"/></svg></summary>
             <div class="answer"><p>Meals you've already saved stay in Health Connect. Your settings, history and API key can be restored from your encrypted local backup or your Google Drive backup.</p></div>
           </details>
@@ -382,9 +405,13 @@
         <div class="cta-band">
           <img class="mark-bg" src="/assets/img/logo-mark-white.svg" alt="" width="360" height="360">
           <h2 id="cta-title">Built in the open</h2>
-          <p>Star the repo to follow along, report issues, or help add providers and cuisines.</p>
+          <p>Download the app, star the repo to follow along, report issues, or help add providers and cuisines.</p>
           <div class="actions">
-            <a class="btn btn-primary" href="https://github.com/Ytosko/Nutrino" rel="noopener">
+            <a class="btn btn-primary" href="https://github.com/Ytosko/Nutrino/releases/latest" rel="noopener">
+              <svg class="icon icon-sm" aria-hidden="true"><use href="/assets/img/icons.svg#i-download"/></svg>
+              Download for Android
+            </a>
+            <a class="btn btn-secondary" href="https://github.com/Ytosko/Nutrino" rel="noopener">
               <svg class="icon icon-sm" aria-hidden="true"><use href="/assets/img/icons.svg#i-github"/></svg>
               Star on GitHub
             </a>

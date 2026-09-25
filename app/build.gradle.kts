@@ -10,6 +10,12 @@ plugins {
 
 // Release signing is read from keystore.properties (never committed).
 // See docs/SIGNING.md. Without it, release builds are produced unsigned.
+/** 1.2.3 -> 10203, so every release installs over the previous one. */
+fun versionCodeFor(name: String): Int {
+    val (major, minor, patch) = (name.split(".").mapNotNull { it.toIntOrNull() } + listOf(0, 0, 0)).take(3)
+    return major * 10_000 + minor * 100 + patch
+}
+
 val keystoreProperties = Properties().apply {
     val file = rootProject.file("keystore.properties")
     if (file.exists()) file.inputStream().use { load(it) }
@@ -23,8 +29,9 @@ android {
         applicationId = "dev.ytosko.neutrino"
         minSdk = 28
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        // CI passes the release tag (v1.2.3 -> -PversionName=1.2.3); local builds use the default.
+        versionName = (findProperty("versionName") as String?) ?: "1.0.0"
+        versionCode = versionCodeFor(versionName!!)
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

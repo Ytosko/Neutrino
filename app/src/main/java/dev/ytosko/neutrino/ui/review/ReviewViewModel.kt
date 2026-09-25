@@ -83,6 +83,8 @@ data class ReviewUiState(
     val model: String? = null,
     /** Editing a saved meal rather than logging a new one. */
     val editing: Boolean = false,
+    /** The user changed something since the screen opened (or the meal was loaded). */
+    val changed: Boolean = false,
 ) {
     val nutrition: Nutrition get() = items.fold(Nutrition.ZERO) { acc, item -> acc + item.nutrition }
 
@@ -247,7 +249,7 @@ class ReviewViewModel(
     /** Continue without the AI: the user adds foods from search. */
     fun enterManually() = _state.update { it.copy(phase = ReviewPhase.Ready) }
 
-    fun setName(value: String) = _state.update { it.copy(name = value.take(80), nameEditedByUser = true) }
+    fun setName(value: String) = _state.update { it.copy(name = value.take(80), nameEditedByUser = true, changed = true) }
 
     fun addItem(food: Food, portion: Portion) = updateItems { items ->
         if (items.size >= MAX_ITEMS) items else items + newItem(food, portion)
@@ -279,14 +281,14 @@ class ReviewViewModel(
 
     fun removeItem(key: Long) = updateItems { items -> items.filterNot { it.key == key } }
 
-    fun setMealType(type: MealType) = _state.update { it.copy(mealType = type, mealTypeChosenByUser = true) }
+    fun setMealType(type: MealType) = _state.update { it.copy(mealType = type, mealTypeChosenByUser = true, changed = true) }
 
     fun setTime(time: LocalTime) = _state.update {
         val eatenAt = it.eatenAt.with(time)
-        it.copy(eatenAt = eatenAt, mealType = if (it.mealTypeChosenByUser) it.mealType else mealWindows.mealAt(time))
+        it.copy(eatenAt = eatenAt, mealType = if (it.mealTypeChosenByUser) it.mealType else mealWindows.mealAt(time), changed = true)
     }
 
-    fun setDate(date: LocalDate) = _state.update { it.copy(eatenAt = it.eatenAt.with(date)) }
+    fun setDate(date: LocalDate) = _state.update { it.copy(eatenAt = it.eatenAt.with(date), changed = true) }
 
     fun save() {
         val snapshot = _state.value
@@ -326,7 +328,7 @@ class ReviewViewModel(
     /** Changes the item list and keeps an automatic name in sync until the user types one. */
     private fun updateItems(transform: (List<ReviewItem>) -> List<ReviewItem>) = _state.update {
         val items = transform(it.items)
-        it.copy(items = items, name = if (it.nameEditedByUser || (it.name.isNotBlank() && it.photo != null)) it.name else autoName(items))
+        it.copy(items = items, changed = true, name = if (it.nameEditedByUser || (it.name.isNotBlank() && it.photo != null)) it.name else autoName(items))
     }
 
     private fun fail(reason: FailureReason) = _state.update { it.copy(phase = ReviewPhase.Failed(reason)) }

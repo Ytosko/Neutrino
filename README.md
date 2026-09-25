@@ -23,7 +23,8 @@ Google Gemini or OpenAI API key, and estimates carbohydrates, protein, fat and c
 the numbers, and Neutrino saves them to **Health Connect** as breakfast, lunch, dinner or a snack
 based on your local time, so they show up in Google Health, Fitbit and any other app you allow.
 
-> **Status:** early development. The website is live; the Android app is being built.
+**[Download the latest APK](https://github.com/Ytosko/Nutrino/releases/latest)** · Android 9 and newer ·
+[how to install](docs/RELEASING.md#installing)
 
 ## Principles
 
@@ -34,17 +35,20 @@ based on your local time, so they show up in Google Health, Fitbit and any other
   private app folder in *your* Google Drive.
 - **Estimates, not medical advice.** You always review before saving. Neutrino is not a medical device.
 
-## Planned features
+## Features
 
-- Photo → list of foods with portions via Gemini or OpenAI (pluggable providers)
-- Food search: your foods first, built-in foods, Open Food Facts, or AI for anything new
-- Portions in everyday units (plate, bowl, piece, cup) as well as g, kg, ml, L
-- Model picker, which lists vision-capable models your key can access
-- Automatic meal type from your time zone and configurable meal windows
-- Cuisine hints for better recognition of regional food (e.g. Bangladeshi)
-- Water logging
-- Writes `NutritionRecord` / `HydrationRecord` to Health Connect
-- WhatsApp-style encrypted backups: required backup file, optional Google Drive (`drive.appdata`), restore on reinstall
+- **Photo → foods:** the AI lists each food with its portion; you review and adjust before saving
+- **Food search:** your foods first, ~200 built-in foods (USDA + Bangladeshi dishes), Open Food Facts for packaged
+  products, or AI for anything new
+- **Everyday units:** plate, bowl, piece, cup, glass, can as well as g, kg, ml, L
+- **Your AI:** Gemini or OpenAI with your own key; pick any vision model your key can use
+- **Days:** browse any day, edit past meals, delete with undo, log water
+- **Health:** totals and touch-to-read charts for the last 30 days, 12 weeks, 12 months or 7 years
+- **Automatic meal type** from your local time and your own meal times
+- **Reminders** for breakfast, lunch and dinner, skipped once that meal is logged
+- **AI hints:** your cuisine and short notes to improve recognition
+- **Health Connect:** writes `NutritionRecord` and `HydrationRecord` (never reads)
+- **Backups:** encrypted, automatic on the phone (survives uninstall), optional Google Drive, restore on reinstall
 
 ## Repository layout
 
@@ -94,7 +98,8 @@ No DI framework, no analytics. Google Play services is used only for optional Dr
 ```
 
 Open the repository root in Android Studio to run it on a device or emulator.
-Release signing and Google OAuth setup: [docs/SIGNING.md](docs/SIGNING.md).
+Release signing and Google OAuth setup: [docs/SIGNING.md](docs/SIGNING.md). Publishing releases:
+[docs/RELEASING.md](docs/RELEASING.md) (push a `v1.2.3` tag; GitHub Actions tests, signs and publishes).
 
 ## Backups
 
@@ -104,7 +109,7 @@ Setup ends with a required backup; Google Drive is optional (**Settings → Back
   packed into one `.nbk` file ([format](app/src/main/java/dev/ytosko/neutrino/data/backup/BackupCrypto.kt)).
 - **Encryption:** AES-256-GCM with a random backup key. The key is wrapped with the user's password
   (PBKDF2-HMAC-SHA256), so scheduled backups run without asking and only a restore needs the password.
-- **Local:** written automatically to a fixed file in a hidden folder in shared storage, so it survives uninstalling
+- **Phone:** written automatically to a fixed file in a hidden folder in shared storage, so it survives uninstalling
   and a new install finds it without a file picker. This needs "All files access" (Android 11+) or the storage
   permission (Android 9–10); the app touches nothing else. Refreshed daily and shortly after meals change (WorkManager).
 - **Google Drive:** the hidden app folder, `drive.appdata` scope only, via Google Play services authorization and

@@ -137,7 +137,7 @@ fun ReviewScreen(
     LaunchedEffect(phase) { if (phase is ReviewPhase.Saved) onSaved(phase.syncedToHealthConnect) }
 
     // Back closes the screen straight away when there's nothing to lose; otherwise ask first.
-    val hasWork = state.items.isNotEmpty() || state.nameEditedByUser
+    val hasWork = if (state.editing) state.changed else state.items.isNotEmpty() || state.nameEditedByUser
     BackHandler(enabled = hasWork && phase !is ReviewPhase.Saved) { confirmDiscard = true }
 
     fun openSearch(target: SearchTarget) {
@@ -269,8 +269,8 @@ fun ReviewScreen(
     if (confirmDiscard) {
         AlertDialog(
             onDismissRequest = { confirmDiscard = false },
-            title = { Text(stringResource(R.string.review_discard_title)) },
-            text = { Text(stringResource(R.string.review_discard_body)) },
+            title = { Text(stringResource(if (state.editing) R.string.review_discard_changes_title else R.string.review_discard_title)) },
+            text = { Text(stringResource(if (state.editing) R.string.review_discard_changes_body else R.string.review_discard_body)) },
             confirmButton = {
                 TextButton(onClick = { confirmDiscard = false; onDiscard() }) {
                     Text(stringResource(R.string.review_discard), color = MaterialTheme.colorScheme.error)

@@ -81,7 +81,7 @@
 
         <h2 id="who">Who we are</h2>
         <p>Neutrino (“Neutrino”, “we”, “us”) is a free, open-source Android application and this accompanying website at <a href="https://neutrino.ytosko.dev">neutrino.ytosko.dev</a>, maintained by the Neutrino project (ytosko) and its contributors. The source code is publicly available at <a href="https://github.com/Ytosko/Nutrino" rel="noopener">github.com/Ytosko/Nutrino</a> under the GNU General Public License v3.0, so anyone can verify the statements in this policy.</p>
-        <p>This policy covers the Neutrino app as distributed by the project (for example through Google Play or the project's GitHub releases) and this website. Modified versions built and distributed by others are the responsibility of whoever distributes them.</p>
+        <p>This policy covers the Neutrino app as distributed by the project (through the project's GitHub releases) and this website. Modified versions built and distributed by others are the responsibility of whoever distributes them.</p>
 
         <h2 id="app-data">Data the app handles</h2>
         <p>The app processes the following data <strong>on your device</strong>, only to provide its features:</p>
@@ -97,6 +97,8 @@
             <tr><td>Your food list (foods you've logged, custom foods, portions and how often you eat them)</td><td>To show your usual foods first when you search</td><td>Stored on your device.</td></tr>
             <tr><td>Food search text (only for packaged products, after you type 3+ letters)</td><td>To find packaged products and their nutrition labels</td><td>Sent to Open Food Facts (openfoodfacts.org). No other data is sent with it.</td></tr>
             <tr><td>Names of new foods you add</td><td>To estimate nutrition for foods not in any list</td><td>Sent to the AI provider you selected, using your API key.</td></tr>
+            <tr><td>Optional cuisine and notes for the AI</td><td>To help the AI recognise the food you eat</td><td>Stored on your device and sent to the AI provider you selected along with each analysis.</td></tr>
+            <tr><td>Meal reminder times</td><td>To remind you to log breakfast, lunch and dinner</td><td>Notifications are scheduled and shown by your device. Nothing is sent anywhere.</td></tr>
           </tbody>
         </table>
         <p>To take a meal photo, Neutrino opens your phone's camera app. It does not request the camera permission itself. To choose an existing photo it uses the Android photo picker, so it never gets access to your whole gallery. Photos are resized and stripped of metadata (including location) on your device before they are sent. Temporary camera files are deleted after analysis.</p>
@@ -108,7 +110,7 @@
           <li>Google Gemini API: <a href="https://ai.google.dev/gemini-api/terms" rel="noopener">ai.google.dev/gemini-api/terms</a></li>
           <li>OpenAI: <a href="https://openai.com/policies/" rel="noopener">openai.com/policies</a></li>
         </ul>
-        <p>Neutrino does not send your nutrition history, Health Connect data or any other personal data to AI providers. Only the photo you are analyzing, or the name of a new food you add, is sent with the analysis instructions.</p>
+        <p>Neutrino does not send your nutrition history, Health Connect data or any other personal data to AI providers. Only the photo you are analyzing, or the name of a new food you add, is sent with the analysis instructions, together with the optional cuisine and notes you set in the app.</p>
 
         <h3>Open Food Facts</h3>
         <p>When you search for a food and type three or more letters, Neutrino also searches <a href="https://world.openfoodfacts.org" rel="noopener">Open Food Facts</a>, a free, open database of packaged products, so you can log branded items. Only the search text is sent, along with the app's name and version, which Open Food Facts asks apps to identify themselves with. Open Food Facts' own <a href="https://world.openfoodfacts.org/privacy" rel="noopener">privacy policy</a> applies to those requests. Built-in foods and your own food list are searched on your device without any network request.</p>
