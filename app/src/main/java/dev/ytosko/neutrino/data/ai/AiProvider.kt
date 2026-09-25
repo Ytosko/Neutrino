@@ -69,14 +69,25 @@ interface AiClient {
 }
 
 /** Analyses a meal photo; the reply lists each food with its portion and nutrition. */
-suspend fun AiClient.analyzeMeal(apiKey: String, model: String, jpeg: ByteArray, detail: PhotoDetail): MealAnalysis {
-    val reply = generateJson(apiKey, model, AnalysisPrompt.MEAL, AnalysisPrompt.MEAL_SCHEMA, ImageInput(jpeg, detail))
+suspend fun AiClient.analyzeMeal(
+    apiKey: String,
+    model: String,
+    jpeg: ByteArray,
+    detail: PhotoDetail,
+    hints: PromptHints = PromptHints(),
+): MealAnalysis {
+    val reply = generateJson(apiKey, model, AnalysisPrompt.meal(hints), AnalysisPrompt.MEAL_SCHEMA, ImageInput(jpeg, detail))
     return MealAnalysisParser.parse(reply.text)?.copy(usage = reply.usage) ?: throw AiException.NoResult()
 }
 
 /** Estimates nutrition for a food the user typed (text only, far cheaper than a photo). */
-suspend fun AiClient.estimateFood(apiKey: String, model: String, name: String): Pair<FoodEstimate, TokenUsage?> {
-    val reply = generateJson(apiKey, model, AnalysisPrompt.customFood(name), AnalysisPrompt.FOOD_SCHEMA)
+suspend fun AiClient.estimateFood(
+    apiKey: String,
+    model: String,
+    name: String,
+    hints: PromptHints = PromptHints(),
+): Pair<FoodEstimate, TokenUsage?> {
+    val reply = generateJson(apiKey, model, AnalysisPrompt.customFood(name, hints), AnalysisPrompt.FOOD_SCHEMA)
     val estimate = MealAnalysisParser.parseFoodEstimate(reply.text) ?: throw AiException.NoResult()
     return estimate to reply.usage
 }

@@ -54,7 +54,7 @@ fun SettingsScreen(
     settings: Flow<AppSettings>,
     backup: Flow<BackupState>,
     onOpenBackup: () -> Unit,
-    onRemindersChange: (Boolean) -> Unit,
+    onOpenMeals: () -> Unit,
     healthViewModel: HealthConnectViewModel,
     onBack: () -> Unit,
     onOpenAi: () -> Unit,
@@ -111,50 +111,23 @@ fun SettingsScreen(
                 onClick = onOpenBackup,
             )
         }
-        Section(stringResource(R.string.settings_section_reminders)) {
-            val context = LocalContext.current
-            var canNotify by remember { mutableStateOf(MealReminders.canNotify(context)) }
-            LifecycleResumeEffect(Unit) {
-                canNotify = MealReminders.canNotify(context)
-                onPauseOrDispose { }
-            }
-            val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
-                canNotify = MealReminders.canNotify(context)
-            }
-            val enabled = appSettings.remindersEnabled
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 64.dp)
-                    .toggleable(value = enabled, role = Role.Switch) { on ->
-                        onRemindersChange(on)
-                        if (on && !canNotify && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                            permission.launch(Manifest.permission.POST_NOTIFICATIONS)
-                        }
-                    }
-                    .padding(horizontal = Spacing.md, vertical = Spacing.sm),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(Spacing.md),
-            ) {
-                IconBadge(icon = R.drawable.ic_bell, size = 40.dp)
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(stringResource(R.string.settings_reminders), style = MaterialTheme.typography.titleSmall)
-                    Text(
-                        stringResource(R.string.settings_reminders_body),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        Section(stringResource(R.string.settings_section_meals)) {
+            val time = { t: java.time.LocalTime -> t.format(java.time.format.DateTimeFormatter.ofLocalizedTime(java.time.format.FormatStyle.SHORT)) }
+            SettingRow(
+                icon = R.drawable.ic_bell,
+                title = stringResource(R.string.meals_title),
+                value = if (appSettings.remindersEnabled) {
+                    stringResource(
+                        R.string.settings_meals_value,
+                        time(appSettings.breakfastReminder),
+                        time(appSettings.lunchReminder),
+                        time(appSettings.dinnerReminder),
                     )
-                }
-                Switch(checked = enabled, onCheckedChange = null)
-            }
-            if (enabled && !canNotify) {
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                SettingRow(R.drawable.ic_circle_alert, stringResource(R.string.settings_reminders_blocked), null) {
-                    context.startActivity(
-                        Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName),
-                    )
-                }
-            }
+                } else {
+                    stringResource(R.string.settings_meals_off)
+                },
+                onClick = onOpenMeals,
+            )
         }
         Section(stringResource(R.string.settings_section_about)) {
             SettingRow(R.drawable.ic_shield_check, stringResource(R.string.settings_privacy), null, external = true) { uriHandler.openUri(privacyUrl) }

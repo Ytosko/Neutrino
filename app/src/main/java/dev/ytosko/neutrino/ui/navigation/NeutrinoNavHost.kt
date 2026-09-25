@@ -1,5 +1,9 @@
 package dev.ytosko.neutrino.ui.navigation
 
+import dev.ytosko.neutrino.ui.theme.Spacing
+import androidx.compose.foundation.layout.padding
+import dev.ytosko.neutrino.ui.settings.MealsScreen
+import dev.ytosko.neutrino.ui.ai.AiPreferences
 import dev.ytosko.neutrino.data.reminders.MealReminders
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -57,9 +61,15 @@ sealed interface Route {
     @Serializable data object SettingsAi : Route
     @Serializable data object SettingsHealth : Route
     /** [logEpochDay]: the day shown on Today when logging started, if not today. */
-    @Serializable data class Review(val photoUri: String? = null, val fromCamera: Boolean = false, val logEpochDay: Long? = null) : Route
+    @Serializable data class Review(
+        val photoUri: String? = null,
+        val fromCamera: Boolean = false,
+        val logEpochDay: Long? = null,
+        val editMealId: String? = null,
+    ) : Route
     @Serializable data object SetupBackup : Route
     @Serializable data object SettingsBackup : Route
+    @Serializable data object SettingsMeals : Route
     @Serializable data object Restore : Route
     @Serializable data object RestoreHealth : Route
 }
@@ -145,6 +155,7 @@ fun NeutrinoNavHost(startDestination: Route, modifier: Modifier = Modifier) {
                     navController.navigate(Route.Review(uri.toString(), fromCamera, homeViewModel.pastDayEpoch()))
                 },
                 onAddManually = { navController.navigate(Route.Review(logEpochDay = homeViewModel.pastDayEpoch())) },
+                onOpenMeal = { id -> navController.navigate(Route.Review(editMealId = id)) },
                 savedResult = savedResult,
                 onSavedResultShown = { entry.savedStateHandle[KEY_SAVED_RESULT] = null },
             )
@@ -165,6 +176,7 @@ fun NeutrinoNavHost(startDestination: Route, modifier: Modifier = Modifier) {
                     // Camera captures are temporary; delete once the photo is prepared.
                     onPhotoConsumed = { if (route.fromCamera && uri != null) runCatching { context.contentResolver.delete(uri, null, null) } },
                     logDate = route.logEpochDay?.let(java.time.LocalDate::ofEpochDay),
+                    editMealId = route.editMealId,
                 )
             }
             ReviewScreen(
@@ -190,17 +202,15 @@ fun NeutrinoNavHost(startDestination: Route, modifier: Modifier = Modifier) {
                 settings = container.settings.settings,
                 backup = container.backups.state,
                 onOpenBackup = { navController.navigate(Route.SettingsBackup) },
-                onRemindersChange = { on ->
-                    scope.launch {
-                        container.settings.setRemindersEnabled(on)
-                        if (on) MealReminders.scheduleAll(context) else MealReminders.cancelAll(context)
-                    }
-                },
+                onOpenMeals = { navController.navigate(Route.SettingsMeals) },
                 healthViewModel = healthConnectViewModel(),
                 onBack = navController::popBackStack,
                 onOpenAi = { navController.navigate(Route.SettingsAi) },
                 onOpenHealthConnect = { navController.navigate(Route.SettingsHealth) },
             )
+        }
+        composable<Route.SettingsMeals> {
+            MealsScreen(settings = LocalContext.current.appContainer.settings, onBack = navController::popBackStack)
         }
         composable<Route.SettingsBackup> {
             BackupSettingsScreen(viewModel = backupViewModel(), onBack = navController::popBackStack)
@@ -282,6 +292,15 @@ private fun AiScreen(onBack: () -> Unit, onboarding: Boolean, onSaved: () -> Uni
                 onModelChange = viewModel::selectModel,
                 onPhotoDetailChange = viewModel::selectPhotoDetail,
             )
+            if (!onboarding) {
+                AiPreferences(
+                    cuisine = state.cuisine,
+                    notes = state.notes,
+                    onCuisineChange = viewModel::selectCuisine,
+                    onNotesChange = viewModel::onNotesChange,
+                    modifier = Modifier.padding(top = Spacing.lg),
+                )
+            }
         }
     }
 }

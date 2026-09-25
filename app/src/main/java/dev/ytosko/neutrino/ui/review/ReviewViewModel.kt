@@ -81,6 +81,8 @@ data class ReviewUiState(
     val eatenAt: ZonedDateTime = ZonedDateTime.now(),
     val usage: TokenUsage? = null,
     val model: String? = null,
+    /** Editing a saved meal rather than logging a new one. */
+    val editing: Boolean = false,
 ) {
     val nutrition: Nutrition get() = items.fold(Nutrition.ZERO) { acc, item -> acc + item.nutrition }
 
@@ -109,10 +111,12 @@ class ReviewViewModel(
     private val meals: MealRepository,
     private val foods: FoodRepository,
     private val zone: ZoneId = ZoneId.systemDefault(),
-    private val mealWindows: MealWindows = MealWindows(),
+    private var mealWindows: MealWindows = MealWindows(),
     private val onPhotoConsumed: () -> Unit = {},
     /** The day being viewed on Today when logging started; a past day starts the meal on that date. */
     logDate: LocalDate? = null,
+    /** Opens a saved meal for editing. */
+    private val editMealId: String? = null,
 ) : ViewModel() {
 
     private val pastDay: LocalDate? = logDate?.takeIf { it != LocalDate.now(zone) }
@@ -122,9 +126,10 @@ class ReviewViewModel(
     }
     private val _state = MutableStateFlow(
         ReviewUiState(
-            phase = if (photoUri == null) ReviewPhase.Ready else ReviewPhase.Preparing,
+            phase = if (photoUri == null && editMealId == null) ReviewPhase.Ready else ReviewPhase.Preparing,
             eatenAt = now,
             mealType = mealWindows.mealAt(now.toLocalTime()),
+            editing = editMealId != null,
         ),
     )
     val state: StateFlow<ReviewUiState> = _state.asStateFlow()
@@ -135,7 +140,49 @@ class ReviewViewModel(
     private var nextKey = 0L
 
     init {
-        if (photoUri != null) analyze()
+        // Use the user's meal times once settings load (the default guess shows until then).
+        viewModelScope.launch {
+            mealWindows = settings.settings.first().mealWindows
+            _state.update {
+                if (it.mealTypeChosenByUser || it.editing) it else it.copy(mealType = mealWindows.mealAt(it.eatenAt.toLocalTime()))
+            }
+        }
+        when {
+            editMealId != null -> loadForEditing(editMealId)
+            photoUri != null -> analyze()
+        }
+    }
+
+    /** Fills the screen from a saved meal. Foods come from the directory, else are rebuilt from the saved line. */
+    private fun loadForEditing(id: String) {
+        viewModelScope.launch {
+            val stored = meals.loadMeal(id)
+            if (stored == null) {
+                _state.update { it.copy(phase = ReviewPhase.Ready, editing = false) }
+                return@launch
+            }
+            val items = stored.items.map { line ->
+                val unit = FoodUnit.fromKey(line.unit) ?: FoodUnit.Gram
+                val food = foods.byId(line.foodId)?.takeIf { it.grams(line.quantity, unit) != null }
+                    ?: savedLineFood(line.foodId, line.name, line.category, line.quantity, unit, line.grams,
+                        Nutrition(line.calories, line.proteinG, line.carbsG, line.fatG))
+                newItem(food, Portion(line.quantity, unit))
+            }
+            val meal = stored.meal
+            _state.update {
+                it.copy(
+                    phase = ReviewPhase.Ready,
+                    photo = stored.thumbnail,
+                    name = meal.name,
+                    nameEditedByUser = true,
+                    items = items,
+                    mealType = runCatching { MealType.valueOf(meal.mealType) }.getOrDefault(MealType.Snack),
+                    mealTypeChosenByUser = true,
+                    eatenAt = Instant.ofEpochMilli(meal.eatenAtEpochMs).atZone(zone),
+                    model = meal.model,
+                )
+            }
+        }
     }
 
     fun analyze() {
@@ -174,7 +221,7 @@ class ReviewViewModel(
                 return@launch
             }
             try {
-                val result = clients.getValue(activeProvider).analyzeMeal(apiKey, model, photo.jpeg, current.photoDetail)
+                val result = clients.getValue(activeProvider).analyzeMeal(apiKey, model, photo.jpeg, current.photoDetail, current.promptHints)
                 val resolved = result.items
                     .filter { !it.nutrition.isEmpty }
                     .map { ScanFoods.resolve(it, foods.findByName(it.name)) }
@@ -246,7 +293,7 @@ class ReviewViewModel(
         if (!snapshot.canSave) return
         viewModelScope.launch {
             _state.update { it.copy(phase = ReviewPhase.Saving) }
-            val result = meals.saveMeal(
+            val draft =
                 MealDraft(
                     name = snapshot.name.trim(),
                     items = snapshot.items.map { item ->
@@ -264,8 +311,8 @@ class ReviewViewModel(
                     provider = provider?.id,
                     model = snapshot.model,
                     usage = snapshot.usage,
-                ),
-            )
+                )
+            val result = if (editMealId != null) meals.updateMeal(editMealId, draft) else meals.saveMeal(draft)
             _state.update { it.copy(phase = ReviewPhase.Saved(result.syncedToHealthConnect)) }
         }
     }
@@ -303,3 +350,29 @@ internal fun roundForUnit(value: Double, unit: FoodUnit): Double =
     } else {
         ((value * 4).roundToInt() / 4.0).coerceAtLeast(0.25)
     }
+
+/**
+ * A food rebuilt from a saved meal line when it's no longer in the directory, so the line can
+ * still be edited: nutrition per 100 g from what was saved, and the unit it was logged in.
+ */
+internal fun savedLineFood(
+    id: String,
+    name: String,
+    category: String,
+    quantity: Double,
+    unit: FoodUnit,
+    grams: Double,
+    nutrition: Nutrition,
+): Food {
+    val per100g = if (grams > 0) nutrition * (100.0 / grams) else Nutrition.ZERO
+    val perUnit = if (quantity > 0) grams / quantity else grams
+    return Food(
+        id = id,
+        name = name,
+        category = dev.ytosko.neutrino.domain.food.FoodCategory.fromKey(category),
+        per100g = per100g,
+        unitGrams = if (unit.isMass || unit.isVolume) emptyMap() else mapOf(unit to perUnit),
+        density = if (unit.isVolume) 1.0 else null,
+        source = dev.ytosko.neutrino.domain.food.FoodSource.Custom,
+    )
+}

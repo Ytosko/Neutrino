@@ -1,5 +1,7 @@
 package dev.ytosko.neutrino.ui.home
 
+import dev.ytosko.neutrino.domain.MealWindows
+import dev.ytosko.neutrino.data.meal.StoredMeal
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.ytosko.neutrino.data.meal.DaySummary
@@ -46,6 +48,10 @@ class HomeViewModel(
         viewModelScope.launch { settings.setNotificationsAsked() }
     }
 
+    val mealWindows: StateFlow<MealWindows> = settings.settings
+        .map { it.mealWindows }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MealWindows())
+
     val aiReady: StateFlow<Boolean> = settings.settings
         .map { it.aiReady }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
@@ -68,8 +74,17 @@ class HomeViewModel(
     /** The shown day for logging a meal, or null when it's today. */
     fun pastDayEpoch(): Long? = _date.value.takeIf { it != today.value }?.toEpochDay()
 
-    fun deleteMeal(id: String) {
-        viewModelScope.launch { meals.deleteMeal(id) }
+    /** Deletes right away and returns what Undo needs. */
+    suspend fun deleteMeal(id: String): StoredMeal? = meals.deleteMeal(id)
+
+    fun undoDelete(stored: StoredMeal) {
+        viewModelScope.launch { meals.restoreMeal(stored) }
+    }
+
+    /** Removes the most recent glass on the shown day (fixes a mistaken tap). */
+    fun removeLastWater() {
+        val last = day.value?.waterEntries?.lastOrNull() ?: return
+        viewModelScope.launch { meals.deleteWater(last) }
     }
 
     fun addWater(amountMl: Int = GLASS_ML) {

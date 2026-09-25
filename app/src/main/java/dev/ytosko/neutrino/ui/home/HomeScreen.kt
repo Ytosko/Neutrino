@@ -1,5 +1,16 @@
 package dev.ytosko.neutrino.ui.home
 
+import dev.ytosko.neutrino.domain.insights.compactNumber
+import dev.ytosko.neutrino.ui.components.mealTypeIcon
+import dev.ytosko.neutrino.ui.components.mealTypeColors
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.AnimatedContent
 import android.os.Build
 import android.Manifest
 import androidx.compose.material3.FabPosition
@@ -135,6 +146,7 @@ fun HomeScreen(
     onOpenBackup: () -> Unit,
     onPhotoSelected: (uri: Uri, fromCamera: Boolean) -> Unit,
     onAddManually: () -> Unit,
+    onOpenMeal: (id: String) -> Unit,
     savedResult: Boolean?,
     onSavedResultShown: () -> Unit,
     modifier: Modifier = Modifier,
@@ -143,6 +155,7 @@ fun HomeScreen(
     val day by viewModel.day.collectAsStateWithLifecycle()
     val shownDate by viewModel.date.collectAsStateWithLifecycle()
     val isToday by viewModel.isToday.collectAsStateWithLifecycle()
+    val mealWindows by viewModel.mealWindows.collectAsStateWithLifecycle()
     var pickingDate by remember { mutableStateOf(false) }
     val aiReady by viewModel.aiReady.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
@@ -150,7 +163,6 @@ fun HomeScreen(
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     var showSheet by rememberSaveable { mutableStateOf(false) }
     var pendingCapture by rememberSaveable { mutableStateOf<String?>(null) }
-    var mealToDelete by remember { mutableStateOf<LoggedMeal?>(null) }
     var tab by rememberSaveable { mutableStateOf(HomeTab.Days) }
 
     LifecycleResumeEffect(Unit) {
@@ -194,6 +206,18 @@ fun HomeScreen(
     val aiNeeded = stringResource(R.string.home_ai_needed)
     val setUp = stringResource(R.string.home_set_up)
     val waterAdded = stringResource(R.string.home_water_added)
+    val mealDeleted = stringResource(R.string.home_meal_deleted)
+    val undo = stringResource(R.string.home_undo)
+
+    /** Deletes at once, with Undo in the snackbar instead of a confirmation dialog. */
+    fun deleteWithUndo(meal: LoggedMeal) {
+        scope.launch {
+            val stored = viewModel.deleteMeal(meal.id) ?: return@launch
+            snackbar.currentSnackbarData?.dismiss()
+            val result = snackbar.showSnackbar(mealDeleted, actionLabel = undo, duration = SnackbarDuration.Long)
+            if (result == SnackbarResult.ActionPerformed) viewModel.undoDelete(stored)
+        }
+    }
 
     fun startLogging() {
         showSheet = true
@@ -331,7 +355,8 @@ fun HomeScreen(
         snackbarHost = { SnackbarHost(snackbar) },
         containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
-        if (tab == HomeTab.Health) {
+        Crossfade(targetState = tab, animationSpec = tween(220), label = "tab") { shownTab ->
+        if (shownTab == HomeTab.Health) {
             HealthContent(
                 viewModel = healthViewModel,
                 contentPadding = padding,
@@ -340,9 +365,20 @@ fun HomeScreen(
                     tab = HomeTab.Days
                 },
             )
-            return@Scaffold
+            return@Crossfade
         }
-        val summary = day
+        // Wait for the new day's data before sliding, so the old day's numbers never show under the new title.
+        AnimatedContent(
+            targetState = day,
+            contentKey = { it?.date },
+            transitionSpec = {
+                val forward = (targetState?.date ?: shownDate) > (initialState?.date ?: shownDate)
+                val direction = if (forward) 1 else -1
+                (slideInHorizontally(tween(260)) { it / 5 * direction } + fadeIn(tween(260))) togetherWith
+                    (slideOutHorizontally(tween(180)) { -it / 5 * direction } + fadeOut(tween(180)))
+            },
+            label = "day",
+        ) { summary ->
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(
@@ -363,6 +399,7 @@ fun HomeScreen(
                 WaterCard(
                     waterMl = summary?.waterMl ?: 0,
                     isToday = isToday,
+                    onRemove = viewModel::removeLastWater,
                     onAdd = {
                         viewModel.addWater()
                         scope.launch { snackbar.showSnackbar(waterAdded) }
@@ -371,23 +408,27 @@ fun HomeScreen(
                 )
             }
             if (summary != null && summary.meals.isEmpty()) {
-                if (isToday) item { NextMealHint(MealWindows().nextMainMeal(LocalTime.now()), itemModifier) }
+                if (isToday) item { NextMealHint(mealWindows.nextMainMeal(LocalTime.now()), itemModifier) }
                 item { EmptyMeals(isToday, itemModifier) }
             }
             summary?.meals?.groupBy { it.mealType }?.let { groups ->
                 MEAL_ORDER.filter { it in groups }.forEach { type ->
+                    val meals = groups.getValue(type)
                     item(key = "header-$type") {
-                        Text(
-                            mealTypeLabel(type),
-                            style = MaterialTheme.typography.titleMedium,
-                            modifier = itemModifier.fillMaxWidth().padding(top = Spacing.xs).semantics { heading() },
-                        )
+                        MealGroupHeader(type, meals.sumOf { it.nutrition.calories }, itemModifier.animateItem())
                     }
-                    items(groups.getValue(type), key = { it.id }) { meal ->
-                        MealRow(meal, onDelete = { mealToDelete = meal }, modifier = itemModifier)
+                    items(meals, key = { it.id }) { meal ->
+                        MealRow(
+                            meal,
+                            onOpen = { onOpenMeal(meal.id) },
+                            onDelete = { deleteWithUndo(meal) },
+                            modifier = itemModifier.animateItem(),
+                        )
                     }
                 }
             }
+        }
+        }
         }
     }
 
@@ -429,21 +470,6 @@ fun HomeScreen(
                 pickingDate = false
             },
             onDismiss = { pickingDate = false },
-        )
-    }
-
-    mealToDelete?.let { meal ->
-        AlertDialog(
-            onDismissRequest = { mealToDelete = null },
-            title = { Text(stringResource(R.string.home_delete_title)) },
-            text = { Text(stringResource(R.string.home_delete_body)) },
-            confirmButton = {
-                TextButton(onClick = {
-                    viewModel.deleteMeal(meal.id)
-                    mealToDelete = null
-                }) { Text(stringResource(R.string.home_delete_confirm), color = MaterialTheme.colorScheme.error) }
-            },
-            dismissButton = { TextButton(onClick = { mealToDelete = null }) { Text(stringResource(R.string.home_cancel)) } },
         )
     }
 }
@@ -505,7 +531,7 @@ private fun SheetOption(icon: Int, label: String, onClick: () -> Unit) {
 
 
 @Composable
-private fun WaterCard(waterMl: Int, isToday: Boolean, onAdd: () -> Unit, modifier: Modifier = Modifier) {
+private fun WaterCard(waterMl: Int, isToday: Boolean, onRemove: () -> Unit, onAdd: () -> Unit, modifier: Modifier = Modifier) {
     val colors = NeutrinoTheme.colors
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -527,6 +553,15 @@ private fun WaterCard(waterMl: Int, isToday: Boolean, onAdd: () -> Unit, modifie
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+            if (waterMl > 0) {
+                IconButton(onClick = onRemove) {
+                    Icon(
+                        painterResource(R.drawable.ic_minus),
+                        contentDescription = stringResource(R.string.home_remove_glass),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
             // Water is logged "now", so adding only makes sense on today.
             if (isToday) {
                 FilledTonalButton(onClick = onAdd, modifier = Modifier.heightIn(min = 48.dp)) {
@@ -538,12 +573,13 @@ private fun WaterCard(waterMl: Int, isToday: Boolean, onAdd: () -> Unit, modifie
 }
 
 @Composable
-private fun MealRow(meal: LoggedMeal, onDelete: () -> Unit, modifier: Modifier = Modifier) {
+private fun MealRow(meal: LoggedMeal, onOpen: () -> Unit, onDelete: () -> Unit, modifier: Modifier = Modifier) {
     val colors = NeutrinoTheme.colors
     val time = remember(meal.eatenAt) {
         meal.eatenAt.atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT))
     }
     Card(
+        onClick = onOpen,
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
@@ -692,3 +728,22 @@ private fun DayPickerDialog(selected: LocalDate, onPick: (LocalDate) -> Unit, on
 
 enum class HomeTab { Days, Health }
 
+
+/** "🌅 Breakfast ········ 520 kcal": the meal's icon, name and subtotal. */
+@Composable
+private fun MealGroupHeader(type: MealType, kcal: Double, modifier: Modifier = Modifier) {
+    val (container, content) = mealTypeColors(type)
+    Row(
+        modifier = modifier.fillMaxWidth().padding(top = Spacing.xs).semantics(mergeDescendants = true) { heading() },
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+    ) {
+        IconBadge(mealTypeIcon(type), container = container, content = content, size = 28.dp)
+        Text(mealTypeLabel(type), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+        Text(
+            "${compactNumber(kcal)} ${stringResource(R.string.macro_energy)}",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}

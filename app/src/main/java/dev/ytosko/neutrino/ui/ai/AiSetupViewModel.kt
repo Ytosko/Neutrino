@@ -35,6 +35,8 @@ data class AiSetupUiState(
     val selectedModel: String? = null,
     val saving: Boolean = false,
     val photoDetail: PhotoDetail = PhotoDetail.Standard,
+    val cuisine: String? = null,
+    val notes: String = "",
 ) {
     val canCheck: Boolean get() = (keyInput.isNotBlank() || hasSavedKey) && check !is KeyCheck.Checking
     val canSave: Boolean get() = check is KeyCheck.Valid && selectedModel != null && !saving
@@ -76,6 +78,16 @@ class AiSetupViewModel(
     fun toggleKeyVisibility() = _state.update { it.copy(keyVisible = !it.keyVisible) }
 
     fun selectModel(id: String) = _state.update { it.copy(selectedModel = id) }
+
+    fun selectCuisine(cuisine: String?) {
+        _state.update { it.copy(cuisine = cuisine) }
+        viewModelScope.launch { settings.setCuisine(cuisine) }
+    }
+
+    fun onNotesChange(notes: String) {
+        _state.update { it.copy(notes = notes) }
+        viewModelScope.launch { settings.setAiNotes(notes) }
+    }
 
     /** Saved immediately: it's a preference, not part of the key setup. */
     fun selectPhotoDetail(detail: PhotoDetail) {
@@ -135,6 +147,8 @@ class AiSetupViewModel(
             hasSavedKey = hasKey,
             selectedModel = current.models[provider],
             photoDetail = current.photoDetail,
+            cuisine = current.cuisine,
+            notes = current.aiNotes,
         )
         // Re-validate a stored key so the model list is ready without re-typing it.
         if (hasKey) checkKey()

@@ -50,10 +50,19 @@ class HealthConnectManager(private val context: Context) {
     fun permissionContract() = PermissionController.createRequestPermissionResultContract()
 
     /**
-     * Writes one meal. [id] becomes the clientRecordId so the record can be found and deleted later.
+     * Writes one meal. [id] becomes the clientRecordId so the record can be found and deleted later;
+     * writing the same [id] again with a higher [version] replaces it (used when a meal is edited).
      * Returns false (without throwing) if Health Connect is unavailable or permission is missing.
      */
-    suspend fun writeMeal(id: String, name: String, nutrition: Nutrition, mealType: MealType, eatenAt: Instant, zone: ZoneId): Boolean {
+    suspend fun writeMeal(
+        id: String,
+        name: String,
+        nutrition: Nutrition,
+        mealType: MealType,
+        eatenAt: Instant,
+        zone: ZoneId,
+        version: Long = System.currentTimeMillis(),
+    ): Boolean {
         val client = client ?: return false
         if (HealthPermission.getWritePermission(NutritionRecord::class) !in grantedPermissions()) return false
         val offset = zone.rules.getOffset(eatenAt)
@@ -62,7 +71,7 @@ class HealthConnectManager(private val context: Context) {
             startZoneOffset = offset,
             endTime = eatenAt.plus(MEAL_DURATION),
             endZoneOffset = zone.rules.getOffset(eatenAt.plus(MEAL_DURATION)),
-            metadata = Metadata.manualEntry(clientRecordId = id),
+            metadata = Metadata.manualEntry(clientRecordId = id, clientRecordVersion = version),
             name = name,
             mealType = mealType.toHealthConnect(),
             energy = Energy.kilocalories(nutrition.calories),

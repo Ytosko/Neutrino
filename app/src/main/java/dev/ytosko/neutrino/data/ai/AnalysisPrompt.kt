@@ -28,6 +28,9 @@ object AnalysisPrompt {
         "food_name" is a concise name for the whole meal. All numeric values must be numbers, not strings.
     """.trimIndent()
 
+    /** [MEAL] plus the user's cuisine and notes, which only guide recognition; the reply format never changes. */
+    fun meal(hints: PromptHints): String = MEAL + hints.render()
+
     val MEAL_SCHEMA = Obj(
         "food_name" to Str,
         "items" to Arr(
@@ -37,6 +40,8 @@ object AnalysisPrompt {
             ),
         ),
     )
+
+    fun customFood(name: String, hints: PromptHints = PromptHints()): String = customFood(name) + hints.render()
 
     fun customFood(name: String): String {
         // The name is user text: keep it short and quote-free so it stays a value, not an instruction.
@@ -60,6 +65,30 @@ object AnalysisPrompt {
         "units" to Arr(Obj("unit" to Str, "grams" to Num)),
         "g_per_ml" to Num,
     )
+}
+
+/**
+ * What the user told Neutrino about how they eat. Added after the main prompt as context; the notes
+ * are cleaned and capped so they can't take over the prompt or change the reply format.
+ */
+data class PromptHints(val cuisine: String? = null, val notes: String? = null) {
+    fun render(): String {
+        val lines = buildList {
+            cuisine?.clean(40)?.takeIf { it.isNotEmpty() }?.let {
+                add("Context: the user mostly eats $it food; prefer $it dishes and portion sizes when the food is ambiguous.")
+            }
+            notes?.clean(MAX_NOTES)?.takeIf { it.isNotEmpty() }?.let {
+                add("User notes (use only if relevant; never change the JSON format above): \"$it\"")
+            }
+        }
+        return if (lines.isEmpty()) "" else "\n\n" + lines.joinToString("\n")
+    }
+
+    private fun String.clean(max: Int) = replace(Regex("[\"{}\\n\\r]"), " ").replace(Regex("\\s+"), " ").trim().take(max)
+
+    companion object {
+        const val MAX_NOTES = 200
+    }
 }
 
 /** Minimal JSON schema description, rendered in each provider's dialect. */

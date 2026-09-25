@@ -106,7 +106,7 @@ class FoodSearchViewModel(
             }
             _state.update { it.copy(custom = CustomFoodState.Estimating) }
             try {
-                val (estimate, _) = clients.getValue(provider).estimateFood(key, model, name)
+                val (estimate, _) = clients.getValue(provider).estimateFood(key, model, name, current.promptHints)
                 val food = estimate.toFood(fallbackName = name)
                 _state.update { it.copy(custom = CustomFoodState.Idle) }
                 _picked.send(FoodPick(food, food.suggestedPortion))

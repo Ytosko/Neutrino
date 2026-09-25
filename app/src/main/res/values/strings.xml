@@ -59,6 +59,9 @@
     <string name="home_water_amount_day">%1$d ml</string>
     <string name="home_empty_day_title">Nothing logged this day</string>
     <string name="home_empty_day_body">Forgot something? Tap Log a meal to add it to this day.</string>
+    <string name="home_meal_deleted">Meal deleted</string>
+    <string name="home_undo">Undo</string>
+    <string name="home_remove_glass">Remove last glass</string>
     <string name="home_not_synced">Not synced</string>
 
     <!-- Review -->
@@ -314,6 +317,22 @@
     <string name="health_water_desc">Water chart. Average %1$s.</string>
 
     <!-- Reminders -->
+    <string name="settings_section_meals">Meals</string>
+    <string name="settings_meals_value">Reminders at %1$s, %2$s and %3$s</string>
+    <string name="settings_meals_off">Meal times · reminders off</string>
+    <string name="meals_title">Meals and reminders</string>
+    <string name="meals_body">When your meals usually start, so Neutrino picks the right meal, and when to remind you to log.</string>
+    <string name="meals_starts">Meal times</string>
+    <string name="meals_starts_at">Starts at</string>
+    <string name="meals_remind_at">Reminder at</string>
+    <string name="meals_reminders_body">Skipped if you already logged that meal.</string>
+    <string name="meals_order_error">Meal times must go in order: breakfast, lunch, snack, dinner.</string>
+    <string name="ai_hints_title">Help the AI read your food</string>
+    <string name="ai_hints_body">Optional. Added to Neutrino\'s own instructions as hints; photos are still read the same way.</string>
+    <string name="ai_cuisine">Cuisine you usually eat</string>
+    <string name="ai_cuisine_any">Any</string>
+    <string name="ai_notes">Notes for the AI</string>
+    <string name="ai_notes_hint">e.g. I cook with little oil; my rice plate is small</string>
     <string name="reminder_channel">Meal reminders</string>
     <string name="reminder_channel_body">Breakfast, lunch and dinner reminders to log your meals.</string>
     <string name="reminder_breakfast_title">Time for breakfast</string>

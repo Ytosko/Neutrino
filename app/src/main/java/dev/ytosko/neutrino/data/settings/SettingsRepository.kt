@@ -1,5 +1,9 @@
 package dev.ytosko.neutrino.data.settings
 
+import java.time.LocalTime
+import dev.ytosko.neutrino.domain.MealWindows
+import dev.ytosko.neutrino.data.ai.PromptHints
+import androidx.datastore.preferences.core.intPreferencesKey
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
@@ -34,7 +38,17 @@ data class AppSettings(
     val remindersEnabled: Boolean = true,
     /** Neutrino already asked for notification permission once (Android 13+). */
     val notificationsAsked: Boolean = false,
+    /** e.g. "Bangladeshi"; a hint for the AI. Null means no preference. */
+    val cuisine: String? = null,
+    /** Short free-text notes added to AI prompts, e.g. "I use little oil". */
+    val aiNotes: String = "",
+    /** When each meal starts, for picking the meal type automatically. */
+    val mealWindows: MealWindows = MealWindows(),
+    val breakfastReminder: LocalTime = LocalTime.of(10, 0),
+    val lunchReminder: LocalTime = LocalTime.of(14, 0),
+    val dinnerReminder: LocalTime = LocalTime.of(18, 0),
 ) {
+    val promptHints: PromptHints get() = PromptHints(cuisine, aiNotes.takeIf { it.isNotBlank() })
     val aiReady: Boolean
         get() = activeProvider != null && activeProvider in providersWithKey && models[activeProvider] != null
 }
@@ -53,6 +67,15 @@ class SettingsRepository(context: Context, private val cipher: SecretCipher) {
         val photoDetail = stringPreferencesKey("photo_detail")
         val reminders = booleanPreferencesKey("meal_reminders")
         val notificationsAsked = booleanPreferencesKey("notifications_asked")
+        val cuisine = stringPreferencesKey("cuisine")
+        val aiNotes = stringPreferencesKey("ai_notes")
+        val breakfastStart = intPreferencesKey("meal_breakfast_min")
+        val lunchStart = intPreferencesKey("meal_lunch_min")
+        val snackStart = intPreferencesKey("meal_snack_min")
+        val dinnerStart = intPreferencesKey("meal_dinner_min")
+        val breakfastReminder = intPreferencesKey("reminder_breakfast_min")
+        val lunchReminder = intPreferencesKey("reminder_lunch_min")
+        val dinnerReminder = intPreferencesKey("reminder_dinner_min")
         fun model(provider: AiProvider) = stringPreferencesKey("ai_model_${provider.id}")
         fun apiKey(provider: AiProvider) = stringPreferencesKey("ai_key_${provider.id}")
     }
@@ -70,6 +93,20 @@ class SettingsRepository(context: Context, private val cipher: SecretCipher) {
             photoDetail = PhotoDetail.fromId(p[Keys.photoDetail]),
             remindersEnabled = p[Keys.reminders] ?: true,
             notificationsAsked = p[Keys.notificationsAsked] ?: false,
+            cuisine = p[Keys.cuisine],
+            aiNotes = p[Keys.aiNotes].orEmpty(),
+            mealWindows = runCatching {
+                val defaults = MealWindows()
+                MealWindows(
+                    breakfast = p[Keys.breakfastStart]?.toTime() ?: defaults.breakfast,
+                    lunch = p[Keys.lunchStart]?.toTime() ?: defaults.lunch,
+                    snack = p[Keys.snackStart]?.toTime() ?: defaults.snack,
+                    dinner = p[Keys.dinnerStart]?.toTime() ?: defaults.dinner,
+                )
+            }.getOrDefault(MealWindows()),
+            breakfastReminder = p[Keys.breakfastReminder]?.toTime() ?: LocalTime.of(10, 0),
+            lunchReminder = p[Keys.lunchReminder]?.toTime() ?: LocalTime.of(14, 0),
+            dinnerReminder = p[Keys.dinnerReminder]?.toTime() ?: LocalTime.of(18, 0),
         )
     }
 
@@ -122,6 +159,35 @@ class SettingsRepository(context: Context, private val cipher: SecretCipher) {
         }
     }
 
+    suspend fun setCuisine(cuisine: String?) {
+        store.edit { if (cuisine.isNullOrBlank()) it.remove(Keys.cuisine) else it[Keys.cuisine] = cuisine }
+    }
+
+    suspend fun setAiNotes(notes: String) {
+        store.edit { it[Keys.aiNotes] = notes.take(PromptHints.MAX_NOTES) }
+    }
+
+    /** Saves meal start times; returns false (and saves nothing) if they're out of order. */
+    suspend fun setMealWindows(windows: MealWindows): Boolean {
+        val valid = runCatching { windows.copy() }.isSuccess
+        if (!valid) return false
+        store.edit {
+            it[Keys.breakfastStart] = windows.breakfast.toMinutes()
+            it[Keys.lunchStart] = windows.lunch.toMinutes()
+            it[Keys.snackStart] = windows.snack.toMinutes()
+            it[Keys.dinnerStart] = windows.dinner.toMinutes()
+        }
+        return true
+    }
+
+    suspend fun setReminderTimes(breakfast: LocalTime, lunch: LocalTime, dinner: LocalTime) {
+        store.edit {
+            it[Keys.breakfastReminder] = breakfast.toMinutes()
+            it[Keys.lunchReminder] = lunch.toMinutes()
+            it[Keys.dinnerReminder] = dinner.toMinutes()
+        }
+    }
+
     suspend fun setRemindersEnabled(enabled: Boolean) {
         store.edit { it[Keys.reminders] = enabled }
     }
@@ -134,3 +200,7 @@ class SettingsRepository(context: Context, private val cipher: SecretCipher) {
         store.edit { it[Keys.onboardingComplete] = true }
     }
 }
+
+private fun Int.toTime(): LocalTime = LocalTime.of((this / 60).coerceIn(0, 23), (this % 60).coerceIn(0, 59))
+
+private fun LocalTime.toMinutes(): Int = hour * 60 + minute

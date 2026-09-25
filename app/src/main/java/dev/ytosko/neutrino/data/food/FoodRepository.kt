@@ -77,6 +77,9 @@ class FoodRepository(
     }
 
     /** The portion the user last logged for this food, if any. */
+    /** A food by id: the user's directory first, then the built-in list. */
+    suspend fun byId(id: String): Food? = dao.get(id)?.toFood() ?: catalog.byId(id)
+
     suspend fun lastPortion(foodId: String): Portion? = dao.get(foodId)?.toUsage()?.lastPortion
 
     private fun Food.toEntity(time: Long) = FoodEntity(

@@ -1,5 +1,7 @@
 package dev.ytosko.neutrino.data.meal
 
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 import dev.ytosko.neutrino.data.food.FoodRepository
 import dev.ytosko.neutrino.data.health.HealthConnectManager
 import dev.ytosko.neutrino.domain.food.Food
@@ -31,6 +33,7 @@ data class LoggedMeal(
 )
 
 data class DaySummary(
+    val date: LocalDate,
     val meals: List<LoggedMeal>,
     val waterMl: Int,
     val waterEntries: List<String>,
@@ -61,6 +64,13 @@ data class MealDraft(
     val nutrition: Nutrition get() = items.fold(Nutrition.ZERO) { acc, item -> acc + item.nutrition }
 }
 
+/** A saved meal loaded back for editing. */
+data class StoredMeal(
+    val meal: MealEntity,
+    val items: List<MealItemEntity>,
+    val thumbnail: ByteArray?,
+)
+
 /** Result of saving: whether Health Connect received it too. */
 data class SaveResult(val id: String, val syncedToHealthConnect: Boolean)
 
@@ -82,6 +92,7 @@ class MealRepository(
         val to = date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
         return combine(db.meals().observeBetween(from, to), db.water().observeBetween(from, to)) { meals, water ->
             DaySummary(
+                date = date,
                 meals = meals.map { it.meal.toLoggedMeal(it.firstCategory?.let(FoodCategory::fromKey)) },
                 waterMl = water.sumOf { it.amountMl },
                 waterEntries = water.map { it.id },
@@ -147,22 +158,7 @@ class MealRepository(
                 outputTokens = draft.usage?.output ?: 0,
                 createdAtEpochMs = System.currentTimeMillis(),
             ),
-            draft.items.mapIndexed { index, item ->
-                MealItemEntity(
-                    mealId = id,
-                    position = index,
-                    foodId = item.food.id,
-                    name = item.food.name,
-                    category = item.food.category.key,
-                    quantity = item.portion.quantity,
-                    unit = item.portion.unit.key,
-                    grams = item.grams,
-                    calories = item.nutrition.calories,
-                    proteinG = item.nutrition.proteinG,
-                    carbsG = item.nutrition.carbsG,
-                    fatG = item.nutrition.fatG,
-                )
-            },
+            draft.itemEntities(id),
         )
         // Teach the directory: every food eaten moves up the user's search results.
         draft.items.forEach { foods.recordUse(it.food, draft.mealType, it.portion) }
@@ -170,11 +166,67 @@ class MealRepository(
         return SaveResult(id, synced)
     }
 
-    suspend fun deleteMeal(id: String) {
-        val meal = db.meals().get(id) ?: return
+    suspend fun loadMeal(id: String): StoredMeal? {
+        val meal = db.meals().get(id) ?: return null
+        val thumbnail = meal.thumbnailPath?.let { path ->
+            withContext(Dispatchers.IO) { runCatching { java.io.File(path).readBytes() }.getOrNull() }
+        }
+        return StoredMeal(meal, db.meals().items(id), thumbnail)
+    }
+
+    /** Saves changes to an existing meal, replacing its Health Connect record too. */
+    suspend fun updateMeal(id: String, draft: MealDraft): SaveResult {
+        val existing = db.meals().get(id) ?: return saveMeal(draft)
+        val nutrition = draft.nutrition
+        val synced = runCatching {
+            healthConnect.writeMeal(id, draft.name, nutrition, draft.mealType, draft.eatenAt, draft.zone)
+        }.getOrDefault(false)
+        db.meals().updateWithItems(
+            existing.copy(
+                name = draft.name,
+                calories = nutrition.calories,
+                proteinG = nutrition.proteinG,
+                carbsG = nutrition.carbsG,
+                fatG = nutrition.fatG,
+                mealType = draft.mealType.name,
+                eatenAtEpochMs = draft.eatenAt.toEpochMilli(),
+                zoneId = draft.zone.id,
+                syncedToHealthConnect = synced,
+            ),
+            draft.itemEntities(id),
+        )
+        onChanged()
+        return SaveResult(id, synced)
+    }
+
+    /**
+     * Deletes a meal (here and in Health Connect) and returns what's needed to [restoreMeal] it,
+     * so the Today screen can offer Undo.
+     */
+    suspend fun deleteMeal(id: String): StoredMeal? {
+        val stored = loadMeal(id) ?: return null
         healthConnect.deleteMeal(id)
         db.meals().delete(id)
-        photos.deleteThumbnail(meal.thumbnailPath)
+        photos.deleteThumbnail(stored.meal.thumbnailPath)
+        onChanged()
+        return stored
+    }
+
+    /** Puts back a meal removed by [deleteMeal]. */
+    suspend fun restoreMeal(stored: StoredMeal) {
+        val meal = stored.meal
+        val thumbnail = stored.thumbnail?.let { photos.saveThumbnail(it, meal.id) }
+        val synced = runCatching {
+            healthConnect.writeMeal(
+                meal.id,
+                meal.name,
+                Nutrition(meal.calories, meal.proteinG, meal.carbsG, meal.fatG),
+                runCatching { MealType.valueOf(meal.mealType) }.getOrDefault(MealType.Snack),
+                Instant.ofEpochMilli(meal.eatenAtEpochMs),
+                ZoneId.of(meal.zoneId),
+            )
+        }.getOrDefault(false)
+        db.meals().insertWithItems(meal.copy(thumbnailPath = thumbnail, syncedToHealthConnect = synced), stored.items)
         onChanged()
     }
 
@@ -202,5 +254,22 @@ class MealRepository(
         thumbnailPath = thumbnailPath,
         syncedToHealthConnect = syncedToHealthConnect,
         category = category,
+    )
+}
+
+private fun MealDraft.itemEntities(mealId: String) = items.mapIndexed { index, item ->
+    MealItemEntity(
+        mealId = mealId,
+        position = index,
+        foodId = item.food.id,
+        name = item.food.name,
+        category = item.food.category.key,
+        quantity = item.portion.quantity,
+        unit = item.portion.unit.key,
+        grams = item.grams,
+        calories = item.nutrition.calories,
+        proteinG = item.nutrition.proteinG,
+        carbsG = item.nutrition.carbsG,
+        fatG = item.nutrition.fatG,
     )
 }

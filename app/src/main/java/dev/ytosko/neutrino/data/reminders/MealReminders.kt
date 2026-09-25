@@ -1,5 +1,6 @@
 package dev.ytosko.neutrino.data.reminders
 
+import dev.ytosko.neutrino.data.settings.AppSettings
 import android.Manifest
 import android.app.AlarmManager
 import android.app.NotificationChannel
@@ -27,11 +28,19 @@ import java.time.LocalTime
 import java.time.ZoneId
 import java.time.ZonedDateTime
 
-/** One daily reminder: when, and what it says. */
+/** One daily reminder: which meal, its default time, and what it says. */
 enum class MealReminder(val mealType: MealType, val time: LocalTime, @StringRes val title: Int, @StringRes val body: Int) {
     Breakfast(MealType.Breakfast, LocalTime.of(10, 0), R.string.reminder_breakfast_title, R.string.reminder_breakfast_body),
     Lunch(MealType.Lunch, LocalTime.of(14, 0), R.string.reminder_lunch_title, R.string.reminder_lunch_body),
     Dinner(MealType.Dinner, LocalTime.of(18, 0), R.string.reminder_dinner_title, R.string.reminder_dinner_body),
+    ;
+
+    /** The user's chosen time for this reminder. */
+    fun timeIn(settings: AppSettings): LocalTime = when (this) {
+        Breakfast -> settings.breakfastReminder
+        Lunch -> settings.lunchReminder
+        Dinner -> settings.dinnerReminder
+    }
 }
 
 /**
@@ -51,16 +60,20 @@ object MealReminders {
         return if (today.isAfter(now)) today else today.plusDays(1)
     }
 
-    fun scheduleAll(context: Context) = MealReminder.entries.forEach { schedule(context, it) }
+    /** Books all three at the times chosen in settings. */
+    suspend fun scheduleAll(context: Context) {
+        val settings = context.appContainer.settings.settings.first()
+        MealReminder.entries.forEach { schedule(context, it, it.timeIn(settings)) }
+    }
 
     fun cancelAll(context: Context) {
         val alarms = context.getSystemService(AlarmManager::class.java)
         MealReminder.entries.forEach { alarms.cancel(pendingIntent(context, it)) }
     }
 
-    fun schedule(context: Context, reminder: MealReminder, now: ZonedDateTime = ZonedDateTime.now()) {
+    fun schedule(context: Context, reminder: MealReminder, time: LocalTime, now: ZonedDateTime = ZonedDateTime.now()) {
         val alarms = context.getSystemService(AlarmManager::class.java)
-        val at = nextTrigger(now, reminder.time).toInstant().toEpochMilli()
+        val at = nextTrigger(now, time).toInstant().toEpochMilli()
         alarms.setWindow(AlarmManager.RTC_WAKEUP, at, WINDOW_MS, pendingIntent(context, reminder))
     }
 
@@ -112,14 +125,15 @@ class MealReminderReceiver : BroadcastReceiver() {
         CoroutineScope(SupervisorJob() + Dispatchers.Default).launch {
             try {
                 val container = app.appContainer
-                val enabled = container.settings.settings.first().remindersEnabled
+                val settings = container.settings.settings.first()
+                val enabled = settings.remindersEnabled
                 val reminder = intent.getStringExtra(MealReminders.EXTRA_REMINDER)
                     ?.let { name -> MealReminder.entries.firstOrNull { it.name == name } }
                 when {
                     !enabled -> MealReminders.cancelAll(app)
                     reminder == null -> MealReminders.scheduleAll(app) // boot, time or time zone change, update
                     else -> {
-                        MealReminders.schedule(app, reminder)
+                        MealReminders.schedule(app, reminder, reminder.timeIn(settings))
                         val zone = ZoneId.systemDefault()
                         if (!container.meals.hasMeal(reminder.mealType, LocalDate.now(zone), zone)) {
                             MealReminders.show(app, reminder)

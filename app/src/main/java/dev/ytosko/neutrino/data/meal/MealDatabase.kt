@@ -157,6 +157,19 @@ interface MealDao {
 
     @Query("DELETE FROM meals WHERE id = :id")
     suspend fun delete(id: String)
+
+    @androidx.room.Update
+    suspend fun update(meal: MealEntity)
+
+    @Query("DELETE FROM meal_items WHERE mealId = :mealId")
+    suspend fun deleteItems(mealId: String)
+
+    @Transaction
+    suspend fun updateWithItems(meal: MealEntity, items: List<MealItemEntity>) {
+        update(meal)
+        deleteItems(meal.id)
+        insertItems(items)
+    }
 }
 
 @Dao

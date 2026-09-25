@@ -416,7 +416,8 @@ private fun TotalCell(value: String, label: String, color: Color, modifier: Modi
     }
 }
 
-private fun grams(value: Double): String = "${value.roundGrams().let { if (it >= 100) it.toInt().toString() else it.fmt() }}g"
+/** Same short format as the Today tiles, so totals match everywhere. */
+private fun grams(value: Double): String = dev.ytosko.neutrino.domain.insights.compactGrams(value)
 
 private fun Double.fmt(): String = toString().removeSuffix(".0")
 
