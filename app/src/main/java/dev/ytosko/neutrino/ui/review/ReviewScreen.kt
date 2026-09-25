@@ -1,5 +1,10 @@
 package dev.ytosko.neutrino.ui.review
 
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import dev.ytosko.neutrino.ui.components.AlertStyle
+import dev.ytosko.neutrino.ui.components.AlertButton
+import dev.ytosko.neutrino.ui.components.IosAlert
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.DropdownMenu
 import android.graphics.BitmapFactory
@@ -136,7 +141,13 @@ fun ReviewScreen(
     var showMealDetails by remember { mutableStateOf(false) }
     var showPhoto by remember { mutableStateOf(false) }
     var confirmDiscard by remember { mutableStateOf(false) }
-    LaunchedEffect(phase) { if (phase is ReviewPhase.Saved) onSaved(phase.syncedToHealthConnect) }
+    val haptics = LocalHapticFeedback.current
+    LaunchedEffect(phase) {
+        if (phase is ReviewPhase.Saved) {
+            haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+            onSaved(phase.syncedToHealthConnect)
+        }
+    }
 
     // Back closes the screen straight away when there's nothing to lose; otherwise ask first.
     val hasWork = if (state.editing) state.changed else state.items.isNotEmpty() || state.nameEditedByUser
@@ -269,18 +280,17 @@ fun ReviewScreen(
     }
 
     if (confirmDiscard) {
-        AlertDialog(
-            onDismissRequest = { confirmDiscard = false },
-            title = { Text(stringResource(if (state.editing) R.string.review_discard_changes_title else R.string.review_discard_title)) },
-            text = { Text(stringResource(if (state.editing) R.string.review_discard_changes_body else R.string.review_discard_body)) },
-            confirmButton = {
-                TextButton(onClick = { confirmDiscard = false; onDiscard() }) {
-                    Text(stringResource(R.string.review_discard), color = MaterialTheme.colorScheme.error)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirmDiscard = false }) { Text(stringResource(R.string.review_keep_editing)) }
-            },
+        IosAlert(
+            title = stringResource(if (state.editing) R.string.review_discard_changes_title else R.string.review_discard_title),
+            message = stringResource(if (state.editing) R.string.review_discard_changes_body else R.string.review_discard_body),
+            buttons = listOf(
+                AlertButton(stringResource(R.string.review_keep_editing), AlertStyle.Cancel) { confirmDiscard = false },
+                AlertButton(stringResource(R.string.review_discard), AlertStyle.Destructive) {
+                    confirmDiscard = false
+                    onDiscard()
+                },
+            ),
+            onDismiss = { confirmDiscard = false },
         )
     }
 }

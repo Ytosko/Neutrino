@@ -398,9 +398,8 @@
     <string name="meal_tip_dismiss">বুঝেছি</string>
     <string name="log_again_title">কোন দিনে আবার লগ করবেন?</string>
     <string name="log_again_body">“%1$s” আবার লগ করুন:</string>
-    <string name="log_again_today">আজ</string>
-    <string name="log_again_today_body">এখন, নতুন খাবার হিসেবে</string>
-    <string name="log_again_that_day_body">ওই দিনেই, একই সময়ে</string>
+    <string name="log_again_today_full">আজ, এখন</string>
+    <string name="log_again_on_day">%1$s, একই সময়ে</string>
     <string name="home_logged_again">আবার লগ হয়েছে</string>
     <string name="home_add_glucose">গ্লুকোজ রিডিং যোগ করুন</string>
     <string name="home_water_of_goal">%2$s-এর মধ্যে %1$s</string>
@@ -557,6 +556,7 @@
     <string name="glucose_edit_title">গ্লুকোজ রিডিং</string>
     <string name="glucose_relation">খাবারের সাথে সম্পর্ক</string>
     <string name="glucose_time">সময়</string>
+    <string name="glucose_edit">রিডিং এডিট করুন</string>
     <string name="glucose_delete">রিডিং মুছুন</string>
     <string name="glucose_deleted">রিডিং মুছে ফেলা হয়েছে</string>
     <string name="glucose_reading_desc">%1$s %5$s, %2$s-এ, %3$s, %4$s</string>

@@ -1,5 +1,6 @@
 package dev.ytosko.neutrino.ui.settings
 
+import dev.ytosko.neutrino.ui.components.NeutrinoSnackbarHost
 import dev.ytosko.neutrino.ui.theme.NeutrinoTheme
 import android.Manifest
 import android.content.Intent
@@ -90,7 +91,7 @@ fun MealsScreen(settings: SettingsRepository, onBack: () -> Unit) {
         title = stringResource(R.string.meals_title),
         subtitle = stringResource(R.string.meals_body),
         onBack = onBack,
-        bottomBar = { SnackbarHost(snackbar) },
+        bottomBar = { NeutrinoSnackbarHost(snackbar) },
     ) {
         val s = current ?: return@SetupScaffold
         Column(verticalArrangement = Arrangement.spacedBy(Spacing.lg)) {
@@ -206,7 +207,7 @@ private fun Group(title: String, content: @Composable () -> Unit) {
         Card(
             shape = MaterialTheme.shapes.large,
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
-            border = CardDefaults.outlinedCardBorder(),
+            elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
         ) { Column { content() } }
     }
 }

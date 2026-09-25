@@ -1,5 +1,9 @@
 package dev.ytosko.neutrino.ui.components
 
+import androidx.compose.ui.composed
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateFloatAsState
 import kotlinx.coroutines.delay
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
@@ -159,7 +163,12 @@ fun MacroStat(
  * Draws the tile's border as a progress ring: a faint track all round, and the progress in
  * [color] from the top centre, clockwise. At the goal the ring closes and gets thicker.
  */
-private fun Modifier.goalRing(progress: Float, color: Color, track: Color): Modifier = drawWithContent {
+private fun Modifier.goalRing(progress: Float, color: Color, track: Color): Modifier = composed {
+    val shown by animateFloatAsState(progress, spring(dampingRatio = 0.85f, stiffness = 120f), label = "ring")
+    goalRingAt(shown, color, track)
+}
+
+private fun Modifier.goalRingAt(progress: Float, color: Color, track: Color): Modifier = drawWithContent {
     drawContent()
     val done = progress >= 1f
     val stroke = (if (done) 3.5.dp else 2.5.dp).toPx()
@@ -204,7 +213,13 @@ fun TotalsCard(
     kcalGoal: Int? = null,
 ) {
     val colors = NeutrinoTheme.colors
-    val n = totals ?: Nutrition.ZERO
+    val target = totals ?: Nutrition.ZERO
+    // Totals count up (or down) to their new values instead of jumping.
+    val carbs by animateFloatAsState(target.carbsG.toFloat(), tween(500), label = "carbs")
+    val protein by animateFloatAsState(target.proteinG.toFloat(), tween(500), label = "protein")
+    val fat by animateFloatAsState(target.fatG.toFloat(), tween(500), label = "fat")
+    val kcal by animateFloatAsState(target.calories.toFloat(), tween(500), label = "kcal")
+    val n = Nutrition(kcal.toDouble(), protein.toDouble(), carbs.toDouble(), fat.toDouble())
     @Composable
     fun goalText(value: Double, goal: Int?, unit: String): String? = goal?.let {
         stringResource(R.string.goal_progress, value.roundToInt(), it, unit, (value / it * 100).roundToInt())

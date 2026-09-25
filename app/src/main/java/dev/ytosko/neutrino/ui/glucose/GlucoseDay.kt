@@ -1,5 +1,12 @@
 package dev.ytosko.neutrino.ui.glucose
 
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.ui.geometry.Rect
 import dev.ytosko.neutrino.ui.theme.NeutrinoTheme
 import android.text.format.DateFormat
 import androidx.compose.foundation.BorderStroke
@@ -84,13 +91,17 @@ fun GlucoseDayCard(
     onAdd: () -> Unit,
     /** Opens the page with all of the day's readings. */
     onSeeAll: () -> Unit,
+    /** Press and hold a reading: where it is on screen, for the lifted menu. */
+    onLongPress: (GlucoseEntity, Rect) -> Unit = { _, _ -> },
+    /** The reading lifted by the menu, hidden in the list meanwhile. */
+    hiddenId: String? = null,
     modifier: Modifier = Modifier,
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
-        border = CardDefaults.outlinedCardBorder(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(Spacing.md),
@@ -128,7 +139,12 @@ fun GlucoseDayCard(
         val shown = readings.takeLast(COLLAPSED_COUNT)
         shown.forEachIndexed { index, reading ->
             if (index > 0) HorizontalDivider(modifier = Modifier.padding(start = Spacing.md), color = MaterialTheme.colorScheme.outlineVariant)
-            GlucoseRow(reading, range, onClick = { onOpen(reading) })
+            GlucoseRow(
+                reading, range,
+                onClick = { onOpen(reading) },
+                onLongPress = { bounds -> onLongPress(reading, bounds) },
+                hidden = reading.id == hiddenId,
+            )
         }
         if (readings.size > COLLAPSED_COUNT) {
             TextButton(
@@ -145,7 +161,15 @@ fun GlucoseDayCard(
 }
 
 @Composable
-internal fun GlucoseRow(reading: GlucoseEntity, range: ClosedFloatingPointRange<Double>, onClick: () -> Unit) {
+internal fun GlucoseRow(
+    reading: GlucoseEntity,
+    range: ClosedFloatingPointRange<Double>,
+    onClick: () -> Unit,
+    onLongPress: ((Rect) -> Unit)? = null,
+    hidden: Boolean = false,
+) {
+    val haptics = LocalHapticFeedback.current
+    var bounds by remember { mutableStateOf(Rect.Zero) }
     val band = band(reading.mmolPerL, range.start, range.endInclusive)
     val color = bandColor(band)
     val time = remember(reading.measuredAtEpochMs) { shortTime(reading.measuredAtEpochMs) }
@@ -158,7 +182,19 @@ internal fun GlucoseRow(reading: GlucoseEntity, range: ClosedFloatingPointRange<
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 56.dp)
-            .clickable(role = Role.Button, onClickLabel = openLabel, onClick = onClick)
+            .onGloballyPositioned { bounds = it.boundsInWindow() }
+            .alpha(if (hidden) 0f else 1f)
+            .combinedClickable(
+                role = Role.Button,
+                onClickLabel = openLabel,
+                onClick = onClick,
+                onLongClick = onLongPress?.let {
+                    {
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        it(bounds)
+                    }
+                },
+            )
             .clearAndSetSemantics {
                 contentDescription = description
                 role = Role.Button

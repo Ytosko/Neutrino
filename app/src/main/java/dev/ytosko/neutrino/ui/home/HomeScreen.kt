@@ -1,5 +1,18 @@
 package dev.ytosko.neutrino.ui.home
 
+import dev.ytosko.neutrino.ui.glucose.GlucoseRow
+import dev.ytosko.neutrino.ui.components.MenuAction
+import dev.ytosko.neutrino.ui.components.LiftedContextMenu
+import dev.ytosko.neutrino.ui.components.PlateIllustration
+import dev.ytosko.neutrino.ui.components.WaterGlass
+import dev.ytosko.neutrino.ui.components.pressScale
+import androidx.compose.animation.core.animateIntAsState
+import androidx.compose.material3.ripple
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import dev.ytosko.neutrino.ui.components.NeutrinoSnackbarHost
+import dev.ytosko.neutrino.ui.components.AlertStyle
+import dev.ytosko.neutrino.ui.components.AlertButton
+import dev.ytosko.neutrino.ui.components.IosAlert
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -282,11 +295,14 @@ fun HomeScreen(
     }
 
     val loggedAgain = stringResource(R.string.home_logged_again)
+    val haptics = LocalHapticFeedback.current
     var logAgainChoice by remember { mutableStateOf<LoggedMeal?>(null) }
     /** The meal whose press-and-hold menu is open, and where its card is. */
     var contextMeal by remember { mutableStateOf<Pair<LoggedMeal, Rect>?>(null) }
+    var contextReading by remember { mutableStateOf<Pair<GlucoseEntity, Rect>?>(null) }
     /** Logs a copy today (then shows today) or on the meal's own day, with Undo. */
     fun logAgain(meal: LoggedMeal, onItsDay: Boolean) {
+        haptics.performHapticFeedback(HapticFeedbackType.Confirm)
         scope.launch {
             val id = viewModel.logAgain(meal, onItsDay, mealWindows) ?: return@launch
             if (!onItsDay) {
@@ -349,7 +365,7 @@ fun HomeScreen(
         }
     }
 
-    val menuBlur by animateDpAsState(if (contextMeal != null) 14.dp else 0.dp, animationSpec = tween(200), label = "blur")
+    val menuBlur by animateDpAsState(if (contextMeal != null || contextReading != null) 14.dp else 0.dp, animationSpec = tween(200), label = "blur")
     Scaffold(
         modifier = modifier
             .fillMaxSize()
@@ -376,7 +392,7 @@ fun HomeScreen(
                     scrollBehavior = scrollBehavior,
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = MaterialTheme.colorScheme.background,
-                        scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                        scrolledContainerColor = MaterialTheme.colorScheme.background.copy(alpha = 0.92f),
                     ),
                 )
                 return@Scaffold
@@ -437,7 +453,7 @@ fun HomeScreen(
                 scrollBehavior = scrollBehavior,
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background,
-                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    scrolledContainerColor = MaterialTheme.colorScheme.background.copy(alpha = 0.92f),
                 ),
             )
         },
@@ -449,8 +465,12 @@ fun HomeScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                val healthPress = remember { MutableInteractionSource() }
+                val logPress = remember { MutableInteractionSource() }
                 FloatingActionButton(
                     onClick = { tab = HomeTab.Health },
+                    interactionSource = healthPress,
+                    modifier = Modifier.pressScale(healthPress, 0.92f),
                     shape = CircleShape,
                     containerColor = NeutrinoTheme.colors.rose.container,
                     contentColor = NeutrinoTheme.colors.rose.content,
@@ -459,6 +479,8 @@ fun HomeScreen(
                 }
                 ExtendedFloatingActionButton(
                     onClick = ::startLogging,
+                    interactionSource = logPress,
+                    modifier = Modifier.pressScale(logPress, 0.95f),
                     icon = { Icon(painterResource(R.drawable.ic_camera), contentDescription = null) },
                     text = { Text(stringResource(R.string.home_log_meal), style = MaterialTheme.typography.labelLarge) },
                     containerColor = MaterialTheme.colorScheme.primary,
@@ -467,7 +489,7 @@ fun HomeScreen(
             }
         },
         floatingActionButtonPosition = FabPosition.Center,
-        snackbarHost = { SnackbarHost(snackbar) },
+        snackbarHost = { NeutrinoSnackbarHost(snackbar) },
         containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         Crossfade(targetState = tab, animationSpec = tween(220), label = "tab") { shownTab ->
@@ -574,6 +596,8 @@ fun HomeScreen(
                         onOpen = { editingGlucose = it },
                         onAdd = { addingGlucose = true },
                         onSeeAll = { onOpenGlucoseDay(shownDate) },
+                        onLongPress = { reading, bounds -> contextReading = reading to bounds },
+                        hiddenId = contextReading?.first?.id,
                         modifier = itemModifier.animateItem(),
                     )
                 }
@@ -584,68 +608,89 @@ fun HomeScreen(
     }
 
     if (showSheet) {
-        ModalBottomSheet(onDismissRequest = { showSheet = false }) {
-            Column(modifier = Modifier.navigationBarsPadding().verticalScroll(rememberScrollState()).padding(bottom = Spacing.lg)) {
-                Text(
-                    stringResource(R.string.home_log_meal_title),
-                    style = MaterialTheme.typography.titleLarge,
-                    modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.sm),
-                )
-                SheetOption(R.drawable.ic_camera, stringResource(R.string.home_take_photo), NeutrinoTheme.colors.coral) {
-                    withAi { openCamera() }
+        ModalBottomSheet(
+            onDismissRequest = { showSheet = false },
+            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        ) {
+            Column(
+                modifier = Modifier.navigationBarsPadding().padding(start = Spacing.lg, end = Spacing.lg, bottom = Spacing.lg),
+                verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+            ) {
+                Text(stringResource(R.string.home_log_meal_title), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(bottom = Spacing.xs))
+                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    SheetTile(R.drawable.ic_camera, stringResource(R.string.home_take_photo), NeutrinoTheme.colors.coral, Modifier.weight(1f)) {
+                        withAi { openCamera() }
+                    }
+                    SheetTile(R.drawable.ic_image, stringResource(R.string.home_choose_photo), NeutrinoTheme.colors.sky, Modifier.weight(1f)) {
+                        withAi { gallery.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
+                    }
                 }
-                SheetOption(R.drawable.ic_image, stringResource(R.string.home_choose_photo), NeutrinoTheme.colors.sky) {
-                    withAi { gallery.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
-                }
-                SheetOption(R.drawable.ic_search, stringResource(R.string.home_add_manually), NeutrinoTheme.colors.amber) {
-                    showSheet = false
-                    onAddManually()
-                }
-                SheetOption(R.drawable.ic_activity, stringResource(R.string.home_add_glucose), NeutrinoTheme.colors.rose) {
-                    showSheet = false
-                    addingGlucose = true
+                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    SheetTile(R.drawable.ic_search, stringResource(R.string.home_add_manually), NeutrinoTheme.colors.amber, Modifier.weight(1f)) {
+                        showSheet = false
+                        onAddManually()
+                    }
+                    SheetTile(R.drawable.ic_activity, stringResource(R.string.home_add_glucose), NeutrinoTheme.colors.rose, Modifier.weight(1f)) {
+                        showSheet = false
+                        addingGlucose = true
+                    }
                 }
             }
         }
     }
 
     contextMeal?.let { (meal, bounds) ->
-        MealContextMenu(
-            meal = meal,
-            glucose = mealGlucose[meal.id],
-            cardBounds = bounds,
-            onLogAgain = {
-                contextMeal = null
-                startLogAgain(meal)
-            },
-            onDelete = {
-                contextMeal = null
-                deleteWithUndo(meal.id)
-            },
+        LiftedContextMenu(
+            bounds = bounds,
+            actions = listOf(
+                MenuAction(stringResource(R.string.meal_log_again), R.drawable.ic_refresh) {
+                    contextMeal = null
+                    startLogAgain(meal)
+                },
+                MenuAction(stringResource(R.string.home_delete_meal), R.drawable.ic_trash, destructive = true) {
+                    contextMeal = null
+                    deleteWithUndo(meal.id)
+                },
+            ),
             onDismiss = { contextMeal = null },
-        )
+        ) { MealCardContent(meal, mealGlucose[meal.id]) }
+    }
+
+    contextReading?.let { (reading, bounds) ->
+        LiftedContextMenu(
+            bounds = bounds,
+            actions = listOf(
+                MenuAction(stringResource(R.string.glucose_edit), R.drawable.ic_pencil) {
+                    contextReading = null
+                    editingGlucose = reading
+                },
+                MenuAction(stringResource(R.string.glucose_delete), R.drawable.ic_trash, destructive = true) {
+                    contextReading = null
+                    deleteGlucoseWithUndo(reading)
+                },
+            ),
+            onDismiss = { contextReading = null },
+        ) { GlucoseRow(reading, glucoseRange, onClick = {}) }
     }
 
     logAgainChoice?.let { meal ->
         val day = remember(meal.id) { meal.eatenAt.atZone(ZoneId.systemDefault()).toLocalDate().format(DateTimeFormatter.ofPattern("EEE, d MMM")) }
-        AlertDialog(
-            onDismissRequest = { logAgainChoice = null },
-            title = { Text(stringResource(R.string.log_again_title)) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                    Text(stringResource(R.string.log_again_body, meal.name), style = MaterialTheme.typography.bodyMedium)
-                    LogAgainOption(R.drawable.ic_calendar_days, stringResource(R.string.log_again_today), stringResource(R.string.log_again_today_body)) {
-                        logAgainChoice = null
-                        logAgain(meal, onItsDay = false)
-                    }
-                    LogAgainOption(R.drawable.ic_history, day, stringResource(R.string.log_again_that_day_body)) {
-                        logAgainChoice = null
-                        logAgain(meal, onItsDay = true)
-                    }
-                }
-            },
-            confirmButton = {},
-            dismissButton = { TextButton(onClick = { logAgainChoice = null }) { Text(stringResource(R.string.home_cancel)) } },
+        IosAlert(
+            title = stringResource(R.string.log_again_title),
+            message = stringResource(R.string.log_again_body, meal.name),
+            buttons = listOf(
+                AlertButton(stringResource(R.string.log_again_today_full)) {
+                    logAgainChoice = null
+                    logAgain(meal, onItsDay = false)
+                },
+                AlertButton(stringResource(R.string.log_again_on_day, day)) {
+                    logAgainChoice = null
+                    logAgain(meal, onItsDay = true)
+                },
+                AlertButton(stringResource(R.string.home_cancel), AlertStyle.Cancel) { logAgainChoice = null },
+            ),
+            onDismiss = { logAgainChoice = null },
         )
     }
 
@@ -730,19 +775,22 @@ private fun newCaptureUri(context: Context): Uri {
     return FileProvider.getUriForFile(context, "${context.packageName}.files", file)
 }
 
+/** A big, friendly choice in the "Log a meal" sheet. */
 @Composable
-private fun SheetOption(icon: Int, label: String, tint: Tint, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 64.dp)
-            .clickable(role = Role.Button, onClick = onClick)
-            .padding(horizontal = Spacing.lg),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+private fun SheetTile(icon: Int, label: String, tint: Tint, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    val press = remember { MutableInteractionSource() }
+    Column(
+        modifier = modifier
+            .pressScale(press)
+            .clip(MaterialTheme.shapes.large)
+            .background(MaterialTheme.colorScheme.surfaceContainerLowest)
+            .clickable(interactionSource = press, indication = ripple(), role = Role.Button, onClick = onClick)
+            .heightIn(min = 112.dp)
+            .padding(Spacing.md),
+        verticalArrangement = Arrangement.spacedBy(Spacing.sm),
     ) {
-        IconBadge(icon = icon, container = tint.container, content = tint.content)
-        Text(label, style = MaterialTheme.typography.titleMedium)
+        IconBadge(icon = icon, container = tint.container, content = tint.content, size = 44.dp)
+        Text(label, style = MaterialTheme.typography.titleSmall, maxLines = 2)
     }
 }
 
@@ -750,42 +798,40 @@ private fun SheetOption(icon: Int, label: String, tint: Tint, onClick: () -> Uni
 @Composable
 private fun WaterCard(waterMl: Int, goalMl: Int?, isToday: Boolean, onRemove: () -> Unit, onAdd: () -> Unit, modifier: Modifier = Modifier) {
     val colors = NeutrinoTheme.colors
+    val haptics = LocalHapticFeedback.current
+    val addPress = remember { MutableInteractionSource() }
+    // The glass fills toward the goal (or 2 L without one); the amount counts up as it changes.
+    val shownMl by animateIntAsState(waterMl, animationSpec = tween(400), label = "water")
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
-        border = CardDefaults.outlinedCardBorder(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(Spacing.md),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
-            IconBadge(R.drawable.ic_droplet, container = colors.waterContainer, content = colors.water)
+            WaterGlass(waterMl / (goalMl ?: 2_000).toFloat(), water = colors.water, container = colors.waterContainer)
             Column(modifier = Modifier.weight(1f)) {
                 Text(stringResource(R.string.home_water), style = MaterialTheme.typography.titleMedium)
                 Text(
                     if (goalMl != null) {
-                        stringResource(R.string.home_water_of_goal, formatWater(waterMl), formatWater(goalMl))
+                        stringResource(R.string.home_water_of_goal, formatWater(shownMl), formatWater(goalMl))
                     } else {
-                        stringResource(if (isToday) R.string.home_water_amount else R.string.home_water_amount_day, formatWater(waterMl))
+                        stringResource(if (isToday) R.string.home_water_amount else R.string.home_water_amount_day, formatWater(shownMl))
                     },
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                 )
-                if (goalMl != null) {
-                    LinearProgressIndicator(
-                        progress = { (waterMl.toFloat() / goalMl).coerceIn(0f, 1f) },
-                        color = colors.water,
-                        trackColor = colors.waterContainer,
-                        drawStopIndicator = {},
-                        modifier = Modifier.padding(top = 6.dp).fillMaxWidth().height(6.dp).clip(CircleShape),
-                    )
-                }
             }
             if (waterMl > 0) {
-                IconButton(onClick = onRemove) {
+                IconButton(onClick = {
+                    haptics.performHapticFeedback(HapticFeedbackType.ContextClick)
+                    onRemove()
+                }) {
                     Icon(
                         painterResource(R.drawable.ic_minus),
                         contentDescription = stringResource(R.string.home_remove_glass),
@@ -794,10 +840,14 @@ private fun WaterCard(waterMl: Int, goalMl: Int?, isToday: Boolean, onRemove: ()
                 }
             }
             FilledTonalButton(
-                onClick = onAdd,
+                onClick = {
+                    haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+                    onAdd()
+                },
+                interactionSource = addPress,
                 colors = ButtonDefaults.filledTonalButtonColors(containerColor = colors.waterContainer, contentColor = colors.water),
                 enabled = waterMl + HomeViewModel.GLASS_ML <= HomeViewModel.MAX_WATER_ML,
-                modifier = Modifier.heightIn(min = 48.dp),
+                modifier = Modifier.heightIn(min = 48.dp).pressScale(addPress, 0.94f),
             ) {
                 Text(stringResource(R.string.home_add_glass), maxLines = 1)
             }
@@ -821,14 +871,18 @@ private fun MealRow(
     val logAgainLabel = stringResource(R.string.meal_log_again)
     val deleteLabel = stringResource(R.string.home_delete_meal)
     var bounds by remember { mutableStateOf(Rect.Zero) }
+    val press = remember { MutableInteractionSource() }
     Card(
         modifier = modifier
             .fillMaxWidth()
+            .pressScale(press)
             .onGloballyPositioned { bounds = it.boundsInWindow() }
             // While lifted, the copy above the blur stands in for the card.
             .alpha(if (hidden) 0f else 1f)
             .clip(MaterialTheme.shapes.large)
             .combinedClickable(
+                interactionSource = press,
+                indication = ripple(),
                 onClickLabel = stringResource(R.string.meal_open),
                 onLongClickLabel = stringResource(R.string.meal_actions),
                 onClick = onOpen,
@@ -846,7 +900,7 @@ private fun MealRow(
             },
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
-        border = CardDefaults.outlinedCardBorder(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
     ) {
         MealCardContent(meal, glucose)
     }
@@ -885,93 +939,6 @@ private fun MealCardContent(meal: LoggedMeal, glucose: MealGlucose?) {
     }
 }
 
-/**
- * iPhone-style menu for a meal: the day behind blurs and dims, the card lifts in place, and a
- * rounded menu opens under it (or above it near the bottom of the screen).
- */
-@Composable
-private fun MealContextMenu(
-    meal: LoggedMeal,
-    glucose: MealGlucose?,
-    cardBounds: Rect,
-    onLogAgain: () -> Unit,
-    onDelete: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    val density = LocalDensity.current
-    var shown by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { shown = true }
-    val lift by animateFloatAsState(if (shown) 1.03f else 1f, animationSpec = spring(dampingRatio = 0.7f, stiffness = 500f), label = "lift")
-    val appear by animateFloatAsState(if (shown) 1f else 0f, animationSpec = tween(180), label = "appear")
-    Popup(
-        popupPositionProvider = object : PopupPositionProvider {
-            override fun calculatePosition(anchorBounds: IntRect, windowSize: IntSize, layoutDirection: LayoutDirection, popupContentSize: IntSize) = IntOffset.Zero
-        },
-        onDismissRequest = onDismiss,
-        properties = PopupProperties(focusable = true, clippingEnabled = false),
-    ) {
-        BoxWithConstraints(
-            Modifier
-                .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.22f * appear))
-                .pointerInput(Unit) { detectTapGestures { onDismiss() } },
-        ) {
-            val screenH = with(density) { maxHeight.toPx() }
-            val menuH = with(density) { 116.dp.toPx() }
-            val gap = with(density) { 10.dp.toPx() }
-            val below = cardBounds.bottom + gap + menuH < screenH - with(density) { 24.dp.toPx() }
-            // The lifted copy of the card, exactly where the original is.
-            Surface(
-                modifier = Modifier
-                    .offset { IntOffset(cardBounds.left.toInt(), cardBounds.top.toInt()) }
-                    .size(with(density) { cardBounds.width.toDp() }, with(density) { cardBounds.height.toDp() })
-                    .graphicsLayer { scaleX = lift; scaleY = lift },
-                shape = MaterialTheme.shapes.large,
-                color = MaterialTheme.colorScheme.surfaceContainerLowest,
-                shadowElevation = 16.dp,
-            ) { MealCardContent(meal, glucose) }
-            Surface(
-                modifier = Modifier
-                    .offset {
-                        val y = if (below) cardBounds.bottom + gap else cardBounds.top - gap - menuH
-                        IntOffset(cardBounds.left.toInt(), y.toInt())
-                    }
-                    .width(250.dp)
-                    .graphicsLayer {
-                        alpha = appear
-                        scaleX = 0.9f + 0.1f * appear
-                        scaleY = 0.9f + 0.1f * appear
-                        transformOrigin = TransformOrigin(0f, if (below) 0f else 1f)
-                    },
-                shape = RoundedCornerShape(14.dp),
-                color = MaterialTheme.colorScheme.surfaceContainerLowest,
-                shadowElevation = 12.dp,
-            ) {
-                Column {
-                    ContextMenuItem(stringResource(R.string.meal_log_again), R.drawable.ic_refresh, MaterialTheme.colorScheme.onSurface, onLogAgain)
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                    ContextMenuItem(stringResource(R.string.home_delete_meal), R.drawable.ic_trash, MaterialTheme.colorScheme.error, onDelete)
-                }
-            }
-        }
-    }
-}
-
-/** A menu row the iOS way: label on the left, icon on the right. */
-@Composable
-private fun ContextMenuItem(label: String, icon: Int, color: Color, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 56.dp)
-            .clickable(role = Role.Button, onClick = onClick)
-            .padding(horizontal = Spacing.md),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(label, style = MaterialTheme.typography.bodyLarge, color = color, modifier = Modifier.weight(1f))
-        Icon(painterResource(icon), contentDescription = null, tint = color, modifier = Modifier.size(20.dp))
-    }
-}
 
 @Composable
 private fun MacroText(letter: String, grams: Double, color: androidx.compose.ui.graphics.Color) {
@@ -1025,8 +992,8 @@ private fun EmptyMeals(isToday: Boolean, modifier: Modifier = Modifier) {
         modifier = modifier.fillMaxWidth().padding(vertical = Spacing.xl, horizontal = Spacing.lg),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        IconBadge(icon = R.drawable.ic_utensils, size = 64.dp)
-        Spacer(Modifier.height(Spacing.md))
+        PlateIllustration()
+        Spacer(Modifier.height(Spacing.sm))
         Text(
             stringResource(if (isToday) R.string.home_empty_title else R.string.home_empty_day_title),
             style = MaterialTheme.typography.titleLarge,
@@ -1146,22 +1113,3 @@ private fun MealTip(onDismiss: () -> Unit, modifier: Modifier = Modifier) {
     }
 }
 
-/** A choice in the "Log again on…" dialog. */
-@Composable
-private fun LogAgainOption(icon: Int, title: String, body: String, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(MaterialTheme.shapes.medium)
-            .clickable(role = Role.Button, onClick = onClick)
-            .padding(vertical = Spacing.sm, horizontal = Spacing.xs),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(Spacing.md),
-    ) {
-        IconBadge(icon, container = NeutrinoTheme.colors.coral.container, content = NeutrinoTheme.colors.coral.content, size = 40.dp)
-        Column(Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.titleSmall)
-            Text(body, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    }
-}

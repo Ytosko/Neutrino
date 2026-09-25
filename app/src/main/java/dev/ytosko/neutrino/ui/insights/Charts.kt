@@ -1,5 +1,6 @@
 package dev.ytosko.neutrino.ui.insights
 
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -53,10 +54,14 @@ fun BarChart(
     average: Double? = null,
     xLabel: (Int) -> String? = { null },
     height: Dp = 180.dp,
+    /** Text for the bubble over the touched bar, e.g. "1.2k kcal"; no bubble when null. */
+    bubble: ((Int) -> String)? = null,
 ) {
     val measurer = rememberTextMeasurer()
     val labelStyle = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
-    val grid = MaterialTheme.colorScheme.outlineVariant
+    val grid = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+    val bubbleColor = MaterialTheme.colorScheme.inverseSurface
+    val bubbleStyle = MaterialTheme.typography.labelMedium.copy(color = MaterialTheme.colorScheme.inverseOnSurface)
     val averageColor = MaterialTheme.colorScheme.onSurfaceVariant
     val currentSelect = rememberUpdatedState(onSelect)
     val currentSelected = rememberUpdatedState(selected)
@@ -116,8 +121,13 @@ fun BarChart(
             val x = slot * index + (slot - barWidth) / 2
             val alpha = if (selected == null || selected == index) 1f else 0.3f
             if (h > 0f) {
+                // Soft vertical gradient, like Apple Health.
                 drawRoundRect(
-                    color = color.copy(alpha = alpha),
+                    brush = Brush.verticalGradient(
+                        listOf(color.copy(alpha = alpha), color.copy(alpha = alpha * 0.55f)),
+                        startY = plotHeight - h,
+                        endY = plotHeight,
+                    ),
                     topLeft = Offset(x, plotHeight - h),
                     size = Size(barWidth, h),
                     cornerRadius = radius,
@@ -141,10 +151,22 @@ fun BarChart(
             )
         }
 
-        // Marker line through the selected bar, like a scrubber.
+        // Marker line through the selected bar, and its value in a floating bubble.
         selected?.takeIf { it in values.indices }?.let { index ->
             val cx = slot * index + slot / 2
-            drawLine(color.copy(alpha = 0.5f), Offset(cx, 0f), Offset(cx, plotHeight), strokeWidth = 1.dp.toPx())
+            drawLine(color.copy(alpha = 0.4f), Offset(cx, 0f), Offset(cx, plotHeight), strokeWidth = 1.dp.toPx())
+            bubble?.invoke(index)?.let { label ->
+                val text = measurer.measure(label, bubbleStyle)
+                val padX = 8.dp.toPx()
+                val padY = 4.dp.toPx()
+                val bw = text.size.width + padX * 2
+                val bh = text.size.height + padY * 2
+                val barTop = plotHeight - (if (top > 0) (values[index] / top * plotHeight).toFloat() else 0f)
+                val left = (cx - bw / 2).coerceIn(0f, plotWidth - bw)
+                val topY = (barTop - bh - 6.dp.toPx()).coerceAtLeast(0f)
+                drawRoundRect(bubbleColor, topLeft = Offset(left, topY), size = Size(bw, bh), cornerRadius = CornerRadius(bh / 2))
+                drawText(text, topLeft = Offset(left + padX, topY + padY))
+            }
         }
     }
 }

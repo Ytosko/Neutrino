@@ -2,6 +2,9 @@
 <resources>
     <style name="Theme.Neutrino" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:windowBackground">@color/window_background</item>
+        <!-- Soft, light shadows (iPhone-like) for every raised card and sheet. -->
+        <item name="android:spotShadowAlpha">0.10</item>
+        <item name="android:ambientShadowAlpha">0.05</item>
     </style>
 
     <!-- Splash screen (androidx.core:core-splashscreen) -->

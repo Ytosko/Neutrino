@@ -427,10 +427,9 @@
     <string name="meal_tip">Tip: press and hold a meal to log it again or delete it.</string>
     <string name="meal_tip_dismiss">Got it</string>
     <string name="log_again_title">Log again on…</string>
-    <string name="log_again_body">Log “%1$s” again:</string>
-    <string name="log_again_today">Today</string>
-    <string name="log_again_today_body">Now, as a new meal</string>
-    <string name="log_again_that_day_body">That day, at the same time</string>
+    <string name="log_again_body">“%1$s”</string>
+    <string name="log_again_today_full">Today, now</string>
+    <string name="log_again_on_day">%1$s, same time</string>
     <string name="home_logged_again">Logged again</string>
     <string name="home_add_glucose">Add a glucose reading</string>
     <string name="home_water_of_goal">%1$s of %2$s</string>
@@ -588,6 +587,7 @@
     <string name="glucose_edit_title">Glucose reading</string>
     <string name="glucose_relation">Meal</string>
     <string name="glucose_time">Time</string>
+    <string name="glucose_edit">Edit reading</string>
     <string name="glucose_delete">Delete reading</string>
     <string name="glucose_deleted">Reading deleted</string>
     <string name="glucose_reading_desc">%1$s %5$s at %2$s, %3$s, %4$s</string>

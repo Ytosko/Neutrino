@@ -1,5 +1,7 @@
 package dev.ytosko.neutrino.ui.settings
 
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -117,17 +119,21 @@ private fun GoalCard(
     range: IntRange,
     onChange: (Int?) -> Unit,
 ) {
+    val haptics = LocalHapticFeedback.current
     Card(
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
-        border = CardDefaults.outlinedCardBorder(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
     ) {
         Column(Modifier.fillMaxWidth().padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(min = 40.dp)
-                    .toggleable(value = value != null, role = Role.Switch) { on -> onChange(if (on) default else null) },
+                    .toggleable(value = value != null, role = Role.Switch) { on ->
+                        haptics.performHapticFeedback(if (on) HapticFeedbackType.ToggleOn else HapticFeedbackType.ToggleOff)
+                        onChange(if (on) default else null)
+                    },
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))

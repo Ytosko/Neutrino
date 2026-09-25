@@ -1,5 +1,11 @@
 package dev.ytosko.neutrino.ui.settings
 
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.graphics.Color
+import dev.ytosko.neutrino.ui.components.AlertStyle
+import dev.ytosko.neutrino.ui.components.AlertButton
+import dev.ytosko.neutrino.ui.components.IosAlert
 import dev.ytosko.neutrino.data.glucose.PairedMeter
 import dev.ytosko.neutrino.data.reminders.MealReminders
 import androidx.compose.ui.platform.LocalContext
@@ -164,7 +170,7 @@ fun SettingsScreen(
                 },
                 onClick = onOpenMeter,
             )
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            RowDivider()
             SettingRow(
                 icon = R.drawable.ic_chart_column,
                 tint = c.rose,
@@ -172,7 +178,7 @@ fun SettingsScreen(
                 value = appSettings.glucoseUnit.label,
                 onClick = { choosingUnit = true },
             )
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            RowDivider()
             SwitchRow(
                 icon = R.drawable.ic_bell,
                 tint = c.rose,
@@ -187,7 +193,7 @@ fun SettingsScreen(
                     }
                 },
             )
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            RowDivider()
             SwitchRow(
                 icon = R.drawable.ic_smartphone,
                 tint = c.rose,
@@ -224,7 +230,7 @@ fun SettingsScreen(
                 },
                 onClick = onOpenMeals,
             )
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            RowDivider()
             SwitchRow(
                 icon = R.drawable.ic_history,
                 tint = c.amber,
@@ -266,7 +272,7 @@ fun SettingsScreen(
                     }
                 },
             )
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            RowDivider()
             SwitchRow(
                 icon = R.drawable.ic_eye_off,
                 tint = c.slate,
@@ -287,9 +293,9 @@ fun SettingsScreen(
         }
         Section(stringResource(R.string.settings_section_about)) {
             SettingRow(icon = R.drawable.ic_shield_check, tint = c.slate, title = stringResource(R.string.settings_privacy), value = null, external = true) { uriHandler.openUri(privacyUrl) }
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            RowDivider()
             SettingRow(icon = R.drawable.ic_info, tint = c.slate, title = stringResource(R.string.settings_terms), value = null, external = true) { uriHandler.openUri(termsUrl) }
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            RowDivider()
             SettingRow(icon = R.drawable.ic_code, tint = c.slate, title = stringResource(R.string.settings_source), value = null, external = true) { uriHandler.openUri(sourceUrl) }
         }
         Text(
@@ -301,77 +307,44 @@ fun SettingsScreen(
     }
 
     if (choosingUnit) {
-        AlertDialog(
-            onDismissRequest = { choosingUnit = false },
-            title = { Text(stringResource(R.string.settings_glucose_unit)) },
-            text = {
-                Column {
-                    GlucoseUnit.entries.forEach { unit ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(min = 52.dp)
-                                .selectable(selected = appSettings.glucoseUnit == unit, role = Role.RadioButton) {
-                                    scope.launch { repository.setGlucoseUnit(unit); NeutrinoWidget.refresh(context) }
-                                    choosingUnit = false
-                                },
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
-                        ) {
-                            RadioButton(selected = appSettings.glucoseUnit == unit, onClick = null)
-                            Text(unit.label, style = MaterialTheme.typography.bodyLarge)
-                        }
-                    }
-                    Text(
-                        stringResource(R.string.settings_glucose_unit_body),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = Spacing.xs),
-                    )
+        IosAlert(
+            title = stringResource(R.string.settings_glucose_unit),
+            message = stringResource(R.string.settings_glucose_unit_body),
+            buttons = GlucoseUnit.entries.map { unit ->
+                AlertButton(if (appSettings.glucoseUnit == unit) "✓  ${unit.label}" else unit.label) {
+                    scope.launch { repository.setGlucoseUnit(unit); NeutrinoWidget.refresh(context) }
+                    choosingUnit = false
                 }
-            },
-            confirmButton = { TextButton(onClick = { choosingUnit = false }) { Text(stringResource(R.string.backup_cancel)) } },
+            } + AlertButton(stringResource(R.string.backup_cancel), AlertStyle.Cancel) { choosingUnit = false },
+            onDismiss = { choosingUnit = false },
         )
     }
 
     if (choosingLanguage) {
-        AlertDialog(
-            onDismissRequest = { choosingLanguage = false },
-            title = { Text(stringResource(R.string.settings_language)) },
-            text = {
-                Column {
-                    AppLanguage.entries.forEach { option ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(min = 52.dp)
-                                .selectable(selected = language == option, role = Role.RadioButton) {
-                                    choosingLanguage = false
-                                    if (option != language) {
-                                        AppLanguage.set(context, option)
-                                        // Android 13+ restarts the screen itself; before that, Neutrino does.
-                                        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) (context as? android.app.Activity)?.recreate()
-                                    }
-                                },
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
-                        ) {
-                            RadioButton(selected = language == option, onClick = null)
-                            Text(languageName(option), style = MaterialTheme.typography.bodyLarge)
-                        }
+        IosAlert(
+            title = stringResource(R.string.settings_language),
+            message = null,
+            buttons = AppLanguage.entries.map { option ->
+                val name = languageName(option)
+                AlertButton(if (language == option) "✓  $name" else name) {
+                    choosingLanguage = false
+                    if (option != language) {
+                        AppLanguage.set(context, option)
+                        // Android 13+ restarts the screen itself; before that, Neutrino does.
+                        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) (context as? android.app.Activity)?.recreate()
                     }
                 }
-            },
-            confirmButton = { TextButton(onClick = { choosingLanguage = false }) { Text(stringResource(R.string.backup_cancel)) } },
+            } + AlertButton(stringResource(R.string.backup_cancel), AlertStyle.Cancel) { choosingLanguage = false },
+            onDismiss = { choosingLanguage = false },
         )
     }
 
     if (lockUnavailable) {
-        AlertDialog(
-            onDismissRequest = { lockUnavailable = false },
-            title = { Text(stringResource(R.string.settings_app_lock)) },
-            text = { Text(stringResource(R.string.settings_app_lock_unavailable)) },
-            confirmButton = { TextButton(onClick = { lockUnavailable = false }) { Text(stringResource(R.string.meters_done)) } },
+        IosAlert(
+            title = stringResource(R.string.settings_app_lock),
+            message = stringResource(R.string.settings_app_lock_unavailable),
+            buttons = listOf(AlertButton(stringResource(R.string.meters_done), AlertStyle.Cancel) { lockUnavailable = false }),
+            onDismiss = { lockUnavailable = false },
         )
     }
 }
@@ -399,16 +372,20 @@ private fun goalsSummary(settings: AppSettings): String {
 /** A setting that's on or off: the whole row toggles it. */
 @Composable
 private fun SwitchRow(icon: Int, title: String, subtitle: String?, checked: Boolean, tint: Tint, onChange: (Boolean) -> Unit) {
+    val haptics = LocalHapticFeedback.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 64.dp)
-            .toggleable(value = checked, role = Role.Switch, onValueChange = onChange)
+            .toggleable(value = checked, role = Role.Switch) { on ->
+                haptics.performHapticFeedback(if (on) HapticFeedbackType.ToggleOn else HapticFeedbackType.ToggleOff)
+                onChange(on)
+            }
             .padding(horizontal = Spacing.md, vertical = Spacing.sm),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
-        IconBadge(icon = icon, container = tint.container, content = tint.content, size = 40.dp)
+        IconBadge(icon = icon, container = tint.solid, content = Color.White, size = 32.dp)
         Column(modifier = Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.titleSmall)
             if (subtitle != null) {
@@ -431,7 +408,7 @@ private fun Section(title: String, content: @Composable () -> Unit) {
         Card(
             shape = MaterialTheme.shapes.large,
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
-            border = CardDefaults.outlinedCardBorder(),
+            elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
         ) { Column { content() } }
     }
 }
@@ -454,7 +431,7 @@ private fun SettingRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
-        IconBadge(icon = icon, container = tint.container, content = tint.content, size = 40.dp)
+        IconBadge(icon = icon, container = tint.solid, content = Color.White, size = 32.dp)
         Column(modifier = Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.titleSmall)
             if (value != null) {
@@ -464,8 +441,14 @@ private fun SettingRow(
         Icon(
             painterResource(if (external) R.drawable.ic_external_link else R.drawable.ic_chevron_right),
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            tint = MaterialTheme.colorScheme.outline,
             modifier = Modifier.size(20.dp),
         )
     }
+}
+
+/** A divider that starts after the row's icon, like iPhone settings. */
+@Composable
+private fun RowDivider() {
+    HorizontalDivider(modifier = Modifier.padding(start = Spacing.md + 32.dp + Spacing.md), color = MaterialTheme.colorScheme.outlineVariant)
 }

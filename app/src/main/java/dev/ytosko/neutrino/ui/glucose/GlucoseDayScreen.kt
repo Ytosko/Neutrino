@@ -1,5 +1,12 @@
 package dev.ytosko.neutrino.ui.glucose
 
+import dev.ytosko.neutrino.ui.components.MenuAction
+import dev.ytosko.neutrino.ui.components.LiftedContextMenu
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.geometry.Rect
+import dev.ytosko.neutrino.ui.components.NeutrinoSnackbarHost
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -108,14 +115,17 @@ fun GlucoseDayScreen(viewModel: GlucoseDayViewModel, onBack: () -> Unit) {
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var editing by remember { mutableStateOf<GlucoseEntity?>(null) }
+    var lifted by remember { mutableStateOf<Pair<GlucoseEntity, Rect>?>(null) }
     var adding by remember { mutableStateOf(false) }
     val deleted = stringResource(R.string.glucose_deleted)
     val undo = stringResource(R.string.home_undo)
     val unit = LocalGlucoseUnit.current
 
+    val blurRadius by animateDpAsState(if (lifted != null) 14.dp else 0.dp, animationSpec = tween(200), label = "blur")
     Scaffold(
+        modifier = Modifier.blur(blurRadius),
         containerColor = MaterialTheme.colorScheme.background,
-        snackbarHost = { SnackbarHost(snackbar) },
+        snackbarHost = { NeutrinoSnackbarHost(snackbar) },
         topBar = {
             TopAppBar(
                 title = {
@@ -164,7 +174,7 @@ fun GlucoseDayScreen(viewModel: GlucoseDayViewModel, onBack: () -> Unit) {
                     modifier = width,
                     shape = MaterialTheme.shapes.large,
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
-                    border = CardDefaults.outlinedCardBorder(),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
                 ) {
                     Column(Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                         val values = list.map { it.mmolPerL }
@@ -182,16 +192,44 @@ fun GlucoseDayScreen(viewModel: GlucoseDayViewModel, onBack: () -> Unit) {
                     modifier = width,
                     shape = MaterialTheme.shapes.large,
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
-                    border = CardDefaults.outlinedCardBorder(),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
                 ) {
                     // Newest first, like a list of what just happened.
                     list.asReversed().forEachIndexed { index, reading ->
                         if (index > 0) HorizontalDivider(modifier = Modifier.padding(start = Spacing.md), color = MaterialTheme.colorScheme.outlineVariant)
-                        GlucoseRow(reading, range, onClick = { editing = reading })
+                        GlucoseRow(
+                            reading, range,
+                            onClick = { editing = reading },
+                            onLongPress = { bounds -> lifted = reading to bounds },
+                            hidden = lifted?.first?.id == reading.id,
+                        )
                     }
                 }
             }
         }
+    }
+
+    lifted?.let { (reading, bounds) ->
+        LiftedContextMenu(
+            bounds = bounds,
+            actions = listOf(
+                MenuAction(stringResource(R.string.glucose_edit), R.drawable.ic_pencil) {
+                    lifted = null
+                    editing = reading
+                },
+                MenuAction(stringResource(R.string.glucose_delete), R.drawable.ic_trash, destructive = true) {
+                    lifted = null
+                    scope.launch {
+                        val stored = viewModel.delete(reading.id) ?: return@launch
+                        snackbar.currentSnackbarData?.dismiss()
+                        if (snackbar.showSnackbar(deleted, actionLabel = undo, duration = SnackbarDuration.Long) == SnackbarResult.ActionPerformed) {
+                            viewModel.restore(stored)
+                        }
+                    }
+                },
+            ),
+            onDismiss = { lifted = null },
+        ) { GlucoseRow(reading, range, onClick = {}) }
     }
 
     if (adding) {

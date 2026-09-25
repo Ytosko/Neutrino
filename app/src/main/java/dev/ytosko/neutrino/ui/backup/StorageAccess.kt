@@ -1,5 +1,8 @@
 package dev.ytosko.neutrino.ui.backup
 
+import dev.ytosko.neutrino.ui.components.AlertStyle
+import dev.ytosko.neutrino.ui.components.AlertButton
+import dev.ytosko.neutrino.ui.components.IosAlert
 import android.Manifest
 import android.content.ActivityNotFoundException
 import android.content.Intent
@@ -42,15 +45,15 @@ fun rememberStorageAccess(hasAccess: () -> Boolean, settingsIntent: () -> Intent
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { finish() }
 
     if (explaining) {
-        AlertDialog(
-            onDismissRequest = {
-                explaining = false
-                pending = null
-            },
-            title = { Text(stringResource(R.string.storage_access_title)) },
-            text = { Text(stringResource(R.string.storage_access_body)) },
-            confirmButton = {
-                TextButton(onClick = {
+        IosAlert(
+            title = stringResource(R.string.storage_access_title),
+            message = stringResource(R.string.storage_access_body),
+            buttons = listOf(
+                AlertButton(stringResource(R.string.backup_cancel)) {
+                    explaining = false
+                    pending = null
+                },
+                AlertButton(stringResource(R.string.storage_access_continue), AlertStyle.Cancel) {
                     explaining = false
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                         try {
@@ -62,13 +65,11 @@ fun rememberStorageAccess(hasAccess: () -> Boolean, settingsIntent: () -> Intent
                     } else {
                         permission.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
                     }
-                }) { Text(stringResource(R.string.storage_access_continue)) }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    explaining = false
-                    pending = null
-                }) { Text(stringResource(R.string.backup_cancel)) }
+                },
+            ),
+            onDismiss = {
+                explaining = false
+                pending = null
             },
         )
     }

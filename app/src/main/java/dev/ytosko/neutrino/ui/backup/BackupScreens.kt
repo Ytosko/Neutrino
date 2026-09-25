@@ -1,5 +1,10 @@
 package dev.ytosko.neutrino.ui.backup
 
+import dev.ytosko.neutrino.ui.components.NeutrinoSnackbarHost
+import dev.ytosko.neutrino.ui.components.SegmentedControl
+import dev.ytosko.neutrino.ui.components.AlertStyle
+import dev.ytosko.neutrino.ui.components.AlertButton
+import dev.ytosko.neutrino.ui.components.IosAlert
 import android.app.Activity
 import android.text.format.DateUtils
 import android.text.format.Formatter
@@ -88,7 +93,7 @@ fun BackupSetupScreen(
             } else {
                 CreateBackupButton(state, actions::createBackup)
             }
-            SnackbarHost(actions.snackbar)
+            NeutrinoSnackbarHost(actions.snackbar)
         },
     ) {
         if (!state.loaded) return@SetupScaffold
@@ -119,7 +124,7 @@ fun BackupSettingsScreen(viewModel: BackupViewModel, onBack: () -> Unit) {
         onBack = onBack,
         bottomBar = {
             if (state.loaded && !backup.configured) CreateBackupButton(state, actions::createBackup)
-            SnackbarHost(actions.snackbar)
+            NeutrinoSnackbarHost(actions.snackbar)
         },
     ) {
         if (!state.loaded) return@SetupScaffold
@@ -379,26 +384,19 @@ private fun DriveSection(state: BackupUiState, viewModel: BackupViewModel) {
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 Text(stringResource(R.string.backup_drive_frequency), style = MaterialTheme.typography.labelLarge)
                 val options = BackupFrequency.entries
-                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                    options.forEachIndexed { index, frequency ->
-                        SegmentedButton(
-                            selected = backup.driveFrequency == frequency,
-                            onClick = { viewModel.setFrequency(frequency) },
-                            shape = SegmentedButtonDefaults.itemShape(index, options.size),
-                            modifier = Modifier.heightIn(min = 48.dp),
-                        ) {
-                            Text(
-                                stringResource(
-                                    when (frequency) {
-                                        BackupFrequency.Daily -> R.string.backup_daily
-                                        BackupFrequency.Weekly -> R.string.backup_weekly
-                                        BackupFrequency.Monthly -> R.string.backup_monthly
-                                    },
-                                ),
-                            )
-                        }
-                    }
-                }
+                SegmentedControl(
+                    options = options.map {
+                        stringResource(
+                            when (it) {
+                                BackupFrequency.Daily -> R.string.backup_daily
+                                BackupFrequency.Weekly -> R.string.backup_weekly
+                                BackupFrequency.Monthly -> R.string.backup_monthly
+                            },
+                        )
+                    },
+                    selected = options.indexOf(backup.driveFrequency).coerceAtLeast(0),
+                    onSelect = { viewModel.setFrequency(options[it]) },
+                )
                 TextButton(onClick = { confirmDisconnect = true }, modifier = Modifier.heightIn(min = 48.dp)) {
                     Text(stringResource(R.string.backup_drive_disconnect), color = MaterialTheme.colorScheme.error)
                 }
@@ -407,17 +405,17 @@ private fun DriveSection(state: BackupUiState, viewModel: BackupViewModel) {
     }
 
     if (confirmDisconnect) {
-        AlertDialog(
-            onDismissRequest = { confirmDisconnect = false },
-            title = { Text(stringResource(R.string.backup_drive_disconnect_title)) },
-            text = { Text(stringResource(R.string.backup_drive_disconnect_body)) },
-            confirmButton = {
-                TextButton(onClick = {
+        IosAlert(
+            title = stringResource(R.string.backup_drive_disconnect_title),
+            message = stringResource(R.string.backup_drive_disconnect_body),
+            buttons = listOf(
+                AlertButton(stringResource(R.string.backup_cancel), AlertStyle.Cancel) { confirmDisconnect = false },
+                AlertButton(stringResource(R.string.backup_drive_disconnect), AlertStyle.Destructive) {
                     confirmDisconnect = false
                     viewModel.disconnectDrive()
-                }) { Text(stringResource(R.string.backup_drive_disconnect), color = MaterialTheme.colorScheme.error) }
-            },
-            dismissButton = { TextButton(onClick = { confirmDisconnect = false }) { Text(stringResource(R.string.backup_cancel)) } },
+                },
+            ),
+            onDismiss = { confirmDisconnect = false },
         )
     }
 }
@@ -484,7 +482,7 @@ internal fun BackupCard(content: @Composable () -> Unit) {
     Card(
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
-        border = CardDefaults.outlinedCardBorder(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
     ) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(Spacing.md),

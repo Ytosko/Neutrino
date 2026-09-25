@@ -92,7 +92,7 @@ internal val DarkColors = darkColorScheme(
 
 /** A colour and its soft background, e.g. for an icon badge. */
 @Immutable
-data class Tint(val content: Color, val container: Color)
+data class Tint(val content: Color, val container: Color, val solid: Color = content)
 
 /** Colours outside the Material scheme. Data colours are always shown with a text label too. */
 @Immutable
@@ -166,16 +166,16 @@ internal val DarkNeutrinoColors = NeutrinoColors(
     glucoseContainer = Color(0x29F9A8D4),
     good = Color(0xFF4ADE80),
     goodContainer = Color(0x294ADE80),
-    indigo = Tint(Color(0xFFA5B4FC), Color(0x29A5B4FC)),
-    sky = Tint(Color(0xFF7DD3FC), Color(0x297DD3FC)),
-    amber = Tint(Color(0xFFFBBF24), Color(0x29FBBF24)),
-    violet = Tint(Color(0xFFC4B5FD), Color(0x29C4B5FD)),
-    teal = Tint(Color(0xFF2DD4BF), Color(0x292DD4BF)),
-    rose = Tint(Color(0xFFF9A8D4), Color(0x29F9A8D4)),
-    slate = Tint(Color(0xFFB8C2D1), Color(0x29B8C2D1)),
-    coral = Tint(Color(0xFFFF6B63), Color(0x29FF6B63)),
-    green = Tint(Color(0xFF4ADE80), Color(0x294ADE80)),
-    cyan = Tint(Color(0xFF67E8F9), Color(0x2967E8F9)),
+    indigo = Tint(Color(0xFFA5B4FC), Color(0x29A5B4FC), solid = Color(0xFF4338CA)),
+    sky = Tint(Color(0xFF7DD3FC), Color(0x297DD3FC), solid = Color(0xFF0369A1)),
+    amber = Tint(Color(0xFFFBBF24), Color(0x29FBBF24), solid = Color(0xFFB45309)),
+    violet = Tint(Color(0xFFC4B5FD), Color(0x29C4B5FD), solid = Color(0xFF6D28D9)),
+    teal = Tint(Color(0xFF2DD4BF), Color(0x292DD4BF), solid = Color(0xFF0F766E)),
+    rose = Tint(Color(0xFFF9A8D4), Color(0x29F9A8D4), solid = Color(0xFFBE185D)),
+    slate = Tint(Color(0xFFB8C2D1), Color(0x29B8C2D1), solid = Color(0xFF475467)),
+    coral = Tint(Color(0xFFFF6B63), Color(0x29FF6B63), solid = Color(0xFFD93838)),
+    green = Tint(Color(0xFF4ADE80), Color(0x294ADE80), solid = Color(0xFF15803D)),
+    cyan = Tint(Color(0xFF67E8F9), Color(0x2967E8F9), solid = Color(0xFF0E7490)),
 )
 
 val LocalNeutrinoColors = staticCompositionLocalOf { LightNeutrinoColors }

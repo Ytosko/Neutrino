@@ -1,5 +1,6 @@
 package dev.ytosko.neutrino.ui.glucose
 
+import dev.ytosko.neutrino.ui.components.NeutrinoSnackbarHost
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
@@ -232,7 +233,7 @@ fun PairMeterScreen(viewModel: PairMeterViewModel, onBack: () -> Unit, onDone: (
         subtitle = if (step == PairStep.Paired) null else stringResource(R.string.meter_pair_title),
         onBack = if (step == PairStep.Paired) onDone else onBack,
         bottomBar = {
-            SnackbarHost(snackbar)
+            NeutrinoSnackbarHost(snackbar)
             val working = step == PairStep.Looking || step == PairStep.WaitingForPin
             Button(
                 onClick = { if (step == PairStep.Paired) onDone() else pair() },

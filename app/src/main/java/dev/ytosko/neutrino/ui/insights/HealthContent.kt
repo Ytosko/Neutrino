@@ -1,5 +1,7 @@
 package dev.ytosko.neutrino.ui.insights
 
+import dev.ytosko.neutrino.ui.components.ChartIllustration
+import dev.ytosko.neutrino.ui.components.SegmentedControl
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -127,28 +129,21 @@ fun HealthContent(viewModel: HealthViewModel, contentPadding: PaddingValues, onO
 
 @Composable
 private fun RangeTabs(range: InsightRange, onChange: (InsightRange) -> Unit, modifier: Modifier) {
-    SingleChoiceSegmentedButtonRow(modifier = modifier) {
-        InsightRange.entries.forEachIndexed { index, option ->
-            SegmentedButton(
-                selected = option == range,
-                onClick = { onChange(option) },
-                shape = SegmentedButtonDefaults.itemShape(index, InsightRange.entries.size),
-                modifier = Modifier.heightIn(min = 48.dp),
-                icon = {},
-            ) {
-                Text(
-                    stringResource(
-                        when (option) {
-                            InsightRange.Day -> R.string.health_day
-                            InsightRange.Week -> R.string.health_week
-                            InsightRange.Month -> R.string.health_month
-                            InsightRange.Year -> R.string.health_year
-                        },
-                    ),
-                )
-            }
-        }
-    }
+    SegmentedControl(
+        options = InsightRange.entries.map {
+            stringResource(
+                when (it) {
+                    InsightRange.Day -> R.string.health_day
+                    InsightRange.Week -> R.string.health_week
+                    InsightRange.Month -> R.string.health_month
+                    InsightRange.Year -> R.string.health_year
+                },
+            )
+        },
+        selected = InsightRange.entries.indexOf(range),
+        onSelect = { onChange(InsightRange.entries[it]) },
+        modifier = modifier,
+    )
 }
 
 @Composable
@@ -213,6 +208,7 @@ private fun CaloriesCard(data: InsightSummary, onOpenDay: (java.time.LocalDate) 
             average = average.takeIf { it > 0 },
             xLabel = { axisLabel(data, it) },
             description = stringResource(R.string.health_calories_desc, compactNumber(average)),
+            bubble = { i -> "${compactNumber(data.buckets[i].nutrition.calories)} kcal" },
         )
     }
 }
@@ -257,6 +253,7 @@ private fun MacroTrendCard(data: InsightSummary, modifier: Modifier) {
             average = average.takeIf { it > 0 },
             xLabel = { axisLabel(data, it) },
             description = stringResource(R.string.health_macro_desc, stringResource(macroName(macro)), compactGrams(average)),
+            bubble = { i -> compactGrams(pick(data.buckets[i].nutrition)) },
         )
     }
 }
@@ -363,6 +360,7 @@ private fun WaterCard(data: InsightSummary, modifier: Modifier) {
             xLabel = { axisLabel(data, it) },
             height = 140.dp,
             description = stringResource(R.string.health_water_desc, compactMl(average.roundToInt())),
+            bubble = { i -> compactMl(data.buckets[i].waterMl) },
         )
     }
 }
@@ -400,6 +398,7 @@ private fun GlucoseCard(data: GlucoseSummary, modifier: Modifier) {
             xLabel = { axisLabel(data.range, data.buckets.map { b -> b.start }, it) },
             height = 140.dp,
             description = stringResource(R.string.health_glucose_desc, data.average?.let(glucoseUnit::format) ?: "–", unit),
+            bubble = { i -> data.buckets[i].average?.let { "${glucoseUnit.format(it)} $unit" } ?: "–" },
         )
 
         Text(
@@ -521,7 +520,7 @@ private fun TopFoodsCard(data: InsightSummary, modifier: Modifier) {
 @Composable
 private fun EmptyRange(modifier: Modifier) {
     Column(modifier = modifier.padding(vertical = Spacing.xl), horizontalAlignment = Alignment.CenterHorizontally) {
-        IconBadge(R.drawable.ic_chart_column, container = NeutrinoTheme.colors.indigo.container, content = NeutrinoTheme.colors.indigo.content, size = 64.dp)
+        ChartIllustration()
         Spacer(Modifier.size(Spacing.md))
         Text(stringResource(R.string.health_empty_title), style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center)
         Text(
@@ -542,7 +541,7 @@ private fun ChartCard(title: String, modifier: Modifier, content: @Composable ()
         modifier = modifier,
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
-        border = CardDefaults.outlinedCardBorder(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
             Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.semantics { heading() })

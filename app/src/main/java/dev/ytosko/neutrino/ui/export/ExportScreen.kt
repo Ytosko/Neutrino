@@ -1,5 +1,7 @@
 package dev.ytosko.neutrino.ui.export
 
+import dev.ytosko.neutrino.ui.components.NeutrinoSnackbarHost
+import dev.ytosko.neutrino.ui.components.SegmentedControl
 import dev.ytosko.neutrino.ui.theme.Tint
 import dev.ytosko.neutrino.ui.theme.NeutrinoTheme
 import android.content.ClipData
@@ -127,7 +129,7 @@ fun ExportScreen(export: DataExport, onBack: () -> Unit) {
         title = stringResource(R.string.export_title),
         subtitle = stringResource(R.string.export_body),
         onBack = onBack,
-        bottomBar = { SnackbarHost(snackbar) },
+        bottomBar = { NeutrinoSnackbarHost(snackbar) },
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
             ExportCard(
@@ -140,15 +142,11 @@ fun ExportScreen(export: DataExport, onBack: () -> Unit) {
                 onShare = { make(Kind.Report, andShare = true) },
                 onSave = { make(Kind.Report, andShare = false) },
             ) {
-                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                    Period.entries.forEachIndexed { i, p ->
-                        SegmentedButton(
-                            selected = period == p,
-                            onClick = { period = p },
-                            shape = SegmentedButtonDefaults.itemShape(i, Period.entries.size),
-                        ) { Text(stringResource(p.label), maxLines = 1) }
-                    }
-                }
+                SegmentedControl(
+                    options = Period.entries.map { stringResource(it.label) },
+                    selected = Period.entries.indexOf(period),
+                    onSelect = { period = Period.entries[it] },
+                )
             }
             ExportCard(
                 icon = R.drawable.ic_archive,
@@ -184,7 +182,7 @@ private fun ExportCard(
     Card(
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
-        border = CardDefaults.outlinedCardBorder(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
     ) {
         Column(Modifier.fillMaxWidth().padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {

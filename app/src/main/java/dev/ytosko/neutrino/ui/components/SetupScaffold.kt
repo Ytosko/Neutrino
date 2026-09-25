@@ -1,5 +1,8 @@
 package dev.ytosko.neutrino.ui.components
 
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.ui.text.lerp
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.heightIn
@@ -50,12 +53,17 @@ fun SetupScaffold(
     actions: @Composable RowScope.() -> Unit = {},
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    val scroll = rememberScrollState()
+    val density = LocalDensity.current
+    // 0 at the top, 1 once scrolled a little: the title shrinks and the bar gets its hairline.
+    val collapse = (scroll.value / with(density) { 56.dp.toPx() }).coerceIn(0f, 1f)
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             // Back, title and actions share one row, with no empty bar above the title.
-            Surface(color = MaterialTheme.colorScheme.background) {
+            Surface(color = MaterialTheme.colorScheme.background.copy(alpha = 1f - 0.08f * collapse)) {
+                Column {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -71,12 +79,14 @@ fun SetupScaffold(
                     }
                     Text(
                         title,
-                        style = MaterialTheme.typography.headlineMedium,
+                        style = lerp(MaterialTheme.typography.headlineMedium, MaterialTheme.typography.titleLarge, collapse),
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f).padding(end = Spacing.xs).semantics { heading() },
                     )
                     actions()
+                }
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = collapse))
                 }
             }
         },
@@ -98,7 +108,7 @@ fun SetupScaffold(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState()),
+                .verticalScroll(scroll),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Column(

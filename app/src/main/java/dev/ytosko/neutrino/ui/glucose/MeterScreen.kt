@@ -1,5 +1,9 @@
 package dev.ytosko.neutrino.ui.glucose
 
+import dev.ytosko.neutrino.ui.components.NeutrinoSnackbarHost
+import dev.ytosko.neutrino.ui.components.AlertStyle
+import dev.ytosko.neutrino.ui.components.AlertButton
+import dev.ytosko.neutrino.ui.components.IosAlert
 import android.os.Build
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -97,7 +101,7 @@ fun MeterScreen(viewModel: MeterViewModel, onBack: () -> Unit, onPairAgain: (Met
         title = model.displayName,
         subtitle = meter.serial?.let { stringResource(R.string.meter_serial, it) },
         onBack = onBack,
-        bottomBar = { SnackbarHost(snackbar) },
+        bottomBar = { NeutrinoSnackbarHost(snackbar) },
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
             Hero(meter, context)
@@ -134,17 +138,17 @@ fun MeterScreen(viewModel: MeterViewModel, onBack: () -> Unit, onPairAgain: (Met
     }
 
     if (confirmForget) {
-        AlertDialog(
-            onDismissRequest = { confirmForget = false },
-            title = { Text(stringResource(R.string.meter_forget_title)) },
-            text = { Text(stringResource(R.string.meter_forget_body)) },
-            confirmButton = {
-                TextButton(onClick = {
+        IosAlert(
+            title = stringResource(R.string.meter_forget_title),
+            message = stringResource(R.string.meter_forget_body),
+            buttons = listOf(
+                AlertButton(stringResource(R.string.backup_cancel), AlertStyle.Cancel) { confirmForget = false },
+                AlertButton(stringResource(R.string.meter_forget), AlertStyle.Destructive) {
                     confirmForget = false
                     viewModel.forget(onBack)
-                }) { Text(stringResource(R.string.meter_forget), color = MaterialTheme.colorScheme.error) }
-            },
-            dismissButton = { TextButton(onClick = { confirmForget = false }) { Text(stringResource(R.string.backup_cancel)) } },
+                },
+            ),
+            onDismiss = { confirmForget = false },
         )
     }
 }
@@ -309,7 +313,7 @@ private fun SectionCard(title: String, content: @Composable () -> Unit) {
     Card(
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
-        border = CardDefaults.outlinedCardBorder(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
     ) {
         Column(Modifier.fillMaxWidth().padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
             Text(title, style = MaterialTheme.typography.titleMedium)

@@ -68,7 +68,7 @@ fun FoodSearchSheet(
     LaunchedEffect(viewModel) { viewModel.picked.collect(onPicked) }
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+    ModalBottomSheet(onDismissRequest = onDismiss, shape = androidx.compose.foundation.shape.RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp), sheetState = sheetState) {
         Column(modifier = Modifier.fillMaxHeight(0.92f).imePadding()) {
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.md),

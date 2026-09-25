@@ -1,5 +1,6 @@
 package dev.ytosko.neutrino.ui.ai
 
+import dev.ytosko.neutrino.ui.components.SegmentedControl
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -66,16 +67,11 @@ fun AiSetupForm(
     val uriHandler = LocalUriHandler.current
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
         Text(stringResource(R.string.ai_provider), style = MaterialTheme.typography.titleSmall)
-        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-            AiProvider.entries.forEachIndexed { index, provider ->
-                SegmentedButton(
-                    selected = state.provider == provider,
-                    onClick = { onProviderChange(provider) },
-                    shape = SegmentedButtonDefaults.itemShape(index, AiProvider.entries.size),
-                    modifier = Modifier.heightIn(min = 48.dp),
-                ) { Text(provider.displayName) }
-            }
-        }
+        SegmentedControl(
+            options = AiProvider.entries.map { it.displayName },
+            selected = AiProvider.entries.indexOf(state.provider),
+            onSelect = { onProviderChange(AiProvider.entries[it]) },
+        )
 
         TextButton(
             onClick = { uriHandler.openUri(state.provider.keyUrl) },
@@ -142,18 +138,11 @@ fun AiSetupForm(
         }
 
         Text(stringResource(R.string.ai_photo_detail), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = Spacing.xs))
-        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-            PhotoDetail.entries.forEachIndexed { index, detail ->
-                SegmentedButton(
-                    selected = state.photoDetail == detail,
-                    onClick = { onPhotoDetailChange(detail) },
-                    shape = SegmentedButtonDefaults.itemShape(index, PhotoDetail.entries.size),
-                    modifier = Modifier.heightIn(min = 48.dp),
-                ) {
-                    Text(stringResource(if (detail == PhotoDetail.Standard) R.string.ai_photo_standard else R.string.ai_photo_low))
-                }
-            }
-        }
+        SegmentedControl(
+            options = PhotoDetail.entries.map { stringResource(if (it == PhotoDetail.Standard) R.string.ai_photo_standard else R.string.ai_photo_low) },
+            selected = PhotoDetail.entries.indexOf(state.photoDetail),
+            onSelect = { onPhotoDetailChange(PhotoDetail.entries[it]) },
+        )
         Text(
             stringResource(R.string.ai_photo_helper),
             style = MaterialTheme.typography.bodySmall,
