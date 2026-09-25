@@ -227,6 +227,9 @@ fun HomeScreen(
                         )
                     },
                     actions = {
+                        IconButton(onClick = { tab = HomeTab.Days }) {
+                            Icon(painterResource(R.drawable.ic_calendar_days), contentDescription = stringResource(R.string.nav_open_days))
+                        }
                         IconButton(onClick = onOpenSettings) {
                             Icon(painterResource(R.drawable.ic_settings), contentDescription = stringResource(R.string.home_settings))
                         }
@@ -299,24 +302,21 @@ fun HomeScreen(
                 ),
             )
         },
-        // Left: switch between Days and Health. Right: log a meal.
+        // Days only: Health on the left, Log a meal on the right. Health goes back via its top bar.
         floatingActionButton = {
+            if (tab == HomeTab.Health) return@Scaffold
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.md),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                val toHealth = tab == HomeTab.Days
                 FloatingActionButton(
-                    onClick = { tab = if (toHealth) HomeTab.Health else HomeTab.Days },
+                    onClick = { tab = HomeTab.Health },
                     shape = CircleShape,
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     contentColor = MaterialTheme.colorScheme.primary,
                 ) {
-                    Icon(
-                        painterResource(if (toHealth) R.drawable.ic_heart else R.drawable.ic_calendar_days),
-                        contentDescription = stringResource(if (toHealth) R.string.nav_open_health else R.string.nav_open_days),
-                    )
+                    Icon(painterResource(R.drawable.ic_heart), contentDescription = stringResource(R.string.nav_open_health))
                 }
                 ExtendedFloatingActionButton(
                     onClick = ::startLogging,
