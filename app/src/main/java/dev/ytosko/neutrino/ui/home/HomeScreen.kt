@@ -425,17 +425,6 @@ fun HomeScreen(
                     modifier = itemModifier,
                 )
             }
-            if (meterPaired || glucoseReadings.isNotEmpty()) {
-                item(key = "glucose") {
-                    GlucoseDayCard(
-                        readings = glucoseReadings,
-                        range = glucoseRange,
-                        isToday = isToday,
-                        onOpen = { editingGlucose = it },
-                        modifier = itemModifier.animateItem(),
-                    )
-                }
-            }
             if (summary != null && summary.meals.isEmpty()) {
                 if (isToday) item { NextMealHint(mealWindows.nextMainMeal(LocalTime.now()), itemModifier) }
                 item { EmptyMeals(isToday, itemModifier) }
@@ -454,6 +443,18 @@ fun HomeScreen(
                             modifier = itemModifier.animateItem(),
                         )
                     }
+                }
+            }
+            // Meals first; blood glucose comes after them.
+            if (meterPaired || glucoseReadings.isNotEmpty()) {
+                item(key = "glucose") {
+                    GlucoseDayCard(
+                        readings = glucoseReadings,
+                        range = glucoseRange,
+                        isToday = isToday,
+                        onOpen = { editingGlucose = it },
+                        modifier = itemModifier.animateItem(),
+                    )
                 }
             }
         }

@@ -2,6 +2,7 @@ package dev.ytosko.neutrino.ui.components
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -46,6 +47,7 @@ fun SetupScaffold(
     step: Pair<Int, Int>? = null,
     subtitle: String? = null,
     bottomBar: @Composable ColumnScope.() -> Unit = {},
+    actions: @Composable RowScope.() -> Unit = {},
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Scaffold(
@@ -69,6 +71,7 @@ fun SetupScaffold(
                         }
                     }
                 },
+                actions = actions,
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
         },

@@ -4,7 +4,9 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.app.PendingIntent
 import android.bluetooth.BluetoothManager
+import android.bluetooth.le.BluetoothLeScanner
 import android.bluetooth.le.ScanFilter
+import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -64,6 +66,18 @@ object MeterScan {
 /** Woken by the background scan when a glucose meter starts advertising nearby. */
 class MeterScanReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        context.applicationContext.appContainer.syncMeterInBackground()
+        val results: List<ScanResult> = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            intent.getParcelableArrayListExtra(BluetoothLeScanner.EXTRA_LIST_SCAN_RESULT, ScanResult::class.java)
+        } else {
+            @Suppress("DEPRECATION")
+            intent.getParcelableArrayListExtra(BluetoothLeScanner.EXTRA_LIST_SCAN_RESULT)
+        } ?: emptyList()
+        val container = context.applicationContext.appContainer
+        val addresses = results.mapNotNull { it.device?.address }.distinct()
+        if (addresses.isEmpty()) {
+            container.syncMeterInBackground()
+        } else {
+            addresses.forEach { container.syncMeterInBackground(MeterWake(address = it)) }
+        }
     }
 }

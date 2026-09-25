@@ -349,18 +349,17 @@
     <string name="settings_reminders_blocked">Notifications are off for Neutrino. Tap to turn them on.</string>
 
     <!-- Glucose meter -->
-    <string name="meter_title">Glucose meter</string>
     <string name="meter_body">Pair your Bluetooth blood glucose meter once. After each test, Neutrino saves the reading and sends it to Health Connect.</string>
     <string name="meter_pair_title">Pair your meter</string>
     <string name="meter_step_1">If you use the CONTOUR DIABETES app, turn off syncing there, so Neutrino is the only app connected to the meter.</string>
-    <string name="meter_step_2">Put the meter in pairing mode: hold its main button until the blue light flashes.</string>
+    <string name="meter_step_mode_one">With the meter off, press and hold the round OK button for about 3 seconds, until the blue light flashes.</string>
+    <string name="meter_step_mode_elite">With the meter off, press and hold the OK button for about 3 seconds, until the blue light flashes.</string>
     <string name="meter_step_3">Tap Pair meter below and choose your meter.</string>
     <string name="meter_step_4">Type the PIN shown on the meter\'s screen when Android asks.</string>
     <string name="meter_pair">Pair meter</string>
     <string name="meter_pairing">Looking for your meter…</string>
     <string name="meter_waiting_pin">Enter the PIN from the meter…</string>
     <string name="meter_pair_again">Pair again</string>
-    <string name="meter_unknown_model">Glucose meter</string>
     <string name="meter_serial">Serial %1$s</string>
     <string name="meter_last_sync">Last sync: %1$s</string>
     <string name="meter_never_synced">Not synced yet</string>
@@ -378,6 +377,7 @@
     <string name="meter_clock_set">Meter clock was wrong and has been set to your phone\'s time.</string>
     <string name="meter_clock_behind">Meter clock is %1$s behind. Readings are corrected automatically. To fix the meter itself, set its time in the meter\'s settings.</string>
     <string name="meter_clock_ahead">Meter clock is %1$s ahead. Readings are corrected automatically. To fix the meter itself, set its time in the meter\'s settings.</string>
+    <string name="meter_clock_reset">The meter\'s date and time look reset (for example after a battery change). Readings are corrected automatically. To fix the meter itself, set its date and time in the meter\'s settings.</string>
     <string name="duration_minutes">%1$d min</string>
     <string name="duration_hours_minutes">%1$d h %2$d min</string>
     <string name="duration_days">%1$d days</string>
@@ -398,6 +398,28 @@
     <string name="meter_msg_pin_timeout">Pairing didn\'t finish. Put the meter in pairing mode and try again.</string>
     <string name="meter_msg_picker_failed">No meter found. Put it in pairing mode (blue light flashing) and try again.</string>
     <string name="settings_section_meter">Glucose</string>
+    <plurals name="settings_meters_count">
+        <item quantity="one">%1$d meter</item>
+        <item quantity="other">%1$d meters</item>
+    </plurals>
+    <string name="meters_title">Glucose meters</string>
+    <string name="meters_add">Add a meter</string>
+    <string name="meters_count">%1$d of %2$d meters</string>
+    <string name="meters_limit">You\'ve added %1$d meters, the most Neutrino supports. Forget one to add another.</string>
+    <string name="meters_needs_pairing">Needs pairing again</string>
+    <string name="meters_empty_title">No meter paired</string>
+    <string name="meters_empty_body">Tap + to add your Contour meter. After that, every reading syncs on its own.</string>
+    <string name="meters_choose_title">Choose your meter</string>
+    <string name="meters_choose_body">Pick the model you have. You can add up to 5 meters.</string>
+    <string name="meters_bluetooth">Bluetooth glucose meter</string>
+    <string name="meters_already_added">This meter is already added.</string>
+    <string name="meters_limit_reached">You can add up to 5 meters. Forget one to add another.</string>
+    <string name="meters_done">Done</string>
+    <string name="meters_paired_title">%1$s is paired</string>
+    <string name="meters_paired_body">Its readings are downloading now. From here on, new readings sync by themselves after every test.</string>
+    <string name="meter_sync_title">Syncing</string>
+    <string name="meter_range_desc">Low below %1$s, in range from %1$s to %2$s, high above %2$s mmol/L</string>
+    <string name="meter_range_shared">This range applies to all your meters.</string>
     <string name="settings_meter_off">No meter paired</string>
     <string name="glucose_title">Blood glucose</string>
     <string name="glucose_unit">mmol/L</string>
@@ -436,7 +458,6 @@
     <string name="glucose_time">Time</string>
     <string name="glucose_delete">Delete reading</string>
     <string name="glucose_deleted">Reading deleted</string>
-    <string name="glucose_average">Average %1$s</string>
     <string name="glucose_reading_desc">%1$s mmol/L at %2$s, %3$s, %4$s</string>
     <string name="meter_channel">Glucose readings</string>
     <string name="meter_channel_body">Tells you when new readings from your meter are saved.</string>

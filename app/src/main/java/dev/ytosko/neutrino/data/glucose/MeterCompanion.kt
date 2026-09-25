@@ -27,6 +27,14 @@ import dev.ytosko.neutrino.data.reminders.MealReminders
 import dev.ytosko.neutrino.glucose.GlucoseUuids
 import java.util.concurrent.Executor
 
+/** Which meter woke Neutrino, when Android says; empty means "a glucose meter, not sure which". */
+data class MeterWake(val address: String? = null, val associationId: Int? = null, val meterId: String? = null) {
+    fun matches(meter: PairedMeter): Boolean =
+        (meterId != null && meter.id == meterId) ||
+            (address != null && meter.address.equals(address, ignoreCase = true)) ||
+            (associationId != null && meter.associationId == associationId)
+}
+
 /** What the system meter picker returned. */
 data class PickedMeter(val address: String, val name: String?, val associationId: Int?)
 
@@ -131,17 +139,18 @@ object MeterCompanion {
 class MeterPresenceService : CompanionDeviceService() {
 
     override fun onDevicePresenceEvent(event: DevicePresenceEvent) {
-        if (event.event == DevicePresenceEvent.EVENT_BLE_APPEARED) appeared()
+        if (event.event == DevicePresenceEvent.EVENT_BLE_APPEARED) appeared(MeterWake(associationId = event.associationId))
     }
 
     @Deprecated("Android 13-15")
-    override fun onDeviceAppeared(associationInfo: AssociationInfo) = appeared()
+    override fun onDeviceAppeared(associationInfo: AssociationInfo) =
+        appeared(MeterWake(address = associationInfo.deviceMacAddress?.toString(), associationId = associationInfo.id))
 
     @Deprecated("Android 12")
     @Suppress("DEPRECATION")
-    override fun onDeviceAppeared(address: String) = appeared()
+    override fun onDeviceAppeared(address: String) = appeared(MeterWake(address = address))
 
-    private fun appeared() = applicationContext.appContainer.syncMeterInBackground()
+    private fun appeared(wake: MeterWake) = applicationContext.appContainer.syncMeterInBackground(wake)
 }
 
 /** "New glucose reading" notifications. The value is hidden on the lock screen. */

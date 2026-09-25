@@ -35,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
@@ -56,7 +57,7 @@ fun SettingsScreen(
     backup: Flow<BackupState>,
     onOpenBackup: () -> Unit,
     onOpenMeals: () -> Unit,
-    meter: Flow<PairedMeter?>,
+    meters: Flow<List<PairedMeter>>,
     onOpenMeter: () -> Unit,
     healthViewModel: HealthConnectViewModel,
     onBack: () -> Unit,
@@ -65,7 +66,7 @@ fun SettingsScreen(
 ) {
     val appSettings by settings.collectAsStateWithLifecycle(initialValue = AppSettings())
     val backupState by backup.collectAsStateWithLifecycle(initialValue = null)
-    val pairedMeter by meter.collectAsStateWithLifecycle(initialValue = null)
+    val pairedMeters by meters.collectAsStateWithLifecycle(initialValue = emptyList())
     val health by healthViewModel.state.collectAsStateWithLifecycle()
     val uriHandler = LocalUriHandler.current
     LifecycleResumeEffect(Unit) {
@@ -118,9 +119,12 @@ fun SettingsScreen(
         Section(stringResource(R.string.settings_section_meter)) {
             SettingRow(
                 icon = R.drawable.ic_activity,
-                title = stringResource(R.string.meter_title),
-                value = pairedMeter?.let { it.model ?: it.name ?: stringResource(R.string.meter_unknown_model) }
-                    ?: stringResource(R.string.settings_meter_off),
+                title = stringResource(R.string.meters_title),
+                value = when (pairedMeters.size) {
+                    0 -> stringResource(R.string.settings_meter_off)
+                    1 -> pairedMeters.first().meterModel.displayName
+                    else -> pluralStringResource(R.plurals.settings_meters_count, pairedMeters.size, pairedMeters.size)
+                },
                 onClick = onOpenMeter,
             )
         }

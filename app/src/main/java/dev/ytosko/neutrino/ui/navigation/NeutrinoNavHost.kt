@@ -2,6 +2,12 @@ package dev.ytosko.neutrino.ui.navigation
 
 import dev.ytosko.neutrino.ui.glucose.MeterViewModel
 import dev.ytosko.neutrino.ui.glucose.MeterScreen
+import dev.ytosko.neutrino.data.glucose.MeterModel
+import dev.ytosko.neutrino.ui.glucose.PairMeterViewModel
+import dev.ytosko.neutrino.ui.glucose.PairMeterScreen
+import dev.ytosko.neutrino.ui.glucose.AddMeterScreen
+import dev.ytosko.neutrino.ui.glucose.MetersViewModel
+import dev.ytosko.neutrino.ui.glucose.MetersScreen
 import dev.ytosko.neutrino.ui.theme.Spacing
 import androidx.compose.foundation.layout.padding
 import dev.ytosko.neutrino.ui.settings.MealsScreen
@@ -73,6 +79,9 @@ sealed interface Route {
     @Serializable data object SettingsBackup : Route
     @Serializable data object SettingsMeals : Route
     @Serializable data object SettingsMeter : Route
+    @Serializable data object AddMeter : Route
+    @Serializable data class PairMeter(val model: String) : Route
+    @Serializable data class MeterDetail(val id: String) : Route
     @Serializable data object Restore : Route
     @Serializable data object RestoreHealth : Route
 }
@@ -206,7 +215,7 @@ fun NeutrinoNavHost(startDestination: Route, modifier: Modifier = Modifier) {
                 backup = container.backups.state,
                 onOpenBackup = { navController.navigate(Route.SettingsBackup) },
                 onOpenMeals = { navController.navigate(Route.SettingsMeals) },
-                meter = container.glucose.meter,
+                meters = container.glucose.meters,
                 onOpenMeter = { navController.navigate(Route.SettingsMeter) },
                 healthViewModel = healthConnectViewModel(),
                 onBack = navController::popBackStack,
@@ -215,12 +224,51 @@ fun NeutrinoNavHost(startDestination: Route, modifier: Modifier = Modifier) {
             )
         }
         composable<Route.SettingsMeter> {
+            val container = LocalContext.current.appContainer
+            val metersViewModel: MetersViewModel = viewModel { MetersViewModel(container.glucose, container.healthConnect) }
+            MetersScreen(
+                viewModel = metersViewModel,
+                onBack = navController::popBackStack,
+                onAdd = { navController.navigate(Route.AddMeter) },
+                onOpen = { navController.navigate(Route.MeterDetail(it)) },
+            )
+        }
+        composable<Route.AddMeter> {
+            AddMeterScreen(
+                onBack = navController::popBackStack,
+                onPick = { navController.navigate(Route.PairMeter(it.name)) },
+            )
+        }
+        composable<Route.PairMeter> { entry ->
             val context = LocalContext.current
             val container = context.appContainer
-            val meterViewModel: MeterViewModel = viewModel {
-                MeterViewModel(context.applicationContext, container.glucose, container.settings, container.healthConnect)
+            val model = MeterModel.fromKey(entry.toRoute<Route.PairMeter>().model)
+            val pairViewModel: PairMeterViewModel = viewModel {
+                PairMeterViewModel(
+                    context.applicationContext, container.glucose, model,
+                    syncInBackground = container::syncMeterInBackground,
+                    watchMeters = container::watchMeters,
+                )
             }
-            MeterScreen(viewModel = meterViewModel, onBack = navController::popBackStack)
+            PairMeterScreen(
+                viewModel = pairViewModel,
+                onBack = navController::popBackStack,
+                // Back to the meter list, which now shows the new meter.
+                onDone = { navController.popBackStack(Route.SettingsMeter, inclusive = false) },
+            )
+        }
+        composable<Route.MeterDetail> { entry ->
+            val context = LocalContext.current
+            val container = context.appContainer
+            val id = entry.toRoute<Route.MeterDetail>().id
+            val meterViewModel: MeterViewModel = viewModel {
+                MeterViewModel(context.applicationContext, container.glucose, container.settings, id, container::watchMeters)
+            }
+            MeterScreen(
+                viewModel = meterViewModel,
+                onBack = { navController.popBackStack(Route.SettingsMeter, inclusive = false) },
+                onPairAgain = { navController.navigate(Route.PairMeter(it.name)) },
+            )
         }
         composable<Route.SettingsMeals> {
             MealsScreen(settings = LocalContext.current.appContainer.settings, onBack = navController::popBackStack)

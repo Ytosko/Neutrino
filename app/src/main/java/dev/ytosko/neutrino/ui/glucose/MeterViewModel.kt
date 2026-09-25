@@ -1,20 +1,14 @@
 package dev.ytosko.neutrino.ui.glucose
 
-import android.annotation.SuppressLint
-import android.bluetooth.BluetoothDevice
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.ytosko.neutrino.data.glucose.GlucoseRepository
 import dev.ytosko.neutrino.data.glucose.MeterCompanion
-import dev.ytosko.neutrino.data.glucose.MeterScan
 import dev.ytosko.neutrino.data.glucose.MeterSyncOutcome
 import dev.ytosko.neutrino.data.glucose.PairedMeter
-import dev.ytosko.neutrino.data.glucose.PickedMeter
-import dev.ytosko.neutrino.data.health.HealthConnectManager
 import dev.ytosko.neutrino.data.settings.SettingsRepository
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -23,25 +17,24 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-enum class MeterWork { Pairing, WaitingForPin, Syncing }
-
-enum class MeterMessage { Synced, NoNewReadings, ClockSet, BluetoothOff, NotPaired, Failed, PinTimeout, PickerFailed }
+enum class MeterMessage { Synced, NoNewReadings, ClockSet, BluetoothOff, NotPaired, Failed }
 
 data class MeterUiState(
     val loaded: Boolean = false,
     val meter: PairedMeter? = null,
-    val work: MeterWork? = null,
-    val lastNewReadings: Int? = null,
+    val syncing: Boolean = false,
     val glucoseLow: Double = 4.0,
     val glucoseHigh: Double = 10.0,
-    val healthConnectAllowed: Boolean = true,
 )
 
+/** One paired meter's page: status, Sync now, the (shared) target range and Forget. */
 class MeterViewModel(
     private val appContext: Context,
     private val glucose: GlucoseRepository,
     private val settings: SettingsRepository,
-    private val healthConnect: HealthConnectManager,
+    private val meterId: String,
+    /** Restarts the background wake-ups for the meters that remain. */
+    private val watchMeters: suspend () -> Unit,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(MeterUiState())
@@ -51,79 +44,18 @@ class MeterViewModel(
     val messages = _messages.receiveAsFlow()
 
     init {
-        viewModelScope.launch { glucose.meter.collect { m -> _state.update { it.copy(loaded = true, meter = m) } } }
+        viewModelScope.launch { glucose.meter(meterId).collect { m -> _state.update { it.copy(loaded = true, meter = m) } } }
         viewModelScope.launch {
             settings.settings.collect { s -> _state.update { it.copy(glucoseLow = s.glucoseLow, glucoseHigh = s.glucoseHigh) } }
-        }
-        refreshHealthConnect()
-    }
-
-    fun refreshHealthConnect() {
-        viewModelScope.launch {
-            val allowed = runCatching { healthConnect.hasGlucosePermission() }.getOrDefault(false)
-            _state.update { it.copy(healthConnectAllowed = allowed) }
-            if (allowed) glucose.syncWithHealthConnect()
-        }
-    }
-
-    val glucosePermission: String get() = healthConnect.glucosePermission
-    fun permissionContract() = healthConnect.permissionContract()
-
-    fun hasBluetoothPermission() = glucose.hasBluetoothPermission()
-    fun isBluetoothOn() = glucose.isBluetoothOn()
-
-    fun pickerStarted() = _state.update { it.copy(work = MeterWork.Pairing) }
-    fun pickerFailed() {
-        _state.update { it.copy(work = null) }
-        viewModelScope.launch { _messages.send(MeterMessage.PickerFailed) }
-    }
-
-    /**
-     * The user chose a meter in the system picker: pair (the meter shows a PIN to type on the
-     * phone), then watch for it in the background and download its readings.
-     */
-    @SuppressLint("MissingPermission")
-    fun onPicked(picked: PickedMeter?) {
-        if (picked == null) {
-            _state.update { it.copy(work = null) }
-            return
-        }
-        viewModelScope.launch {
-            val device = glucose.device(picked.address)
-            if (device != null && device.bondState != BluetoothDevice.BOND_BONDED) {
-                _state.update { it.copy(work = MeterWork.WaitingForPin) }
-                runCatching { device.createBond() }
-                // The user types the PIN from the meter into Android's pairing dialog.
-                var waited = 0
-                while (device.bondState != BluetoothDevice.BOND_BONDED && waited < PIN_TIMEOUT_MS) {
-                    delay(500)
-                    waited += 500
-                    // Cancelled or rejected: stop waiting.
-                    if (device.bondState == BluetoothDevice.BOND_NONE && waited > 3_000) break
-                }
-                if (device.bondState != BluetoothDevice.BOND_BONDED) {
-                    // Don't keep a half-set-up meter: drop the association the picker created.
-                    MeterCompanion.forget(appContext, picked.asUnsynced())
-                    _state.update { it.copy(work = null) }
-                    _messages.send(MeterMessage.PinTimeout)
-                    return@launch
-                }
-            }
-            // Only a paired meter is remembered.
-            glucose.savePairing(picked.address, picked.name, picked.associationId)
-            glucose.meter.first()?.let { MeterCompanion.observe(appContext, it) }
-            MeterScan.start(appContext)
-            _state.update { it.copy(work = null) }
-            syncNow()
         }
     }
 
     fun syncNow() {
-        if (_state.value.work == MeterWork.Syncing) return
-        _state.update { it.copy(work = MeterWork.Syncing) }
+        if (_state.value.syncing) return
+        _state.update { it.copy(syncing = true) }
         viewModelScope.launch {
-            val outcome = glucose.sync()
-            _state.update { it.copy(work = null, lastNewReadings = (outcome as? MeterSyncOutcome.Synced)?.newReadings) }
+            val outcome = glucose.sync(meterId)
+            _state.update { it.copy(syncing = false) }
             _messages.send(
                 when (outcome) {
                     is MeterSyncOutcome.Synced -> when {
@@ -139,24 +71,18 @@ class MeterViewModel(
         }
     }
 
-    fun forget() {
+    /** Forgets this meter, then [onDone] (e.g. go back to the list). */
+    fun forget(onDone: () -> Unit) {
         viewModelScope.launch {
-            glucose.meter.first()?.let { MeterCompanion.forget(appContext, it) }
-            MeterScan.stop(appContext)
-            glucose.forgetMeter()
+            glucose.meters.first().firstOrNull { it.id == meterId }?.let { MeterCompanion.forget(appContext, it) }
+            glucose.forgetMeter(meterId)
+            watchMeters()
+            onDone()
         }
     }
 
+    /** The target range is shared by all meters. */
     fun setRange(low: Double, high: Double) {
         viewModelScope.launch { settings.setGlucoseRange(low, high) }
     }
-
-    private companion object {
-        const val PIN_TIMEOUT_MS = 120_000
-    }
 }
-
-private fun PickedMeter.asUnsynced() = PairedMeter(
-    address = address, name = name, model = null, serial = null, associationId = associationId,
-    lastSequence = null, lastSyncAt = null, clockOffsetSeconds = null, clockWritable = null, clockSetAt = null, lastProblem = null,
-)

@@ -126,7 +126,7 @@ class MealReminderReceiver : BroadcastReceiver() {
             try {
                 val container = app.appContainer
                 // After a reboot or update, also restart the meter's background wake-ups.
-                if (intent.getStringExtra(MealReminders.EXTRA_REMINDER) == null) runCatching { container.watchMeter() }
+                if (intent.getStringExtra(MealReminders.EXTRA_REMINDER) == null) runCatching { container.watchMeters() }
                 val settings = container.settings.settings.first()
                 val enabled = settings.remindersEnabled
                 val reminder = intent.getStringExtra(MealReminders.EXTRA_REMINDER)

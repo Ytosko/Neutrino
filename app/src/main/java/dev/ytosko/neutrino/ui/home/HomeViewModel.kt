@@ -52,8 +52,8 @@ class HomeViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /** The glucose card shows once a meter is paired, or on any day that has readings. */
-    val meterPaired: StateFlow<Boolean> = glucose.meter
-        .map { it != null }
+    val meterPaired: StateFlow<Boolean> = glucose.meters
+        .map { it.isNotEmpty() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     val glucoseRange: StateFlow<ClosedFloatingPointRange<Double>> = settings.settings

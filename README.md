@@ -111,8 +111,11 @@ Release signing and Google OAuth setup: [docs/SIGNING.md](docs/SIGNING.md). Publ
 Neutrino talks to meters that implement the Bluetooth SIG **Glucose Profile** (service `0x1808`), which the
 CONTOUR PLUS ELITE and many other meters do.
 
-- **Pairing:** Settings → Glucose meter → Pair meter. Android's companion-device picker lists only glucose
-  meters, then the meter shows a PIN to type in. Neutrino connects only to the meter you paired.
+- **Pairing:** Settings → Glucose meters → **+** → choose the model (Contour Plus One, Plus Elite or Plus Blue)
+  → Pair meter. Android's companion-device picker lists only glucose meters, then the meter shows a PIN to type
+  in. Up to 5 meters; each keeps its own sync state. Neutrino connects only to meters you paired.
+- **Offline readings:** tests taken away from the phone stay in the meter's memory; the next connection
+  downloads everything newer than the last reading Neutrino has.
 - **Background sync:** Android wakes Neutrino when the paired meter advertises after a test (companion device
   presence plus a low-power, hardware-filtered background scan), even if the app hasn't been opened for days.
   Only readings newer than the last one are requested.
