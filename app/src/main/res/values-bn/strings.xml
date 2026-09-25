@@ -266,11 +266,6 @@
     <string name="health_week">সপ্তাহ</string>
     <string name="health_month">মাস</string>
     <string name="health_year">বছর</string>
-    <string name="health_last_days">গত %1$d দিন</string>
-    <string name="health_last_weeks">গত %1$d সপ্তাহ</string>
-    <string name="health_last_months">গত %1$d মাস</string>
-    <string name="health_last_years">গত %1$d বছর</string>
-    <string name="health_caption">%1$s · %3$d দিনের মধ্যে %2$d দিন লগ করা</string>
     <string name="health_calories">ক্যালরি</string>
     <string name="health_macros">কার্বস, প্রোটিন ও ফ্যাট</string>
     <string name="health_split">ক্যালরি কোথা থেকে আসছে</string>
@@ -279,10 +274,17 @@
     <string name="health_water">পানি</string>
     <string name="health_top_foods">সবচেয়ে বেশি খাওয়া</string>
     <string name="health_times">%1$d বার</string>
+    <string name="health_prev_period">আগের</string>
+    <string name="health_next_period">পরের</string>
+    <string name="health_hourly">ঘণ্টা ধরে</string>
+    <string name="health_logged_days">%2$d দিনের মধ্যে %1$d দিন লগ করা</string>
+    <plurals name="health_meals_logged">
+        <item quantity="one">%1$dটি খাবার লগ করা</item>
+        <item quantity="other">%1$dটি খাবার লগ করা</item>
+    </plurals>
+    <string name="health_day_total">দিনের মোট</string>
+    <string name="health_per_day">%1$s · প্রতিদিন</string>
     <string name="health_avg_day">দৈনিক গড়</string>
-    <string name="health_avg_week">সাপ্তাহিক গড়</string>
-    <string name="health_avg_month">মাসিক গড়</string>
-    <string name="health_avg_year">বার্ষিক গড়</string>
     <string name="health_touch_hint">প্রতিটি দেখতে বারগুলো ছুঁয়ে দেখুন</string>
     <string name="health_open_day">দিনটি খুলুন</string>
     <string name="health_empty_title">এখনো কিছু লগ করা হয়নি</string>

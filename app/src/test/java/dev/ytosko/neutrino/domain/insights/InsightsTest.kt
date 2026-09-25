@@ -14,45 +14,68 @@ class InsightsTest {
     private fun meal(date: LocalDate, kcal: Double, carbs: Double = 0.0, type: MealType = MealType.Lunch) =
         MealPoint(date, type, Nutrition(kcal, 0.0, carbs, 0.0))
 
+    private fun period(range: InsightRange, hourly: Boolean = false) = Period.containing(range, today, DayOfWeek.MONDAY, hourly)
+
     @Test
-    fun `day view has 30 daily bars ending today`() {
-        val s = Insights.summarize(
-            InsightRange.Day, today,
-            meals = listOf(meal(today, 500.0), meal(today, 300.0), meal(today.minusDays(29), 100.0), meal(today.minusDays(30), 999.0)),
-            water = listOf(WaterPoint(today, 250)),
+    fun `a day splits into four 6-hour blocks, or 24 hours`() {
+        val meals = listOf(
+            meal(today, 300.0).copy(hour = 5),
+            meal(today, 500.0).copy(hour = 13),
+            meal(today, 200.0).copy(hour = 23),
+            meal(today.minusDays(1), 999.0).copy(hour = 13),
         )
-        assertEquals(30, s.buckets.size)
-        assertEquals(today.minusDays(29), s.buckets.first().start)
-        assertEquals(today, s.buckets.last().start)
-        assertEquals(800.0, s.buckets.last().nutrition.calories, 0.0)
-        assertEquals("a meal 30 days ago is outside the range", 900.0, s.totals.calories, 0.0)
-        assertEquals(2, s.daysLogged)
-        assertEquals(30, s.totalDays)
-        assertEquals(450.0, s.perLoggedDay(s.totals.calories), 0.0)
+        val water = listOf(WaterPoint(today, 250, hour = 7), WaterPoint(today, 250, hour = 8))
+        val s = Insights.summarize(period(InsightRange.Day), today, meals, water)
+        assertEquals(4, s.buckets.size)
+        assertEquals(listOf(300.0, 0.0, 500.0, 200.0), s.buckets.map { it.nutrition.calories })
+        assertEquals(500, s.buckets[1].waterMl)
+        assertEquals("yesterday's meal is outside the day", 1000.0, s.totals.calories, 0.0)
+        assertEquals(1, s.totalDays)
+
+        val hourly = Insights.summarize(period(InsightRange.Day, hourly = true), today, meals, water)
+        assertEquals(24, hourly.buckets.size)
+        assertEquals(500.0, hourly.buckets[13].nutrition.calories, 0.0)
+        assertEquals(250, hourly.buckets[7].waterMl)
     }
 
     @Test
-    fun `week, month and year buckets line up with calendar periods`() {
-        val week = Insights.summarize(InsightRange.Week, today, emptyList(), emptyList(), firstDayOfWeek = DayOfWeek.MONDAY)
-        assertEquals(12, week.buckets.size)
-        assertEquals(LocalDate.of(2026, 9, 21), week.buckets.last().start)
-        assertEquals(DayOfWeek.MONDAY, week.buckets.first().start.dayOfWeek)
+    fun `week, month and year are calendar periods`() {
+        val week = Insights.summarize(period(InsightRange.Week), today, listOf(meal(today, 500.0), meal(LocalDate.of(2026, 9, 20), 400.0)), emptyList())
+        assertEquals(7, week.buckets.size)
+        assertEquals(LocalDate.of(2026, 9, 21), week.buckets.first().start)
+        assertEquals(500.0, week.totals.calories, 0.0)
+        assertEquals("Monday to Friday so far", 5, week.totalDays)
 
-        val month = Insights.summarize(InsightRange.Month, today, listOf(meal(LocalDate.of(2025, 10, 31), 700.0)), emptyList())
-        assertEquals(12, month.buckets.size)
-        assertEquals(LocalDate.of(2025, 10, 1), month.buckets.first().start)
+        val month = Insights.summarize(period(InsightRange.Month), today, listOf(meal(LocalDate.of(2026, 9, 1), 700.0)), emptyList())
+        assertEquals(30, month.buckets.size)
         assertEquals(700.0, month.buckets.first().nutrition.calories, 0.0)
+        assertEquals(25, month.totalDays)
 
-        val year = Insights.summarize(InsightRange.Year, today, emptyList(), emptyList())
-        assertEquals(7, year.buckets.size)
-        assertEquals(LocalDate.of(2020, 1, 1), year.buckets.first().start)
+        val lastMonth = Period.containing(InsightRange.Month, today, DayOfWeek.MONDAY).previous()
+        assertEquals(LocalDate.of(2026, 8, 1), lastMonth.start)
+        assertEquals(31, Insights.summarize(lastMonth, today, emptyList(), emptyList()).totalDays)
+
+        val year = Insights.summarize(period(InsightRange.Year), today, emptyList(), emptyList())
+        assertEquals(12, year.buckets.size)
+        assertEquals(LocalDate.of(2026, 1, 1), year.buckets.first().start)
         assertTrue(year.isEmpty)
+    }
+
+    @Test
+    fun `year bars are per logged day`() {
+        val meals = listOf(meal(LocalDate.of(2026, 3, 1), 1_000.0), meal(LocalDate.of(2026, 3, 2), 2_000.0), meal(LocalDate.of(2026, 3, 2), 1_000.0))
+        val water = listOf(WaterPoint(LocalDate.of(2026, 3, 1), 1_000), WaterPoint(LocalDate.of(2026, 3, 3), 2_000))
+        val s = Insights.summarize(period(InsightRange.Year), today, meals, water)
+        val march = s.buckets[2]
+        assertEquals(4_000.0, march.nutrition.calories, 0.0)
+        assertEquals(2_000.0, march.perDayNutrition.calories, 0.0)
+        assertEquals(1_500, march.perDayWaterMl)
     }
 
     @Test
     fun `totals split by meal type and macro calories`() {
         val s = Insights.summarize(
-            InsightRange.Day, today,
+            period(InsightRange.Day), today,
             meals = listOf(meal(today, 400.0, carbs = 50.0, type = MealType.Breakfast), meal(today, 600.0, carbs = 80.0, type = MealType.Dinner)),
             water = emptyList(),
         )

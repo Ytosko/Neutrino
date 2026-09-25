@@ -164,7 +164,7 @@ class NeutrinoWidget : GlanceAppWidget() {
                 .fillMaxSize()
                 .cornerRadius(24.dp)
                 .background(colors.widgetBackground)
-                .padding(horizontal = PADDING, vertical = 12.dp)
+                .padding(horizontal = PADDING, vertical = PADDING)
                 .clickable(open),
         ) {
             Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -183,8 +183,10 @@ class NeutrinoWidget : GlanceAppWidget() {
                 }
             }
             if (showTiles) {
-                Spacer(GlanceModifier.defaultWeight())
+                // Even gaps; the tiles take whatever height is left, so there are no empty bands.
+                Spacer(GlanceModifier.height(SECTION_GAP))
                 val tileWidth = (size.width - PADDING * 2 - TILE_GAP * 3) / 4
+                val tileHeight = (size.height - PADDING * 2 - HEADER_HEIGHT - BOTTOM_HEIGHT - SECTION_GAP * 2).coerceIn(48.dp, 120.dp)
                 Row(modifier = GlanceModifier.fillMaxWidth()) {
                     val tiles = listOf(
                         Tile(data.carbs, context.getString(R.string.macro_carbs), MacroColor.Carbs, data.carbsProgress),
@@ -194,10 +196,12 @@ class NeutrinoWidget : GlanceAppWidget() {
                     )
                     tiles.forEachIndexed { index, tile ->
                         if (index > 0) Spacer(GlanceModifier.width(TILE_GAP))
-                        MacroTile(context, tile, tileWidth)
+                        MacroTile(context, tile, tileWidth, tileHeight)
                     }
                 }
+                Spacer(GlanceModifier.height(SECTION_GAP))
             }
+            // Keeps the water row at the bottom (only takes space on very tall or squat widgets).
             Spacer(GlanceModifier.defaultWeight())
             Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = GlanceModifier.defaultWeight()) {
@@ -232,16 +236,16 @@ class NeutrinoWidget : GlanceAppWidget() {
      * the macro's day or night colour, over the tile's own day/night background.
      */
     @Composable
-    private fun MacroTile(context: Context, tile: Tile, width: Dp) {
+    private fun MacroTile(context: Context, tile: Tile, width: Dp, height: Dp) {
         val density = context.resources.displayMetrics.density
         Box(
-            modifier = GlanceModifier.width(width).height(TILE_HEIGHT).cornerRadius(14.dp).background(TileFill),
+            modifier = GlanceModifier.width(width).height(height).cornerRadius(14.dp).background(TileFill),
             contentAlignment = Alignment.Center,
         ) {
             if (tile.progress != null) {
                 val mask = ringMask(
                     widthPx = (width.value * density).toInt().coerceAtLeast(1),
-                    heightPx = (TILE_HEIGHT.value * density).toInt(),
+                    heightPx = (height.value * density).toInt().coerceAtLeast(1),
                     density = density,
                     progress = tile.progress,
                 )
@@ -255,7 +259,7 @@ class NeutrinoWidget : GlanceAppWidget() {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
                     tile.value,
-                    style = TextStyle(color = tile.color.provider, fontSize = 12.sp, fontWeight = FontWeight.Bold),
+                    style = TextStyle(color = tile.color.provider, fontSize = if (height >= 70.dp) 15.sp else 12.sp, fontWeight = FontWeight.Bold),
                     maxLines = 1,
                 )
                 Text(tile.label, style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 11.sp), maxLines = 1)
@@ -266,7 +270,10 @@ class NeutrinoWidget : GlanceAppWidget() {
     companion object {
         private val PADDING = 12.dp
         private val TILE_GAP = 6.dp
-        private val TILE_HEIGHT = 54.dp
+        private val SECTION_GAP = 10.dp
+        /** Measured: the "Today" line, and the water row with its buttons. */
+        private val HEADER_HEIGHT = 18.dp
+        private val BOTTOM_HEIGHT = 48.dp
         const val GLASS_ML = 250
         const val MAX_WATER_ML = 10_000
 

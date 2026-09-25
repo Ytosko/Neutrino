@@ -1,6 +1,9 @@
 package dev.ytosko.neutrino.ui.insights
 
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.Path
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -41,7 +44,9 @@ import kotlin.math.pow
 /**
  * Bar chart you can read with your thumb: tap a bar, or press and slide across, and [onSelect]
  * reports the bar under the finger (the caller shows its numbers). Horizontal drags only, so the
- * page still scrolls vertically. A dashed line marks [average].
+ * page still scrolls vertically. Bars are full pills on a faint track. A dashed line marks [goal]
+ * when there is one, with a ✓ in bars that reached it; otherwise it marks [average]. [highlight] is
+ * the current day, month or hour block, whose label is bold.
  */
 @Composable
 fun BarChart(
@@ -56,6 +61,8 @@ fun BarChart(
     height: Dp = 180.dp,
     /** Text for the bubble over the touched bar, e.g. "1.2k kcal"; no bubble when null. */
     bubble: ((Int) -> String)? = null,
+    goal: Double? = null,
+    highlight: Int? = null,
 ) {
     val measurer = rememberTextMeasurer()
     val labelStyle = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -63,10 +70,12 @@ fun BarChart(
     val bubbleColor = MaterialTheme.colorScheme.inverseSurface
     val bubbleStyle = MaterialTheme.typography.labelMedium.copy(color = MaterialTheme.colorScheme.inverseOnSurface)
     val averageColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val strongLabel = labelStyle.copy(color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
     val currentSelect = rememberUpdatedState(onSelect)
     val currentSelected = rememberUpdatedState(selected)
     val count = values.size.coerceAtLeast(1)
-    val top = niceMax(max(values.maxOrNull() ?: 0.0, average ?: 0.0))
+    val line = goal?.takeIf { it > 0 } ?: average?.takeIf { it > 0 }
+    val top = niceMax(max(values.maxOrNull() ?: 0.0, line ?: 0.0))
 
     fun indexAt(x: Float, width: Float, plotWidth: Float): Int? {
         if (x < 0 || x > plotWidth || width <= 0) return null
@@ -103,51 +112,55 @@ fun BarChart(
         val plotWidth = size.width - gutter
         val plotHeight = size.height - labelSpace
         val slot = plotWidth / count
-        val barWidth = (slot * if (count > 14) 0.62f else 0.5f).coerceAtMost(28.dp.toPx())
-        val radius = CornerRadius(min(barWidth / 2, 6.dp.toPx()))
+        // Wide pills when there are few bars; thinner (but still round) for a month of days.
+        val barWidth = (slot * if (count > 14) 0.6f else 0.56f).coerceAtMost(44.dp.toPx())
+        val radius = CornerRadius(barWidth / 2)
+        val track = color.copy(alpha = 0.09f)
+        val check = Color.White
+        val showChecks = goal != null && goal > 0 && barWidth >= 14.dp.toPx()
 
-        // Grid lines at 0, half and top, with values on the right.
-        for (fraction in listOf(0f, 0.5f, 1f)) {
+        // Grid values on the right, at half and top.
+        for (fraction in listOf(0.5f, 1f)) {
             val y = plotHeight - plotHeight * fraction
-            drawLine(grid, Offset(0f, y), Offset(plotWidth, y), strokeWidth = 1f)
-            if (fraction > 0f && top > 0) {
+            if (top > 0) {
+                drawLine(grid, Offset(0f, y), Offset(plotWidth, y), strokeWidth = 1f)
                 val text = measurer.measure(compactNumber(top * fraction), labelStyle)
                 drawText(text, topLeft = Offset(plotWidth + 6.dp.toPx(), y - text.size.height / 2f))
             }
         }
 
         values.forEachIndexed { index, value ->
-            val h = if (top > 0) (value / top * plotHeight).toFloat() else 0f
             val x = slot * index + (slot - barWidth) / 2
-            val alpha = if (selected == null || selected == index) 1f else 0.3f
+            drawRoundRect(track, topLeft = Offset(x, 0f), size = Size(barWidth, plotHeight), cornerRadius = radius)
+            // At least a round dot for any value, so small days still show.
+            val h = if (top > 0 && value > 0) (value / top * plotHeight).toFloat().coerceIn(barWidth, plotHeight) else 0f
+            val alpha = if (selected == null || selected == index) 1f else 0.35f
             if (h > 0f) {
-                // Soft vertical gradient, like Apple Health.
                 drawRoundRect(
-                    brush = Brush.verticalGradient(
-                        listOf(color.copy(alpha = alpha), color.copy(alpha = alpha * 0.55f)),
-                        startY = plotHeight - h,
-                        endY = plotHeight,
-                    ),
+                    color = color.copy(alpha = alpha),
                     topLeft = Offset(x, plotHeight - h),
                     size = Size(barWidth, h),
                     cornerRadius = radius,
                 )
+                if (showChecks && value >= goal!!) {
+                    drawCheck(check.copy(alpha = alpha), Offset(x + barWidth / 2, plotHeight - h + barWidth / 2), barWidth * 0.42f)
+                }
             }
             xLabel(index)?.let { label ->
-                val text = measurer.measure(label, labelStyle)
+                val text = measurer.measure(label, if (index == highlight) strongLabel else labelStyle)
                 val left = (x + barWidth / 2 - text.size.width / 2f).coerceIn(0f, plotWidth - text.size.width)
                 drawText(text, topLeft = Offset(left, plotHeight + 4.dp.toPx()))
             }
         }
 
-        if (average != null && average > 0 && top > 0) {
-            val y = plotHeight - (average / top * plotHeight).toFloat()
+        if (line != null && top > 0) {
+            val y = plotHeight - (line / top * plotHeight).toFloat()
             drawLine(
-                averageColor,
+                if (goal != null && goal > 0) color else averageColor,
                 Offset(0f, y),
                 Offset(plotWidth, y),
                 strokeWidth = 1.5.dp.toPx(),
-                pathEffect = PathEffect.dashPathEffect(floatArrayOf(8.dp.toPx(), 6.dp.toPx())),
+                pathEffect = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 5.dp.toPx())),
             )
         }
 
@@ -161,7 +174,7 @@ fun BarChart(
                 val padY = 4.dp.toPx()
                 val bw = text.size.width + padX * 2
                 val bh = text.size.height + padY * 2
-                val barTop = plotHeight - (if (top > 0) (values[index] / top * plotHeight).toFloat() else 0f)
+                val barTop = plotHeight - (if (top > 0 && values[index] > 0) (values[index] / top * plotHeight).toFloat().coerceIn(barWidth, plotHeight) else 0f)
                 val left = (cx - bw / 2).coerceIn(0f, plotWidth - bw)
                 val topY = (barTop - bh - 6.dp.toPx()).coerceAtLeast(0f)
                 drawRoundRect(bubbleColor, topLeft = Offset(left, topY), size = Size(bw, bh), cornerRadius = CornerRadius(bh / 2))
@@ -169,6 +182,16 @@ fun BarChart(
             }
         }
     }
+}
+
+/** A small tick mark centred on [center], [size] wide. */
+private fun DrawScope.drawCheck(color: Color, center: Offset, size: Float) {
+    val path = Path().apply {
+        moveTo(center.x - size * 0.5f, center.y + size * 0.02f)
+        lineTo(center.x - size * 0.12f, center.y + size * 0.38f)
+        lineTo(center.x + size * 0.5f, center.y - size * 0.34f)
+    }
+    drawPath(path, color, style = Stroke(width = size * 0.2f, cap = StrokeCap.Round, join = StrokeJoin.Round))
 }
 
 /** One donut slice. */

@@ -12,10 +12,6 @@ import androidx.core.app.NotificationManagerCompat
 import dev.ytosko.neutrino.MainActivity
 import dev.ytosko.neutrino.R
 import dev.ytosko.neutrino.appContainer
-import dev.ytosko.neutrino.data.glucose.relationEnum
-import dev.ytosko.neutrino.domain.insights.GlucoseInsights
-import dev.ytosko.neutrino.domain.insights.GlucosePoint
-import dev.ytosko.neutrino.domain.insights.InsightRange
 import dev.ytosko.neutrino.domain.insights.compactNumber
 import dev.ytosko.neutrino.domain.insights.formatWater
 import kotlinx.coroutines.CoroutineScope
@@ -24,7 +20,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.time.DayOfWeek
-import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
@@ -87,11 +82,8 @@ object WeeklySummary {
         if (waterDays > 0) parts += context.getString(R.string.weekly_water, formatWater(data.water.sumOf { it.ml } / waterDays))
         val readings = container.glucose.observeBetween(from, today, zone).first()
         if (readings.isNotEmpty()) {
-            val points = readings.map {
-                GlucosePoint(Instant.ofEpochMilli(it.measuredAtEpochMs).atZone(zone).toLocalDate(), it.mmolPerL, it.relationEnum)
-            }
-            val summary = GlucoseInsights.summarize(InsightRange.Day, today, points, settings.glucoseLow, settings.glucoseHigh)
-            parts += context.getString(R.string.weekly_glucose, (summary.inRangeShare * 100).roundToInt(), summary.readings)
+            val inRange = readings.count { it.mmolPerL in settings.glucoseLow..settings.glucoseHigh }
+            parts += context.getString(R.string.weekly_glucose, (inRange * 100.0 / readings.size).roundToInt(), readings.size)
         }
         if (parts.isEmpty()) return
         show(context, parts.joinToString("\n"))

@@ -157,15 +157,20 @@ class MealRepository(
             RangeData(
                 meals = meals.map { row ->
                     val meal = row.meal
+                    val eaten = Instant.ofEpochMilli(meal.eatenAtEpochMs).atZone(zone)
                     MealPoint(
-                        date = Instant.ofEpochMilli(meal.eatenAtEpochMs).atZone(zone).toLocalDate(),
+                        date = eaten.toLocalDate(),
                         type = runCatching { MealType.valueOf(meal.mealType) }.getOrDefault(MealType.Snack),
                         nutrition = Nutrition(meal.calories, meal.proteinG, meal.carbsG, meal.fatG),
                         name = meal.name,
-                        at = Instant.ofEpochMilli(meal.eatenAtEpochMs),
+                        at = eaten.toInstant(),
+                        hour = eaten.hour,
                     )
                 },
-                water = water.map { WaterPoint(Instant.ofEpochMilli(it.loggedAtEpochMs).atZone(zone).toLocalDate(), it.amountMl) },
+                water = water.map {
+                    val at = Instant.ofEpochMilli(it.loggedAtEpochMs).atZone(zone)
+                    WaterPoint(at.toLocalDate(), it.amountMl, at.hour)
+                },
                 topFoods = top.map { FoodCount(it.name, it.category, it.times) },
             )
         }

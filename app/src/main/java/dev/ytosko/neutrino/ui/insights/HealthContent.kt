@@ -1,5 +1,17 @@
 package dev.ytosko.neutrino.ui.insights
 
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.res.painterResource
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import dev.ytosko.neutrino.domain.insights.Slot
+import dev.ytosko.neutrino.domain.insights.Period
+import java.time.LocalTime
+import java.time.LocalDate
 import dev.ytosko.neutrino.ui.components.ChartIllustration
 import dev.ytosko.neutrino.ui.components.SegmentedControl
 import androidx.compose.ui.draw.clip
@@ -84,8 +96,10 @@ private enum class Macro { Carbs, Protein, Fat }
  * day on the Days tab.
  */
 @Composable
-fun HealthContent(viewModel: HealthViewModel, contentPadding: PaddingValues, onOpenDay: (java.time.LocalDate) -> Unit) {
-    val range by viewModel.range.collectAsStateWithLifecycle()
+fun HealthContent(viewModel: HealthViewModel, contentPadding: PaddingValues, onOpenDay: (LocalDate) -> Unit) {
+    val period by viewModel.period.collectAsStateWithLifecycle()
+    val today by viewModel.today.collectAsStateWithLifecycle()
+    val goals by viewModel.goals.collectAsStateWithLifecycle()
     val summary by viewModel.summary.collectAsStateWithLifecycle()
     val glucose by viewModel.glucoseSummary.collectAsStateWithLifecycle()
     val mealRises by viewModel.mealRises.collectAsStateWithLifecycle()
@@ -102,28 +116,41 @@ fun HealthContent(viewModel: HealthViewModel, contentPadding: PaddingValues, onO
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         val width = Modifier.widthIn(max = 600.dp).fillMaxWidth()
-        item(key = "range") { RangeTabs(range, viewModel::setRange, width) }
+        item(key = "range") { RangeTabs(period.range, viewModel::setRange, width) }
+        item(key = "period") {
+            PeriodHeader(
+                period = period,
+                today = today,
+                data = summary?.takeIf { it.period == period },
+                onPrevious = viewModel::previous,
+                onNext = viewModel::next,
+                onHourly = viewModel::setHourly,
+                modifier = width,
+            )
+        }
 
         val data = summary
-        if (data == null || data.range != range) return@LazyColumn
-        item(key = "caption") { RangeCaption(data, width) }
+        if (data == null || data.period != period) return@LazyColumn
+        val chart = ChartContext(data.period, today, goals)
+        val key = "${period.range}-${period.start}-${period.hourly}"
         item(key = "totals") { TotalsCard(data.totals, width) }
 
-        val glucoseData = glucose?.takeIf { it.range == range && !it.isEmpty }
+        val glucoseData = glucose?.takeIf { it.period == period && !it.isEmpty }
+        val rises = mealRises?.takeIf { it.first == period }?.second.orEmpty()
         if (data.isEmpty) {
-            if (glucoseData != null) item(key = "glucose-$range") { GlucoseCard(glucoseData, width) }
-        val rises = mealRises?.takeIf { it.first == range }?.second.orEmpty()
-        if (rises.isNotEmpty()) item(key = "meal-glucose-$range") { MealGlucoseCard(rises, width) }
+            if (glucoseData != null) item(key = "glucose-$key") { GlucoseCard(glucoseData, chart, width) }
+            if (rises.isNotEmpty()) item(key = "meal-glucose-$key") { MealGlucoseCard(rises, width) }
             item(key = "empty") { EmptyRange(width) }
             return@LazyColumn
         }
-        item(key = "calories-$range") { CaloriesCard(data, onOpenDay, width) }
-        if (glucoseData != null) item(key = "glucose-$range") { GlucoseCard(glucoseData, width) }
-        item(key = "macros-$range") { MacroTrendCard(data, width) }
-        item(key = "split-$range") { MacroSplitCard(data, width) }
-        item(key = "meals-$range") { CarbsByMealCard(data, width) }
-        item(key = "water-$range") { WaterCard(data, width) }
-        if (data.topFoods.isNotEmpty()) item(key = "foods-$range") { TopFoodsCard(data, width) }
+        item(key = "calories-$key") { CaloriesCard(data, chart, onOpenDay, width) }
+        if (glucoseData != null) item(key = "glucose-$key") { GlucoseCard(glucoseData, chart, width) }
+        if (rises.isNotEmpty()) item(key = "meal-glucose-$key") { MealGlucoseCard(rises, width) }
+        item(key = "macros-$key") { MacroTrendCard(data, chart, width) }
+        item(key = "split-$key") { MacroSplitCard(data, width) }
+        item(key = "meals-$key") { CarbsByMealCard(data, width) }
+        item(key = "water-$key") { WaterCard(data, chart, width) }
+        if (data.topFoods.isNotEmpty()) item(key = "foods-$key") { TopFoodsCard(data, width) }
     }
 }
 
@@ -146,48 +173,113 @@ private fun RangeTabs(range: InsightRange, onChange: (InsightRange) -> Unit, mod
     )
 }
 
+/**
+ * ‹ 22 – 28 Sep 2026 › with "Logged on 5 of 7 days" under it. › stops at the period holding today.
+ * The Day tab adds the "Hour by hour" switch.
+ */
 @Composable
-private fun RangeCaption(data: InsightSummary, modifier: Modifier) {
-    val first = data.buckets.first().start
-    val last = data.buckets.last().end.minusDays(1)
-    val dates = "${first.format(SHORT_DATE)} – ${minOf(last, java.time.LocalDate.now()).format(SHORT_DATE)}"
+private fun PeriodHeader(
+    period: Period,
+    today: LocalDate,
+    data: InsightSummary?,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+    onHourly: (Boolean) -> Unit,
+    modifier: Modifier,
+) {
+    val haptics = LocalHapticFeedback.current
+    val canGoNext = period.end <= today
     Column(modifier = modifier) {
-        Text(
-            stringResource(
-                when (data.range) {
-                    InsightRange.Day -> R.string.health_last_days
-                    InsightRange.Week -> R.string.health_last_weeks
-                    InsightRange.Month -> R.string.health_last_months
-                    InsightRange.Year -> R.string.health_last_years
-                },
-                data.range.count,
-            ),
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.semantics { heading() },
-        )
-        Text(
-            stringResource(R.string.health_caption, dates, data.daysLogged, data.totalDays),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = { haptics.performHapticFeedback(HapticFeedbackType.SegmentTick); onPrevious() }) {
+                Icon(painterResource(R.drawable.ic_chevron_left), contentDescription = stringResource(R.string.health_prev_period))
+            }
+            Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    periodTitle(period, today),
+                    style = MaterialTheme.typography.titleMedium,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.semantics { heading() },
+                )
+                val subtitle = when {
+                    data == null -> ""
+                    period.range == InsightRange.Day -> pluralStringResource(R.plurals.health_meals_logged, data.meals, data.meals)
+                    else -> stringResource(R.string.health_logged_days, data.daysLogged, data.totalDays)
+                }
+                Text(
+                    subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                )
+            }
+            IconButton(
+                onClick = { haptics.performHapticFeedback(HapticFeedbackType.SegmentTick); onNext() },
+                enabled = canGoNext,
+            ) {
+                Icon(painterResource(R.drawable.ic_chevron_right), contentDescription = stringResource(R.string.health_next_period))
+            }
+        }
+        if (period.range == InsightRange.Day) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(MaterialTheme.shapes.medium)
+                    .toggleable(value = period.hourly, role = Role.Switch) { on ->
+                        haptics.performHapticFeedback(if (on) HapticFeedbackType.ToggleOn else HapticFeedbackType.ToggleOff)
+                        onHourly(on)
+                    }
+                    .padding(horizontal = Spacing.sm, vertical = Spacing.xs),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(stringResource(R.string.health_hourly), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                Switch(checked = period.hourly, onCheckedChange = null)
+            }
+        }
     }
 }
+
+/** What every chart needs besides its own numbers: the period, today, and the daily goals. */
+private class ChartContext(val period: Period, val today: LocalDate, val goals: ChartGoals?) {
+    val range: InsightRange get() = period.range
+
+    /** Days (Week, Month) and months (Year) show per-day values against daily goals; parts of a day don't. */
+    val daily: Boolean get() = range != InsightRange.Day
+
+    /** The bar for now: this hour block, today, or this month. */
+    val highlight: Int?
+        get() {
+            if (!period.contains(today)) return null
+            return when (range) {
+                InsightRange.Day -> java.time.LocalTime.now().hour / (if (period.hourly) 1 else 6)
+                InsightRange.Week, InsightRange.Month -> java.time.temporal.ChronoUnit.DAYS.between(period.start, today).toInt()
+                InsightRange.Year -> today.monthValue - 1
+            }
+        }
+
+    fun goal(pick: (ChartGoals) -> Int?): Double? = if (daily) goals?.let(pick)?.toDouble() else null
+}
+
+/** A bar's value: the total for a block or day, the per-day average for a month on the Year tab. */
+private fun Bucket.shown(range: InsightRange): Nutrition = if (range == InsightRange.Year) perDayNutrition else nutrition
+private fun Bucket.shownWater(range: InsightRange): Int = if (range == InsightRange.Year) perDayWaterMl else waterMl
 
 // ---- Cards ------------------------------------------------------------------------------------
 
 @Composable
-private fun CaloriesCard(data: InsightSummary, onOpenDay: (java.time.LocalDate) -> Unit, modifier: Modifier) {
-    var selected by rememberSaveable(data.range) { mutableStateOf<Int?>(null) }
-    val values = data.buckets.map { it.nutrition.calories }
-    val average = averageOfLogged(data.buckets) { it.nutrition.calories }
+private fun CaloriesCard(data: InsightSummary, chart: ChartContext, onOpenDay: (LocalDate) -> Unit, modifier: Modifier) {
+    var selected by rememberSaveable(data.period) { mutableStateOf<Int?>(null) }
+    val range = data.range
+    val values = data.buckets.map { it.shown(range).calories }
+    val average = headline(data) { it.calories }
     val bucket = selected?.let(data.buckets::getOrNull)
     ChartCard(title = stringResource(R.string.health_calories), modifier = modifier) {
         if (bucket != null) {
             ReadOut(
-                label = bucketLabel(bucket, data.range),
-                value = "${compactNumber(bucket.nutrition.calories)} ${stringResource(R.string.macro_energy)}",
-                detail = macroLine(bucket.nutrition),
-                action = if (data.range == InsightRange.Day) {
+                label = bucketLabel(bucket.slot, range),
+                value = "${compactNumber(bucket.shown(range).calories)} ${stringResource(R.string.macro_energy)}",
+                detail = macroLine(bucket.shown(range)),
+                action = if (range != InsightRange.Year) {
                     { TextButton(onClick = { onOpenDay(bucket.start) }) { Text(stringResource(R.string.health_open_day)) } }
                 } else {
                     null
@@ -195,7 +287,7 @@ private fun CaloriesCard(data: InsightSummary, onOpenDay: (java.time.LocalDate) 
             )
         } else {
             ReadOut(
-                label = stringResource(averageLabel(data.range)),
+                label = stringResource(headlineLabel(range)),
                 value = "${compactNumber(average)} ${stringResource(R.string.macro_energy)}",
                 detail = stringResource(R.string.health_touch_hint),
             )
@@ -205,19 +297,22 @@ private fun CaloriesCard(data: InsightSummary, onOpenDay: (java.time.LocalDate) 
             color = MaterialTheme.colorScheme.primary,
             selected = selected,
             onSelect = { selected = it },
-            average = average.takeIf { it > 0 },
-            xLabel = { axisLabel(data, it) },
+            average = average.takeIf { it > 0 && chart.daily },
+            goal = chart.goal { it.kcal },
+            highlight = chart.highlight,
+            xLabel = { axisLabel(chart, data.buckets.map { b -> b.slot }, it) },
             description = stringResource(R.string.health_calories_desc, compactNumber(average)),
-            bubble = { i -> "${compactNumber(data.buckets[i].nutrition.calories)} kcal" },
+            bubble = { i -> "${compactNumber(values[i])} kcal" },
         )
     }
 }
 
 @Composable
-private fun MacroTrendCard(data: InsightSummary, modifier: Modifier) {
+private fun MacroTrendCard(data: InsightSummary, chart: ChartContext, modifier: Modifier) {
     val colors = NeutrinoTheme.colors
     var macro by rememberSaveable { mutableStateOf(Macro.Carbs) }
-    var selected by rememberSaveable(data.range) { mutableStateOf<Int?>(null) }
+    var selected by rememberSaveable(data.period) { mutableStateOf<Int?>(null) }
+    val range = data.range
     fun pick(n: Nutrition) = when (macro) {
         Macro.Carbs -> n.carbsG
         Macro.Protein -> n.proteinG
@@ -228,8 +323,15 @@ private fun MacroTrendCard(data: InsightSummary, modifier: Modifier) {
         Macro.Protein -> colors.protein
         Macro.Fat -> colors.fat
     }
-    val average = averageOfLogged(data.buckets) { pick(it.nutrition) }
+    val average = headline(data) { pick(it) }
     val bucket = selected?.let(data.buckets::getOrNull)
+    val goal = chart.goal {
+        when (macro) {
+            Macro.Carbs -> it.carbs
+            Macro.Protein -> it.protein
+            Macro.Fat -> it.fat
+        }
+    }
     ChartCard(title = stringResource(R.string.health_macros), modifier = modifier) {
         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
             Macro.entries.forEach { option ->
@@ -241,19 +343,21 @@ private fun MacroTrendCard(data: InsightSummary, modifier: Modifier) {
             }
         }
         if (bucket != null) {
-            ReadOut(label = bucketLabel(bucket, data.range), value = compactGrams(pick(bucket.nutrition)), valueColor = color)
+            ReadOut(label = bucketLabel(bucket.slot, range), value = compactGrams(pick(bucket.shown(range))), valueColor = color)
         } else {
-            ReadOut(label = stringResource(averageLabel(data.range)), value = compactGrams(average), valueColor = color)
+            ReadOut(label = stringResource(headlineLabel(range)), value = compactGrams(average), valueColor = color)
         }
         BarChart(
-            values = data.buckets.map { pick(it.nutrition) },
+            values = data.buckets.map { pick(it.shown(range)) },
             color = color,
             selected = selected,
             onSelect = { selected = it },
-            average = average.takeIf { it > 0 },
-            xLabel = { axisLabel(data, it) },
+            average = average.takeIf { it > 0 && chart.daily },
+            goal = goal,
+            highlight = chart.highlight,
+            xLabel = { axisLabel(chart, data.buckets.map { b -> b.slot }, it) },
             description = stringResource(R.string.health_macro_desc, stringResource(macroName(macro)), compactGrams(average)),
-            bubble = { i -> compactGrams(pick(data.buckets[i].nutrition)) },
+            bubble = { i -> compactGrams(pick(data.buckets[i].shown(range))) },
         )
     }
 }
@@ -261,7 +365,7 @@ private fun MacroTrendCard(data: InsightSummary, modifier: Modifier) {
 @Composable
 private fun MacroSplitCard(data: InsightSummary, modifier: Modifier) {
     val colors = NeutrinoTheme.colors
-    var selected by rememberSaveable(data.range) { mutableStateOf<Int?>(null) }
+    var selected by rememberSaveable(data.period) { mutableStateOf<Int?>(null) }
     val (carbKcal, proteinKcal, fatKcal) = data.macroKcal
     val kcal = listOf(carbKcal, proteinKcal, fatKcal)
     val grams = listOf(data.totals.carbsG, data.totals.proteinG, data.totals.fatG)
@@ -340,35 +444,39 @@ private fun CarbsByMealCard(data: InsightSummary, modifier: Modifier) {
 }
 
 @Composable
-private fun WaterCard(data: InsightSummary, modifier: Modifier) {
+private fun WaterCard(data: InsightSummary, chart: ChartContext, modifier: Modifier) {
     val colors = NeutrinoTheme.colors
-    var selected by rememberSaveable(data.range) { mutableStateOf<Int?>(null) }
-    val average = averageOfLogged(data.buckets, { it.waterMl > 0 }) { it.waterMl.toDouble() }
+    var selected by rememberSaveable(data.period) { mutableStateOf<Int?>(null) }
+    val range = data.range
+    val average = if (range == InsightRange.Day) data.waterMl else data.waterPerDay
+    val values = data.buckets.map { it.shownWater(range) }
     val bucket = selected?.let(data.buckets::getOrNull)
     ChartCard(title = stringResource(R.string.health_water), modifier = modifier) {
         if (bucket != null) {
-            ReadOut(label = bucketLabel(bucket, data.range), value = compactMl(bucket.waterMl), valueColor = colors.water)
+            ReadOut(label = bucketLabel(bucket.slot, range), value = compactMl(bucket.shownWater(range)), valueColor = colors.water)
         } else {
-            ReadOut(label = stringResource(averageLabel(data.range)), value = compactMl(average.roundToInt()), valueColor = colors.water)
+            ReadOut(label = stringResource(headlineLabel(range)), value = compactMl(average), valueColor = colors.water)
         }
         BarChart(
-            values = data.buckets.map { it.waterMl.toDouble() },
+            values = values.map { it.toDouble() },
             color = colors.water,
             selected = selected,
             onSelect = { selected = it },
-            average = average.takeIf { it > 0 },
-            xLabel = { axisLabel(data, it) },
+            average = average.toDouble().takeIf { it > 0 && chart.daily },
+            goal = chart.goal { it.waterMl },
+            highlight = chart.highlight,
+            xLabel = { axisLabel(chart, data.buckets.map { b -> b.slot }, it) },
             height = 140.dp,
-            description = stringResource(R.string.health_water_desc, compactMl(average.roundToInt())),
-            bubble = { i -> compactMl(data.buckets[i].waterMl) },
+            description = stringResource(R.string.health_water_desc, compactMl(average)),
+            bubble = { i -> compactMl(values[i]) },
         )
     }
 }
 
 /** Average glucose per bar, time in the target range, and averages by meal mark. */
 @Composable
-private fun GlucoseCard(data: GlucoseSummary, modifier: Modifier) {
-    var selected by rememberSaveable(data.range) { mutableStateOf<Int?>(null) }
+private fun GlucoseCard(data: GlucoseSummary, chart: ChartContext, modifier: Modifier) {
+    var selected by rememberSaveable(data.period) { mutableStateOf<Int?>(null) }
     val bucket = selected?.let(data.buckets::getOrNull)
     val glucoseUnit = LocalGlucoseUnit.current
     val unit = glucoseUnit.label
@@ -376,7 +484,7 @@ private fun GlucoseCard(data: GlucoseSummary, modifier: Modifier) {
     ChartCard(title = stringResource(R.string.glucose_title), modifier = modifier) {
         if (bucket != null) {
             ReadOut(
-                label = bucketLabel(bucket.toBucket(), data.range),
+                label = bucketLabel(bucket.slot, data.range, perDay = false),
                 value = bucket.average?.let { "${glucoseUnit.format(it)} $unit" } ?: "–",
                 detail = pluralStringResource(R.plurals.health_glucose_readings, bucket.readings, bucket.readings),
                 valueColor = if (bucket.average != null) bandColor(bandOf(bucket.average)) else MaterialTheme.colorScheme.onSurfaceVariant,
@@ -395,7 +503,8 @@ private fun GlucoseCard(data: GlucoseSummary, modifier: Modifier) {
             selected = selected,
             onSelect = { selected = it },
             average = data.average?.let(glucoseUnit::fromMmol),
-            xLabel = { axisLabel(data.range, data.buckets.map { b -> b.start }, it) },
+            highlight = chart.highlight,
+            xLabel = { axisLabel(chart, data.buckets.map { b -> b.slot }, it) },
             height = 140.dp,
             description = stringResource(R.string.health_glucose_desc, data.average?.let(glucoseUnit::format) ?: "–", unit),
             bubble = { i -> data.buckets[i].average?.let { "${glucoseUnit.format(it)} $unit" } ?: "–" },
@@ -492,8 +601,6 @@ private fun MealGlucoseCard(rises: List<MealRise>, modifier: Modifier) {
     }
 }
 
-private fun GlucoseBucket.toBucket() = Bucket(start, end, Nutrition.ZERO, 0, 0, 0)
-
 @Composable
 private fun TopFoodsCard(data: InsightSummary, modifier: Modifier) {
     ChartCard(title = stringResource(R.string.health_top_foods), modifier = modifier) {
@@ -582,42 +689,69 @@ private fun macroName(macro: Macro): Int = when (macro) {
     Macro.Fat -> R.string.macro_fat
 }
 
-private fun averageLabel(range: InsightRange): Int = when (range) {
-    InsightRange.Day -> R.string.health_avg_day
-    InsightRange.Week -> R.string.health_avg_week
-    InsightRange.Month -> R.string.health_avg_month
-    InsightRange.Year -> R.string.health_avg_year
-}
+/** Day: the day's total. Week, month, year: the average per logged day. */
+private fun headlineLabel(range: InsightRange): Int =
+    if (range == InsightRange.Day) R.string.health_day_total else R.string.health_avg_day
 
-/** Mean over the bars that have data, so empty days or weeks don't pull it down. */
-private fun averageOfLogged(
-    buckets: List<Bucket>,
-    hasData: (Bucket) -> Boolean = { it.meals > 0 },
-    value: (Bucket) -> Double,
-): Double {
-    val logged = buckets.filter(hasData)
-    return if (logged.isEmpty()) 0.0 else logged.sumOf(value) / logged.size
+private fun headline(data: InsightSummary, value: (Nutrition) -> Double): Double =
+    if (data.range == InsightRange.Day) value(data.totals) else data.perLoggedDay(value(data.totals))
+
+private val HOUR = DateTimeFormatter.ofPattern("h a")
+
+/** "Today", "Yesterday", "Fri, 25 Sep 2026"; "21 – 27 Sep 2026"; "September 2026"; "2026". */
+@Composable
+private fun periodTitle(period: Period, today: LocalDate): String {
+    val start = period.start
+    val last = period.end.minusDays(1)
+    return when (period.range) {
+        InsightRange.Day -> when (start) {
+            today -> stringResource(R.string.home_title)
+            today.minusDays(1) -> stringResource(R.string.home_yesterday)
+            else -> start.format(DateTimeFormatter.ofPattern("EEE, d MMM yyyy"))
+        }
+        InsightRange.Week -> when {
+            start.year != last.year -> "${start.format(DAY_MONTH_YEAR)} – ${last.format(DAY_MONTH_YEAR)}"
+            start.month != last.month -> "${start.format(SHORT_DATE)} – ${last.format(DAY_MONTH_YEAR)}"
+            else -> "${start.dayOfMonth} – ${last.format(DAY_MONTH_YEAR)}"
+        }
+        InsightRange.Month -> start.format(DateTimeFormatter.ofPattern("LLLL yyyy"))
+        InsightRange.Year -> start.year.toString()
+    }
 }
 
 private val SHORT_DATE = DateTimeFormatter.ofPattern("d MMM")
+private val DAY_MONTH_YEAR = DateTimeFormatter.ofPattern("d MMM yyyy")
 
-private fun bucketLabel(bucket: Bucket, range: InsightRange): String = when (range) {
-    InsightRange.Day -> bucket.start.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))
-    InsightRange.Week -> "${bucket.start.format(SHORT_DATE)} – ${bucket.end.minusDays(1).format(SHORT_DATE)}"
-    InsightRange.Month -> bucket.start.format(DateTimeFormatter.ofPattern("MMMM yyyy"))
-    InsightRange.Year -> bucket.start.year.toString()
+/** The touched bar: "6 AM – 12 PM", "Fri, 25 Sep", or "September 2026 · per day". */
+@Composable
+private fun bucketLabel(slot: Slot, range: InsightRange, perDay: Boolean = true): String = when (range) {
+    // The last block ends at 11:59 PM, not "12 AM", so it reads as the same day.
+    InsightRange.Day -> "${LocalTime.of(slot.fromHour, 0).format(HOUR)} – " +
+        if (slot.toHour == 24) LocalTime.of(23, 59).format(DateTimeFormatter.ofPattern("h:mm a")) else LocalTime.of(slot.toHour, 0).format(HOUR)
+    InsightRange.Week, InsightRange.Month -> slot.start.format(DateTimeFormatter.ofPattern("EEE, d MMM"))
+    InsightRange.Year -> {
+        val month = slot.start.format(DateTimeFormatter.ofPattern("LLLL yyyy"))
+        if (perDay) stringResource(R.string.health_per_day, month) else month
+    }
 }
 
-/** A few labels under the bars so they don't crowd: every 7th day, every 4th week, every month, every year. */
-private fun axisLabel(data: InsightSummary, index: Int): String? = axisLabel(data.range, data.buckets.map { it.start }, index)
-
-private fun axisLabel(range: InsightRange, starts: List<java.time.LocalDate>, index: Int): String? {
-    val start = starts.getOrNull(index) ?: return null
-    val fromEnd = starts.lastIndex - index
-    return when (range) {
-        InsightRange.Day -> if (fromEnd % 7 == 0) start.dayOfMonth.toString() else null
-        InsightRange.Week -> if (fromEnd % 4 == 0) start.format(SHORT_DATE) else null
-        InsightRange.Month -> start.format(DateTimeFormatter.ofPattern("MMMMM"))
-        InsightRange.Year -> "'" + (start.year % 100).toString().padStart(2, '0')
+/**
+ * Labels under the bars: the start of each 6-hour block (every 6th hour when hourly), weekday
+ * initials, days 1, 8, 15, 22, 29 of a month, month initials of a year. The bar for now always
+ * gets its label (in bold); month labels right next to it step aside.
+ */
+private fun axisLabel(chart: ChartContext, slots: List<Slot>, index: Int): String? {
+    val slot = slots.getOrNull(index) ?: return null
+    val highlight = chart.highlight
+    return when (chart.range) {
+        InsightRange.Day -> if (slot.fromHour % 6 == 0) LocalTime.of(slot.fromHour, 0).format(HOUR) else null
+        InsightRange.Week -> slot.start.format(DateTimeFormatter.ofPattern("EEEEE"))
+        InsightRange.Month -> when {
+            index == highlight -> slot.start.dayOfMonth.toString()
+            highlight != null && kotlin.math.abs(index - highlight) < 3 -> null
+            index % 7 == 0 -> slot.start.dayOfMonth.toString()
+            else -> null
+        }
+        InsightRange.Year -> slot.start.format(DateTimeFormatter.ofPattern("LLLLL"))
     }
 }

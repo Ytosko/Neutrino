@@ -292,11 +292,6 @@
     <string name="health_week">Week</string>
     <string name="health_month">Month</string>
     <string name="health_year">Year</string>
-    <string name="health_last_days">Last %1$d days</string>
-    <string name="health_last_weeks">Last %1$d weeks</string>
-    <string name="health_last_months">Last %1$d months</string>
-    <string name="health_last_years">Last %1$d years</string>
-    <string name="health_caption">%1$s · logged on %2$d of %3$d days</string>
     <string name="health_calories">Calories</string>
     <string name="health_macros">Carbs, protein and fat</string>
     <string name="health_split">Where your calories come from</string>
@@ -305,10 +300,17 @@
     <string name="health_water">Water</string>
     <string name="health_top_foods">Most eaten</string>
     <string name="health_times">%1$d×</string>
+    <string name="health_prev_period">Previous</string>
+    <string name="health_next_period">Next</string>
+    <string name="health_hourly">Hour by hour</string>
+    <string name="health_logged_days">Logged on %1$d of %2$d days</string>
+    <plurals name="health_meals_logged">
+        <item quantity="one">%1$d meal logged</item>
+        <item quantity="other">%1$d meals logged</item>
+    </plurals>
+    <string name="health_day_total">Day total</string>
+    <string name="health_per_day">%1$s · per day</string>
     <string name="health_avg_day">Daily average</string>
-    <string name="health_avg_week">Weekly average</string>
-    <string name="health_avg_month">Monthly average</string>
-    <string name="health_avg_year">Yearly average</string>
     <string name="health_touch_hint">Touch the bars to see each one</string>
     <string name="health_open_day">Open day</string>
     <string name="health_empty_title">Nothing logged yet</string>

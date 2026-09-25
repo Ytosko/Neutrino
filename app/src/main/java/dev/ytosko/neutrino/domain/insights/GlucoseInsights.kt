@@ -1,17 +1,18 @@
 package dev.ytosko.neutrino.domain.insights
 
 import dev.ytosko.neutrino.data.glucose.GlucoseRelation
-import java.time.DayOfWeek
 import java.time.LocalDate
 
-/** One reading, reduced to what the Health page needs. */
-data class GlucosePoint(val date: LocalDate, val mmolPerL: Double, val relation: GlucoseRelation)
+/** One reading, reduced to what the Health page needs. [hour] is the local hour it was taken. */
+data class GlucosePoint(val date: LocalDate, val mmolPerL: Double, val relation: GlucoseRelation, val hour: Int = 12)
 
-/** Readings in one bar (day, week, month or year). */
-data class GlucoseBucket(val start: LocalDate, val end: LocalDate, val readings: Int, val average: Double?)
+/** Readings in one bar: the average of every reading in that block, hour, day or month. */
+data class GlucoseBucket(val slot: Slot, val readings: Int, val average: Double?) {
+    val start: LocalDate get() = slot.start
+}
 
 data class GlucoseSummary(
-    val range: InsightRange,
+    val period: Period,
     val buckets: List<GlucoseBucket>,
     val readings: Int,
     val average: Double?,
@@ -24,36 +25,27 @@ data class GlucoseSummary(
     /** Average per meal mark, only for marks that have readings, in [GlucoseRelation] order. */
     val byRelation: List<Pair<GlucoseRelation, Double>>,
 ) {
+    val range: InsightRange get() = period.range
     val isEmpty: Boolean get() = readings == 0
 }
 
 object GlucoseInsights {
 
     fun summarize(
-        range: InsightRange,
-        today: LocalDate,
+        period: Period,
         points: List<GlucosePoint>,
         low: Double,
         high: Double,
-        firstDayOfWeek: DayOfWeek = DayOfWeek.MONDAY,
     ): GlucoseSummary {
-        val first = range.firstStart(today, firstDayOfWeek)
-        val end = today.plusDays(1)
-        val inRange = points.filter { it.date >= first && it.date < end }
-
-        val buckets = buildList {
-            var start = first
-            repeat(range.count) {
-                val next = range.next(start)
-                val values = inRange.filter { it.date >= start && it.date < next }.map { it.mmolPerL }
-                add(GlucoseBucket(start, next, values.size, values.takeIf { it.isNotEmpty() }?.average()))
-                start = next
-            }
+        val inRange = points.filter { period.contains(it.date) }
+        val buckets = period.slots().map { slot ->
+            val values = inRange.filter { slot.holds(it.date, it.hour) }.map { it.mmolPerL }
+            GlucoseBucket(slot, values.size, values.takeIf { it.isNotEmpty() }?.average())
         }
         val n = inRange.size
         fun share(count: Int) = if (n == 0) 0.0 else count.toDouble() / n
         return GlucoseSummary(
-            range = range,
+            period = period,
             buckets = buckets,
             readings = n,
             average = inRange.takeIf { it.isNotEmpty() }?.map { it.mmolPerL }?.average(),

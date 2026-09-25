@@ -13,7 +13,9 @@ Faster logging, your glucose next to your meals, reports for your doctor, and Ne
 - **iPhone-style polish:** soft shadows instead of outlines; compact page headers whose title shrinks as you scroll; solid icon squares in Settings; iPhone-style alerts and floating messages; a sliding Day / Week / Month / Year control; a "Log a meal" sheet with big tiles; press and hold a meal or a glucose reading to lift it over a blurred background with its options.
 - **Motion and feel:** cards and buttons respond to a press, totals count up and goal rings glide to their new value, the water card is a glass that fills, and the phone gives a gentle tap for water, switches, saving and deleting.
 - **Lighter text:** text is 20% smaller throughout for a calmer, more compact look (never below a readable minimum, and your phone's text-size setting still applies).
-- **Charts:** softer gradient bars with the touched value in a bubble, and friendly illustrations when a day or range is empty.
+- **Health by calendar period:** Day, Week, Month and Year now show one real period at a time (today, this week, September 2026, 2026), with ‹ › arrows to step back and forth. Day splits into four 6-hour blocks, or 24 hours with "Hour by hour"; Year shows each month as a per-day average. Every card on the page follows the chosen period.
+- **Charts:** rounded pill bars on a faint track, a dashed goal line with a ✓ in bars that reached your goal, the current day or month in bold, the touched value in a bubble, and friendly illustrations when a day or range is empty.
+- **Widget:** the macro tiles grow to fill the widget, with even spacing and no empty bands.
 
 ### Logging
 - **Log again:** press and hold any meal on your day and choose **Log again** to log the same foods (no photo, no AI cost), with Undo. For a meal from another day, choose **Today** or **that day** (at the same time). **Delete meal** is in the same menu, so meal cards stay clean.
