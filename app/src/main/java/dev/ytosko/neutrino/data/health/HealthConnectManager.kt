@@ -102,15 +102,49 @@ class HealthConnectManager(private val context: Context) {
         return true
     }
 
-    /** Deletes a record Neutrino wrote. Missing records and missing permission are ignored. */
-    suspend fun deleteMeal(id: String) = delete(NutritionRecord::class, id)
-
-    suspend fun deleteWater(id: String) = delete(HydrationRecord::class, id)
-
-    private suspend fun delete(type: kotlin.reflect.KClass<out androidx.health.connect.client.records.Record>, id: String) {
-        val client = client ?: return
-        runCatching { client.deleteRecords(type, recordIdsList = emptyList(), clientRecordIdsList = listOf(id)) }
+    /**
+     * Deletes a record Neutrino wrote. If Health Connect can't be reached (not connected, no
+     * permission), the delete is remembered and [retryPendingDeletes] finishes it later, so a meal
+     * removed in Neutrino never lingers in Health Connect.
+     */
+    suspend fun deleteMeal(id: String) {
+        if (!delete(NutritionRecord::class, id)) pending.add(MEAL_PREFIX + id)
     }
+
+    suspend fun deleteWater(id: String) {
+        if (!delete(HydrationRecord::class, id)) pending.add(WATER_PREFIX + id)
+    }
+
+    /** Takes a delete off the retry list, e.g. when Undo puts the meal back before it ran. */
+    fun cancelPendingDelete(id: String) {
+        pending.remove(MEAL_PREFIX + id)
+        pending.remove(WATER_PREFIX + id)
+    }
+
+    /** Retries deletes that failed while Health Connect was unavailable. Returns how many went through. */
+    suspend fun retryPendingDeletes(): Int {
+        if (!hasAllPermissions()) return 0
+        var done = 0
+        pending.all().forEach { key ->
+            val ok = when {
+                key.startsWith(MEAL_PREFIX) -> delete(NutritionRecord::class, key.removePrefix(MEAL_PREFIX))
+                key.startsWith(WATER_PREFIX) -> delete(HydrationRecord::class, key.removePrefix(WATER_PREFIX))
+                else -> true
+            }
+            if (ok) {
+                pending.remove(key)
+                done++
+            }
+        }
+        return done
+    }
+
+    private suspend fun delete(type: kotlin.reflect.KClass<out androidx.health.connect.client.records.Record>, id: String): Boolean {
+        val client = client ?: return false
+        return runCatching { client.deleteRecords(type, recordIdsList = emptyList(), clientRecordIdsList = listOf(id)) }.isSuccess
+    }
+
+    private val pending = PendingDeletes(context)
 
     /** Opens Health Connect in the Play Store (install or update). */
     fun installIntent(): Intent =
@@ -137,4 +171,22 @@ internal fun MealType.toHealthConnect(): Int = when (this) {
     MealType.Lunch -> HcMealType.MEAL_TYPE_LUNCH
     MealType.Dinner -> HcMealType.MEAL_TYPE_DINNER
     MealType.Snack -> HcMealType.MEAL_TYPE_SNACK
+}
+
+private const val MEAL_PREFIX = "meal:"
+private const val WATER_PREFIX = "water:"
+
+/** Health Connect deletes still to do, kept across restarts. Only record ids, nothing else. */
+private class PendingDeletes(context: Context) {
+    private val prefs = context.applicationContext.getSharedPreferences("hc_pending_deletes", Context.MODE_PRIVATE)
+
+    @Synchronized fun all(): Set<String> = prefs.getStringSet(KEY, emptySet()).orEmpty().toSet()
+
+    @Synchronized fun add(key: String) = prefs.edit().putStringSet(KEY, all() + key).apply()
+
+    @Synchronized fun remove(key: String) = prefs.edit().putStringSet(KEY, all() - key).apply()
+
+    private companion object {
+        const val KEY = "keys"
+    }
 }

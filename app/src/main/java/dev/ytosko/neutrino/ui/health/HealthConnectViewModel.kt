@@ -17,7 +17,11 @@ data class HealthConnectUiState(
     val denied: Boolean = false,
 )
 
-class HealthConnectViewModel(private val manager: HealthConnectManager) : ViewModel() {
+class HealthConnectViewModel(
+    private val manager: HealthConnectManager,
+    /** Runs once access is granted, to send anything saved while disconnected. */
+    private val onConnected: suspend () -> Unit = {},
+) : ViewModel() {
 
     private val _state = MutableStateFlow(HealthConnectUiState())
     val state: StateFlow<HealthConnectUiState> = _state.asStateFlow()
@@ -33,11 +37,13 @@ class HealthConnectViewModel(private val manager: HealthConnectManager) : ViewMo
             val availability = manager.availability()
             val granted = availability == HealthConnectAvailability.Available && manager.hasAllPermissions()
             _state.update { it.copy(availability = availability, granted = granted) }
+            if (granted) onConnected()
         }
     }
 
     fun onPermissionResult(granted: Set<String>) {
         val all = granted.containsAll(manager.permissions)
         _state.update { it.copy(granted = all, denied = !all) }
+        if (all) viewModelScope.launch { onConnected() }
     }
 }

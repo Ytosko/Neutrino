@@ -158,6 +158,12 @@ interface MealDao {
     @Query("DELETE FROM meals WHERE id = :id")
     suspend fun delete(id: String)
 
+    @Query("SELECT * FROM meals WHERE syncedToHealthConnect = 0")
+    suspend fun unsynced(): List<MealEntity>
+
+    @Query("UPDATE meals SET syncedToHealthConnect = 1 WHERE id = :id")
+    suspend fun markSynced(id: String)
+
     @androidx.room.Update
     suspend fun update(meal: MealEntity)
 
@@ -197,6 +203,12 @@ interface WaterDao {
 
     @Query("DELETE FROM water WHERE id = :id")
     suspend fun delete(id: String)
+
+    @Query("SELECT * FROM water WHERE syncedToHealthConnect = 0")
+    suspend fun unsynced(): List<WaterEntity>
+
+    @Query("UPDATE water SET syncedToHealthConnect = 1 WHERE id = :id")
+    suspend fun markSynced(id: String)
 }
 
 /** Whole-database reads and a replace-everything write, for backup and restore. */

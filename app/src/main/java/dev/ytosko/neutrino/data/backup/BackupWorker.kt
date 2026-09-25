@@ -14,7 +14,9 @@ import kotlinx.coroutines.flow.first
 class BackupWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
-        val backups = applicationContext.appContainer.backups
+        val container = applicationContext.appContainer
+        runCatching { container.meals.syncWithHealthConnect() }
+        val backups = container.backups
         val run = runCatching { backups.backUp() }.getOrElse { return Result.retry() }
         val problem = backups.state.first().driveProblem
         return if (run.drive == false && problem == DriveProblem.Failed && runAttemptCount < MAX_RETRIES) Result.retry() else Result.success()

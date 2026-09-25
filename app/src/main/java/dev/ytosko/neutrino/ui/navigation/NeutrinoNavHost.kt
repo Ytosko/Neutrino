@@ -243,7 +243,7 @@ private fun backupViewModel(): BackupViewModel {
 @Composable
 private fun healthConnectViewModel(): HealthConnectViewModel {
     val container = LocalContext.current.appContainer
-    return viewModel { HealthConnectViewModel(container.healthConnect) }
+    return viewModel { HealthConnectViewModel(container.healthConnect, onConnected = { container.meals.syncWithHealthConnect() }) }
 }
 
 @Composable

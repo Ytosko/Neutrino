@@ -24,6 +24,8 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         // "All files access" can be switched off in system settings while Neutrino is closed.
         appContainer.backups.refreshAccess()
+        // Send anything saved while Health Connect wasn't connected (e.g. permission just granted in its app).
+        lifecycleScope.launch { appContainer.meals.syncWithHealthConnect() }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {

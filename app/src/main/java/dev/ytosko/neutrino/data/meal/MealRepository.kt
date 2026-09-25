@@ -1,5 +1,7 @@
 package dev.ytosko.neutrino.data.meal
 
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
 import dev.ytosko.neutrino.data.food.FoodRepository
@@ -215,6 +217,7 @@ class MealRepository(
     /** Puts back a meal removed by [deleteMeal]. */
     suspend fun restoreMeal(stored: StoredMeal) {
         val meal = stored.meal
+        healthConnect.cancelPendingDelete(meal.id)
         val thumbnail = stored.thumbnail?.let { photos.saveThumbnail(it, meal.id) }
         val synced = runCatching {
             healthConnect.writeMeal(
@@ -229,6 +232,49 @@ class MealRepository(
         db.meals().insertWithItems(meal.copy(thumbnailPath = thumbnail, syncedToHealthConnect = synced), stored.items)
         onChanged()
     }
+
+    /**
+     * Makes Health Connect match Neutrino: sends meals and water saved while it wasn't connected,
+     * and finishes deletes that couldn't reach it. Safe to call often; does nothing without permission.
+     * Returns how many changes were sent.
+     */
+    suspend fun syncWithHealthConnect(): Int = syncMutex.withLock {
+        if (!runCatching { healthConnect.hasAllPermissions() }.getOrDefault(false)) return 0
+        var sent = runCatching { healthConnect.retryPendingDeletes() }.getOrDefault(0)
+        db.meals().unsynced().forEach { meal ->
+            val ok = runCatching {
+                healthConnect.writeMeal(
+                    meal.id,
+                    meal.name,
+                    Nutrition(meal.calories, meal.proteinG, meal.carbsG, meal.fatG),
+                    runCatching { MealType.valueOf(meal.mealType) }.getOrDefault(MealType.Snack),
+                    Instant.ofEpochMilli(meal.eatenAtEpochMs),
+                    runCatching { ZoneId.of(meal.zoneId) }.getOrDefault(ZoneId.systemDefault()),
+                )
+            }.getOrDefault(false)
+            if (ok) {
+                db.meals().markSynced(meal.id)
+                sent++
+            }
+        }
+        db.water().unsynced().forEach { water ->
+            val ok = runCatching {
+                healthConnect.writeWater(
+                    water.id,
+                    water.amountMl,
+                    Instant.ofEpochMilli(water.loggedAtEpochMs),
+                    runCatching { ZoneId.of(water.zoneId) }.getOrDefault(ZoneId.systemDefault()),
+                )
+            }.getOrDefault(false)
+            if (ok) {
+                db.water().markSynced(water.id)
+                sent++
+            }
+        }
+        sent
+    }
+
+    private val syncMutex = Mutex()
 
     /** Logs water at [at] (now by default; a past day passes a time on that day). */
     suspend fun addWater(amountMl: Int, zone: ZoneId = ZoneId.systemDefault(), at: Instant = Instant.now()): Boolean {

@@ -44,6 +44,7 @@ class NeutrinoApplication : Application() {
         appScope.launch {
             if (container.backups.state.first().passwordSet) container.backups.schedule()
             if (container.settings.settings.first().remindersEnabled) MealReminders.scheduleAll(this@NeutrinoApplication)
+            container.meals.syncWithHealthConnect()
         }
     }
 
