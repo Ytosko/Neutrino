@@ -2,7 +2,7 @@
 
 Every release has a section here, headed `## [x.y.z] - YYYY-MM-DD` with an optional ` · Release name`. The release workflow publishes the section as the GitHub release notes (and the name as its title), and refuses to release a version that has none.
 
-## [Unreleased]
+## [1.0.3] - 2026-09-26 · v1.2-NeutrinoBuddy
 
 Blood glucose from your Bluetooth meter, right next to your meals.
 
@@ -17,6 +17,15 @@ Blood glucose from your Bluetooth meter, right next to your meals.
 - **Target range:** 4.0–10.0 mmol/L by default. Change it on any meter's page; it applies to all your meters.
 - **Health Connect:** readings are written as blood glucose, with the meal mark, so they appear in Google Health. Neutrino still never reads your health data.
 - **Private:** readings stay on your phone, in your encrypted backups and in Health Connect. Notifications show only how many readings arrived, never the values. Needs the "Nearby devices" permission, which is never used for location.
+
+### Also in this release
+- Meter readings in Health Connect are marked as recorded by your meter, not entered by hand.
+- Days page: busy days show the latest 3 readings, with **Show all** for the rest.
+
+### Install or update
+- **Already on 1.0.2 or 1.0.1:** download `neutrino-1.0.3.apk` below and open it. It installs over the old version and keeps all your data.
+- **New install:** Android 9 or newer. Allow installing from your browser or file manager when Android asks.
+- **Glucose meter:** background syncing needs Android 12 or newer. On older phones, readings sync when you open Neutrino or tap Sync now.
 
 ## [1.0.2] - 2026-09-25 · v1.1-NeutrinoBuddy
 
