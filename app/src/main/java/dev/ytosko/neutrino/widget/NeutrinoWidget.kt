@@ -187,12 +187,14 @@ class NeutrinoWidget : GlanceAppWidget() {
         ) {
             Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    context.getString(R.string.home_title),
-                    style = TextStyle(color = colors.onSurface, fontSize = 12.sp, fontWeight = FontWeight.Bold),
+                    // "Today · 26 September"
+                    context.getString(R.string.home_title) + " · " + LocalDate.now().format(DateTimeFormatter.ofPattern("d MMMM")),
+                    style = TextStyle(color = colors.onSurface, fontSize = 15.sp, fontWeight = FontWeight.Bold),
+                    maxLines = 1,
                 )
                 Spacer(GlanceModifier.defaultWeight())
                 when {
-                    data.glucose != null -> Text(data.glucose, style = TextStyle(color = GlucoseColor, fontSize = 11.sp, fontWeight = FontWeight.Medium), maxLines = 1)
+                    data.glucose != null -> Text(data.glucose, style = TextStyle(color = GlucoseColor, fontSize = 13.sp, fontWeight = FontWeight.Medium), maxLines = 1)
                     !showTiles -> Text(
                         context.getString(R.string.widget_totals, data.carbs, data.kcal),
                         style = TextStyle(color = colors.onSurfaceVariant, fontSize = 11.sp),
@@ -224,8 +226,8 @@ class NeutrinoWidget : GlanceAppWidget() {
             Spacer(GlanceModifier.defaultWeight())
             Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = GlanceModifier.defaultWeight()) {
-                    Text(context.getString(R.string.home_water), style = TextStyle(color = colors.onSurfaceVariant, fontSize = 11.sp))
-                    Text(data.water, style = TextStyle(color = WaterColor, fontSize = 13.sp, fontWeight = FontWeight.Bold))
+                    Text(context.getString(R.string.home_water), style = TextStyle(color = colors.onSurfaceVariant, fontSize = 13.sp))
+                    Text(data.water, style = TextStyle(color = WaterColor, fontSize = 16.sp, fontWeight = FontWeight.Bold))
                 }
                 if (data.canAddWater) {
                     Button(
@@ -291,7 +293,7 @@ class NeutrinoWidget : GlanceAppWidget() {
         private val PADDING = 12.dp
         private val RING_GAP = 4.dp
         /** Measured: the "Today" line, and the water row with its buttons. */
-        private val HEADER_HEIGHT = 18.dp
+        private val HEADER_HEIGHT = 22.dp
         private val BOTTOM_HEIGHT = 48.dp
         const val GLASS_ML = 250
         const val MAX_WATER_ML = 10_000
