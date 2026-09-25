@@ -21,7 +21,7 @@ import java.time.ZoneId
 @OptIn(ExperimentalCoroutinesApi::class)
 class HomeViewModel(
     private val meals: MealRepository,
-    settings: SettingsRepository,
+    private val settings: SettingsRepository,
     private val zone: ZoneId = ZoneId.systemDefault(),
 ) : ViewModel() {
 
@@ -36,6 +36,15 @@ class HomeViewModel(
     val day: StateFlow<DaySummary?> = _date
         .flatMapLatest { meals.observeDay(it, zone) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** Ask once for notification permission so meal reminders can show. */
+    val askForNotifications: StateFlow<Boolean> = settings.settings
+        .map { it.remindersEnabled && !it.notificationsAsked }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    fun notificationsAsked() {
+        viewModelScope.launch { settings.setNotificationsAsked() }
+    }
 
     val aiReady: StateFlow<Boolean> = settings.settings
         .map { it.aiReady }

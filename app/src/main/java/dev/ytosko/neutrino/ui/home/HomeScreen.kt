@@ -1,5 +1,9 @@
 package dev.ytosko.neutrino.ui.home
 
+import android.os.Build
+import android.Manifest
+import androidx.compose.material3.FabPosition
+import androidx.compose.material3.FloatingActionButton
 import dev.ytosko.neutrino.ui.insights.HealthViewModel
 import dev.ytosko.neutrino.ui.insights.HealthContent
 import androidx.compose.ui.semantics.contentDescription
@@ -171,6 +175,17 @@ fun HomeScreen(
         pendingCapture = null
         if (success && uri != null) onPhotoSelected(uri, true)
     }
+    val askForNotifications by viewModel.askForNotifications.collectAsStateWithLifecycle()
+    val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+    LaunchedEffect(askForNotifications) {
+        if (askForNotifications) {
+            viewModel.notificationsAsked()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+    }
+
     val gallery = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         if (uri != null) onPhotoSelected(uri, false)
     }
@@ -284,7 +299,35 @@ fun HomeScreen(
                 ),
             )
         },
-        bottomBar = { MainBottomBar(tab = tab, onTab = { tab = it }, onLog = ::startLogging) },
+        // Left: switch between Days and Health. Right: log a meal.
+        floatingActionButton = {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.md),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                val toHealth = tab == HomeTab.Days
+                FloatingActionButton(
+                    onClick = { tab = if (toHealth) HomeTab.Health else HomeTab.Days },
+                    shape = CircleShape,
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.primary,
+                ) {
+                    Icon(
+                        painterResource(if (toHealth) R.drawable.ic_heart else R.drawable.ic_calendar_days),
+                        contentDescription = stringResource(if (toHealth) R.string.nav_open_health else R.string.nav_open_days),
+                    )
+                }
+                ExtendedFloatingActionButton(
+                    onClick = ::startLogging,
+                    icon = { Icon(painterResource(R.drawable.ic_camera), contentDescription = null) },
+                    text = { Text(stringResource(R.string.home_log_meal), style = MaterialTheme.typography.labelLarge) },
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                )
+            }
+        },
+        floatingActionButtonPosition = FabPosition.Center,
         snackbarHost = { SnackbarHost(snackbar) },
         containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
@@ -306,7 +349,7 @@ fun HomeScreen(
                 start = Spacing.gutter,
                 end = Spacing.gutter,
                 top = padding.calculateTopPadding() + Spacing.xs,
-                bottom = padding.calculateBottomPadding() + Spacing.lg,
+                bottom = padding.calculateBottomPadding() + 96.dp, // keep clear of the buttons
             ),
             verticalArrangement = Arrangement.spacedBy(Spacing.md),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -649,69 +692,3 @@ private fun DayPickerDialog(selected: LocalDate, onPick: (LocalDate) -> Unit, on
 
 enum class HomeTab { Days, Health }
 
-/** Days and Health tabs with the camera, the main action, raised in the middle. */
-@Composable
-private fun MainBottomBar(tab: HomeTab, onTab: (HomeTab) -> Unit, onLog: () -> Unit) {
-    // A plain background (not a Surface) so the raised camera button isn't clipped.
-    Box(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainer)) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .navigationBarsPadding()
-                .height(76.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            NavTab(R.drawable.ic_calendar_days, stringResource(R.string.nav_days), tab == HomeTab.Days, Modifier.weight(1f)) {
-                onTab(HomeTab.Days)
-            }
-            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                val label = stringResource(R.string.nav_log_meal)
-                Surface(
-                    onClick = onLog,
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                    shadowElevation = 6.dp,
-                    modifier = Modifier
-                        .offset(y = (-10).dp)
-                        .size(64.dp)
-                        .semantics { contentDescription = label },
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(painterResource(R.drawable.ic_camera), contentDescription = null, modifier = Modifier.size(28.dp))
-                    }
-                }
-            }
-            NavTab(R.drawable.ic_chart_column, stringResource(R.string.nav_health), tab == HomeTab.Health, Modifier.weight(1f)) {
-                onTab(HomeTab.Health)
-            }
-        }
-    }
-}
-
-@Composable
-private fun NavTab(icon: Int, label: String, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
-    val content = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-    Column(
-        modifier = modifier
-            .fillMaxHeight()
-            .selectable(selected = selected, role = Role.Tab, onClick = onClick),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        Box(
-            modifier = Modifier
-                .clip(CircleShape)
-                .background(if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
-                .padding(horizontal = 20.dp, vertical = 4.dp),
-        ) {
-            Icon(painterResource(icon), contentDescription = null, tint = content, modifier = Modifier.size(24.dp))
-        }
-        Text(
-            label,
-            style = MaterialTheme.typography.labelMedium,
-            color = content,
-            modifier = Modifier.padding(top = 4.dp),
-        )
-    }
-}

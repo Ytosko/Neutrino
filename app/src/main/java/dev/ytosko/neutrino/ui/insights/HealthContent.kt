@@ -79,7 +79,7 @@ fun HealthContent(viewModel: HealthViewModel, contentPadding: PaddingValues, onO
             start = Spacing.gutter,
             end = Spacing.gutter,
             top = contentPadding.calculateTopPadding() + Spacing.xs,
-            bottom = contentPadding.calculateBottomPadding() + Spacing.lg,
+            bottom = contentPadding.calculateBottomPadding() + 96.dp, // keep clear of the buttons
         ),
         verticalArrangement = Arrangement.spacedBy(Spacing.md),
         horizontalAlignment = Alignment.CenterHorizontally,

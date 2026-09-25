@@ -134,6 +134,9 @@ interface MealDao {
     )
     fun observeTopFoods(fromMs: Long, toMs: Long, limit: Int): Flow<List<TopFoodRow>>
 
+    @Query("SELECT COUNT(*) FROM meals WHERE mealType = :mealType AND eatenAtEpochMs >= :fromMs AND eatenAtEpochMs < :toMs")
+    suspend fun countOfType(mealType: String, fromMs: Long, toMs: Long): Int
+
     @Query("SELECT * FROM meals WHERE id = :id")
     suspend fun get(id: String): MealEntity?
 

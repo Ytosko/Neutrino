@@ -89,6 +89,13 @@ class MealRepository(
         }
     }
 
+    /** Whether a meal of [type] is already logged on [date], so its reminder can be skipped. */
+    suspend fun hasMeal(type: MealType, date: LocalDate, zone: ZoneId): Boolean {
+        val from = date.atStartOfDay(zone).toInstant().toEpochMilli()
+        val to = date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
+        return db.meals().countOfType(type.name, from, to) > 0
+    }
+
     /** Everything logged from [from] to [toInclusive], for the Health page charts. */
     fun observeRange(from: LocalDate, toInclusive: LocalDate, zone: ZoneId): Flow<RangeData> {
         val fromMs = from.atStartOfDay(zone).toInstant().toEpochMilli()

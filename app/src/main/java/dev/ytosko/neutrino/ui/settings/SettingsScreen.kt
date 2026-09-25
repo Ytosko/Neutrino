@@ -1,5 +1,18 @@
 package dev.ytosko.neutrino.ui.settings
 
+import dev.ytosko.neutrino.data.reminders.MealReminders
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.material3.Switch
+import androidx.compose.foundation.selection.toggleable
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.compose.rememberLauncherForActivityResult
+import android.provider.Settings
+import android.os.Build
+import android.content.Intent
+import android.Manifest
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -41,6 +54,7 @@ fun SettingsScreen(
     settings: Flow<AppSettings>,
     backup: Flow<BackupState>,
     onOpenBackup: () -> Unit,
+    onRemindersChange: (Boolean) -> Unit,
     healthViewModel: HealthConnectViewModel,
     onBack: () -> Unit,
     onOpenAi: () -> Unit,
@@ -96,6 +110,51 @@ fun SettingsScreen(
                 },
                 onClick = onOpenBackup,
             )
+        }
+        Section(stringResource(R.string.settings_section_reminders)) {
+            val context = LocalContext.current
+            var canNotify by remember { mutableStateOf(MealReminders.canNotify(context)) }
+            LifecycleResumeEffect(Unit) {
+                canNotify = MealReminders.canNotify(context)
+                onPauseOrDispose { }
+            }
+            val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
+                canNotify = MealReminders.canNotify(context)
+            }
+            val enabled = appSettings.remindersEnabled
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 64.dp)
+                    .toggleable(value = enabled, role = Role.Switch) { on ->
+                        onRemindersChange(on)
+                        if (on && !canNotify && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            permission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        }
+                    }
+                    .padding(horizontal = Spacing.md, vertical = Spacing.sm),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+            ) {
+                IconBadge(icon = R.drawable.ic_bell, size = 40.dp)
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(stringResource(R.string.settings_reminders), style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        stringResource(R.string.settings_reminders_body),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(checked = enabled, onCheckedChange = null)
+            }
+            if (enabled && !canNotify) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                SettingRow(R.drawable.ic_circle_alert, stringResource(R.string.settings_reminders_blocked), null) {
+                    context.startActivity(
+                        Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName),
+                    )
+                }
+            }
         }
         Section(stringResource(R.string.settings_section_about)) {
             SettingRow(R.drawable.ic_shield_check, stringResource(R.string.settings_privacy), null, external = true) { uriHandler.openUri(privacyUrl) }

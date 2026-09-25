@@ -30,6 +30,10 @@ data class AppSettings(
     /** Providers that have an (encrypted) API key stored. */
     val providersWithKey: Set<AiProvider> = emptySet(),
     val photoDetail: PhotoDetail = PhotoDetail.Standard,
+    /** Breakfast, lunch and dinner reminders (10 AM, 2 PM, 6 PM). */
+    val remindersEnabled: Boolean = true,
+    /** Neutrino already asked for notification permission once (Android 13+). */
+    val notificationsAsked: Boolean = false,
 ) {
     val aiReady: Boolean
         get() = activeProvider != null && activeProvider in providersWithKey && models[activeProvider] != null
@@ -47,6 +51,8 @@ class SettingsRepository(context: Context, private val cipher: SecretCipher) {
         val onboardingComplete = booleanPreferencesKey("onboarding_complete")
         val activeProvider = stringPreferencesKey("ai_provider")
         val photoDetail = stringPreferencesKey("photo_detail")
+        val reminders = booleanPreferencesKey("meal_reminders")
+        val notificationsAsked = booleanPreferencesKey("notifications_asked")
         fun model(provider: AiProvider) = stringPreferencesKey("ai_model_${provider.id}")
         fun apiKey(provider: AiProvider) = stringPreferencesKey("ai_key_${provider.id}")
     }
@@ -62,6 +68,8 @@ class SettingsRepository(context: Context, private val cipher: SecretCipher) {
             models = AiProvider.entries.mapNotNull { provider -> p[Keys.model(provider)]?.let { provider to it } }.toMap(),
             providersWithKey = AiProvider.entries.filter { p[Keys.apiKey(it)] != null }.toSet(),
             photoDetail = PhotoDetail.fromId(p[Keys.photoDetail]),
+            remindersEnabled = p[Keys.reminders] ?: true,
+            notificationsAsked = p[Keys.notificationsAsked] ?: false,
         )
     }
 
@@ -112,6 +120,14 @@ class SettingsRepository(context: Context, private val cipher: SecretCipher) {
             snapshot.photoDetail?.let { p[Keys.photoDetail] = it }
             p[Keys.onboardingComplete] = true
         }
+    }
+
+    suspend fun setRemindersEnabled(enabled: Boolean) {
+        store.edit { it[Keys.reminders] = enabled }
+    }
+
+    suspend fun setNotificationsAsked() {
+        store.edit { it[Keys.notificationsAsked] = true }
     }
 
     suspend fun setOnboardingComplete() {

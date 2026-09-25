@@ -1,5 +1,6 @@
 package dev.ytosko.neutrino.ui.navigation
 
+import dev.ytosko.neutrino.data.reminders.MealReminders
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
@@ -182,11 +183,19 @@ fun NeutrinoNavHost(startDestination: Route, modifier: Modifier = Modifier) {
             )
         }
         composable<Route.Settings> {
-            val container = LocalContext.current.appContainer
+            val context = LocalContext.current
+            val container = context.appContainer
+            val scope = rememberCoroutineScope()
             SettingsScreen(
                 settings = container.settings.settings,
                 backup = container.backups.state,
                 onOpenBackup = { navController.navigate(Route.SettingsBackup) },
+                onRemindersChange = { on ->
+                    scope.launch {
+                        container.settings.setRemindersEnabled(on)
+                        if (on) MealReminders.scheduleAll(context) else MealReminders.cancelAll(context)
+                    }
+                },
                 healthViewModel = healthConnectViewModel(),
                 onBack = navController::popBackStack,
                 onOpenAi = { navController.navigate(Route.SettingsAi) },

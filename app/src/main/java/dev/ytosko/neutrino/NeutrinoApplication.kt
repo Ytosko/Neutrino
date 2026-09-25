@@ -1,5 +1,6 @@
 package dev.ytosko.neutrino
 
+import dev.ytosko.neutrino.data.reminders.MealReminders
 import android.app.Application
 import android.content.Context
 import dev.ytosko.neutrino.data.ai.AiClient
@@ -42,6 +43,7 @@ class NeutrinoApplication : Application() {
         // Keep the daily backup scheduled once backups are set up (a no-op if already queued).
         appScope.launch {
             if (container.backups.state.first().passwordSet) container.backups.schedule()
+            if (container.settings.settings.first().remindersEnabled) MealReminders.scheduleAll(this@NeutrinoApplication)
         }
     }
 

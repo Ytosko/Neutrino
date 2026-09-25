@@ -280,9 +280,8 @@
     <string name="home_backup_problem">Your backup needs attention.</string>
 
     <!-- Health -->
-    <string name="nav_days">Days</string>
-    <string name="nav_health">Health</string>
-    <string name="nav_log_meal">Log a meal</string>
+    <string name="nav_open_health">Open Health</string>
+    <string name="nav_open_days">Back to your days</string>
     <string name="health_title">Health</string>
     <string name="health_day">Day</string>
     <string name="health_week">Week</string>
@@ -313,6 +312,20 @@
     <string name="health_macro_desc">%1$s chart. Average %2$s.</string>
     <string name="health_split_desc">Calories from carbs %1$d percent, protein %2$d percent, fat %3$d percent.</string>
     <string name="health_water_desc">Water chart. Average %1$s.</string>
+
+    <!-- Reminders -->
+    <string name="reminder_channel">Meal reminders</string>
+    <string name="reminder_channel_body">Breakfast, lunch and dinner reminders to log your meals.</string>
+    <string name="reminder_breakfast_title">Time for breakfast</string>
+    <string name="reminder_breakfast_body">Enjoy your meal, and don\'t forget to snap it for Neutrino.</string>
+    <string name="reminder_lunch_title">Lunch time</string>
+    <string name="reminder_lunch_body">Have your lunch, then log it with a quick photo.</string>
+    <string name="reminder_dinner_title">Dinner time</string>
+    <string name="reminder_dinner_body">Have your dinner, and don\'t forget to log it.</string>
+    <string name="settings_section_reminders">Reminders</string>
+    <string name="settings_reminders">Meal reminders</string>
+    <string name="settings_reminders_body">Breakfast 10 AM · Lunch 2 PM · Dinner 6 PM. Skipped if you already logged that meal.</string>
+    <string name="settings_reminders_blocked">Notifications are off for Neutrino. Tap to turn them on.</string>
 
     <!-- Restore -->
     <string name="restore_result_title">Restore your data</string>
