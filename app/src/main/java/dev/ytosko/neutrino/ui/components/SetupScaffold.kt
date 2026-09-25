@@ -1,5 +1,9 @@
 package dev.ytosko.neutrino.ui.components
 
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.RowScope
@@ -13,7 +17,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -21,8 +24,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,10 +36,9 @@ import dev.ytosko.neutrino.R
 import dev.ytosko.neutrino.ui.theme.Spacing
 
 /**
- * Layout for setup and settings sub-screens: top bar with back, optional step progress,
- * scrollable content and a bottom action area that stays above the keyboard.
+ * Layout for setup and settings sub-screens: one compact header row (back, title, actions), optional
+ * step progress, scrollable content and a bottom action area that stays above the keyboard.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SetupScaffold(
     title: String,
@@ -54,26 +54,31 @@ fun SetupScaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            TopAppBar(
-                title = {
-                    if (step != null) {
-                        Text(
-                            stringResource(R.string.setup_step, step.first, step.second),
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                },
-                navigationIcon = {
+            // Back, title and actions share one row, with no empty bar above the title.
+            Surface(color = MaterialTheme.colorScheme.background) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .statusBarsPadding()
+                        .heightIn(min = 64.dp)
+                        .padding(start = if (onBack != null) 4.dp else Spacing.gutter, end = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     if (onBack != null) {
                         IconButton(onClick = onBack) {
                             Icon(painterResource(R.drawable.ic_chevron_left), contentDescription = stringResource(R.string.action_back))
                         }
                     }
-                },
-                actions = actions,
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
-            )
+                    Text(
+                        title,
+                        style = MaterialTheme.typography.headlineMedium,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f).padding(end = Spacing.xs).semantics { heading() },
+                    )
+                    actions()
+                }
+            }
         },
         bottomBar = {
             Surface(color = MaterialTheme.colorScheme.background) {
@@ -96,35 +101,31 @@ fun SetupScaffold(
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            if (step != null) {
-                LinearProgressIndicator(
-                    progress = { step.first / step.second.toFloat() },
-                    modifier = Modifier
-                        .widthIn(max = 560.dp)
-                        .fillMaxWidth()
-                        .padding(horizontal = Spacing.gutter),
-                )
-            }
             Column(
                 modifier = Modifier
                     .widthIn(max = 560.dp)
                     .fillMaxWidth()
-                    .padding(horizontal = Spacing.gutter, vertical = Spacing.lg),
+                    .padding(start = Spacing.gutter, end = Spacing.gutter, top = Spacing.xs, bottom = Spacing.lg),
             ) {
-                Text(
-                    title,
-                    style = MaterialTheme.typography.headlineLarge,
-                    modifier = Modifier.semantics { heading() },
-                )
+                if (step != null) {
+                    Text(
+                        stringResource(R.string.setup_step, step.first, step.second),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    LinearProgressIndicator(
+                        progress = { step.first / step.second.toFloat() },
+                        modifier = Modifier.fillMaxWidth().padding(top = Spacing.xs, bottom = Spacing.md),
+                    )
+                }
                 if (subtitle != null) {
                     Text(
                         subtitle,
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = Spacing.xs),
                     )
                 }
-                Column(modifier = Modifier.padding(top = Spacing.lg), content = content)
+                Column(modifier = Modifier.padding(top = if (subtitle != null) Spacing.lg else Spacing.xs), content = content)
             }
         }
     }

@@ -1,11 +1,33 @@
 package dev.ytosko.neutrino.ui.home
 
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.window.PopupProperties
+import androidx.compose.ui.window.PopupPositionProvider
+import androidx.compose.ui.window.Popup
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.material3.ButtonDefaults
 import dev.ytosko.neutrino.ui.theme.Tint
@@ -261,6 +283,8 @@ fun HomeScreen(
 
     val loggedAgain = stringResource(R.string.home_logged_again)
     var logAgainChoice by remember { mutableStateOf<LoggedMeal?>(null) }
+    /** The meal whose press-and-hold menu is open, and where its card is. */
+    var contextMeal by remember { mutableStateOf<Pair<LoggedMeal, Rect>?>(null) }
     /** Logs a copy today (then shows today) or on the meal's own day, with Undo. */
     fun logAgain(meal: LoggedMeal, onItsDay: Boolean) {
         scope.launch {
@@ -325,9 +349,11 @@ fun HomeScreen(
         }
     }
 
+    val menuBlur by animateDpAsState(if (contextMeal != null) 14.dp else 0.dp, animationSpec = tween(200), label = "blur")
     Scaffold(
         modifier = modifier
             .fillMaxSize()
+            .blur(menuBlur)
             .nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             if (tab == HomeTab.Health) {
@@ -528,7 +554,11 @@ fun HomeScreen(
                                 viewModel.mealTipDone()
                                 deleteWithUndo(meal.id)
                             },
-                            onMenuShown = viewModel::mealTipDone,
+                            onLongPress = { bounds ->
+                                viewModel.mealTipDone()
+                                contextMeal = meal to bounds
+                            },
+                            hidden = contextMeal?.first?.id == meal.id,
                             modifier = itemModifier.animateItem(),
                         )
                     }
@@ -577,6 +607,23 @@ fun HomeScreen(
                 }
             }
         }
+    }
+
+    contextMeal?.let { (meal, bounds) ->
+        MealContextMenu(
+            meal = meal,
+            glucose = mealGlucose[meal.id],
+            cardBounds = bounds,
+            onLogAgain = {
+                contextMeal = null
+                startLogAgain(meal)
+            },
+            onDelete = {
+                contextMeal = null
+                deleteWithUndo(meal.id)
+            },
+            onDismiss = { contextMeal = null },
+        )
     }
 
     logAgainChoice?.let { meal ->
@@ -765,86 +812,164 @@ private fun MealRow(
     onOpen: () -> Unit,
     onLogAgain: () -> Unit,
     onDelete: () -> Unit,
-    onMenuShown: () -> Unit,
+    /** Press and hold: where the card is on screen, so the menu can lift it in place. */
+    onLongPress: (Rect) -> Unit,
     modifier: Modifier = Modifier,
+    hidden: Boolean = false,
 ) {
+    val haptics = LocalHapticFeedback.current
+    val logAgainLabel = stringResource(R.string.meal_log_again)
+    val deleteLabel = stringResource(R.string.home_delete_meal)
+    var bounds by remember { mutableStateOf(Rect.Zero) }
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .onGloballyPositioned { bounds = it.boundsInWindow() }
+            // While lifted, the copy above the blur stands in for the card.
+            .alpha(if (hidden) 0f else 1f)
+            .clip(MaterialTheme.shapes.large)
+            .combinedClickable(
+                onClickLabel = stringResource(R.string.meal_open),
+                onLongClickLabel = stringResource(R.string.meal_actions),
+                onClick = onOpen,
+                onLongClick = {
+                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onLongPress(bounds)
+                },
+            )
+            .semantics {
+                // Screen readers offer both actions directly, without the long-press.
+                customActions = listOf(
+                    CustomAccessibilityAction(logAgainLabel) { onLogAgain(); true },
+                    CustomAccessibilityAction(deleteLabel) { onDelete(); true },
+                )
+            },
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
+        border = CardDefaults.outlinedCardBorder(),
+    ) {
+        MealCardContent(meal, glucose)
+    }
+}
+
+/** What a meal card shows: photo or food icon, name, time, calories, macros and glucose. */
+@Composable
+private fun MealCardContent(meal: LoggedMeal, glucose: MealGlucose?) {
     val colors = NeutrinoTheme.colors
     val time = remember(meal.eatenAt) {
         meal.eatenAt.atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT))
     }
-    val haptics = LocalHapticFeedback.current
-    var menu by remember { mutableStateOf(false) }
-    val logAgainLabel = stringResource(R.string.meal_log_again)
-    val deleteLabel = stringResource(R.string.home_delete_meal)
-    Box(modifier = modifier.fillMaxWidth()) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(MaterialTheme.shapes.large)
-                .combinedClickable(
-                    onClickLabel = stringResource(R.string.meal_open),
-                    onLongClickLabel = stringResource(R.string.meal_actions),
-                    onClick = onOpen,
-                    onLongClick = {
-                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                        menu = true
-                        onMenuShown()
-                    },
-                )
-                .semantics {
-                    // Screen readers offer both actions directly, without the long-press.
-                    customActions = listOf(
-                        CustomAccessibilityAction(logAgainLabel) { onLogAgain(); true },
-                        CustomAccessibilityAction(deleteLabel) { onDelete(); true },
-                    )
-                },
-            shape = MaterialTheme.shapes.large,
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
-            border = CardDefaults.outlinedCardBorder(),
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(Spacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+    ) {
+        Thumbnail(meal.thumbnailPath, meal.category)
+        Column(modifier = Modifier.weight(1f)) {
+            Text(meal.name, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(
+                stringResource(R.string.home_meal_line, time, meal.nutrition.calories.roundKcal()),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm), modifier = Modifier.padding(top = 2.dp)) {
+                MacroText(stringResource(R.string.macro_letter_carbs), meal.nutrition.carbsG, colors.carbs)
+                MacroText(stringResource(R.string.macro_letter_protein), meal.nutrition.proteinG, colors.protein)
+                MacroText(stringResource(R.string.macro_letter_fat), meal.nutrition.fatG, colors.fat)
+                if (!meal.syncedToHealthConnect) {
+                    Text(stringResource(R.string.home_not_synced), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+                }
+            }
+            if (glucose != null) MealGlucoseLine(glucose)
+        }
+    }
+}
+
+/**
+ * iPhone-style menu for a meal: the day behind blurs and dims, the card lifts in place, and a
+ * rounded menu opens under it (or above it near the bottom of the screen).
+ */
+@Composable
+private fun MealContextMenu(
+    meal: LoggedMeal,
+    glucose: MealGlucose?,
+    cardBounds: Rect,
+    onLogAgain: () -> Unit,
+    onDelete: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val density = LocalDensity.current
+    var shown by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { shown = true }
+    val lift by animateFloatAsState(if (shown) 1.03f else 1f, animationSpec = spring(dampingRatio = 0.7f, stiffness = 500f), label = "lift")
+    val appear by animateFloatAsState(if (shown) 1f else 0f, animationSpec = tween(180), label = "appear")
+    Popup(
+        popupPositionProvider = object : PopupPositionProvider {
+            override fun calculatePosition(anchorBounds: IntRect, windowSize: IntSize, layoutDirection: LayoutDirection, popupContentSize: IntSize) = IntOffset.Zero
+        },
+        onDismissRequest = onDismiss,
+        properties = PopupProperties(focusable = true, clippingEnabled = false),
+    ) {
+        BoxWithConstraints(
+            Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.22f * appear))
+                .pointerInput(Unit) { detectTapGestures { onDismiss() } },
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(Spacing.sm),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(Spacing.md),
-            ) {
-                Thumbnail(meal.thumbnailPath, meal.category)
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(meal.name, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    Text(
-                        stringResource(R.string.home_meal_line, time, meal.nutrition.calories.roundKcal()),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm), modifier = Modifier.padding(top = 2.dp)) {
-                        MacroText(stringResource(R.string.macro_letter_carbs), meal.nutrition.carbsG, colors.carbs)
-                        MacroText(stringResource(R.string.macro_letter_protein), meal.nutrition.proteinG, colors.protein)
-                        MacroText(stringResource(R.string.macro_letter_fat), meal.nutrition.fatG, colors.fat)
-                        if (!meal.syncedToHealthConnect) {
-                            Text(stringResource(R.string.home_not_synced), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
-                        }
+            val screenH = with(density) { maxHeight.toPx() }
+            val menuH = with(density) { 116.dp.toPx() }
+            val gap = with(density) { 10.dp.toPx() }
+            val below = cardBounds.bottom + gap + menuH < screenH - with(density) { 24.dp.toPx() }
+            // The lifted copy of the card, exactly where the original is.
+            Surface(
+                modifier = Modifier
+                    .offset { IntOffset(cardBounds.left.toInt(), cardBounds.top.toInt()) }
+                    .size(with(density) { cardBounds.width.toDp() }, with(density) { cardBounds.height.toDp() })
+                    .graphicsLayer { scaleX = lift; scaleY = lift },
+                shape = MaterialTheme.shapes.large,
+                color = MaterialTheme.colorScheme.surfaceContainerLowest,
+                shadowElevation = 16.dp,
+            ) { MealCardContent(meal, glucose) }
+            Surface(
+                modifier = Modifier
+                    .offset {
+                        val y = if (below) cardBounds.bottom + gap else cardBounds.top - gap - menuH
+                        IntOffset(cardBounds.left.toInt(), y.toInt())
                     }
-                    if (glucose != null) MealGlucoseLine(glucose)
+                    .width(250.dp)
+                    .graphicsLayer {
+                        alpha = appear
+                        scaleX = 0.9f + 0.1f * appear
+                        scaleY = 0.9f + 0.1f * appear
+                        transformOrigin = TransformOrigin(0f, if (below) 0f else 1f)
+                    },
+                shape = RoundedCornerShape(14.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerLowest,
+                shadowElevation = 12.dp,
+            ) {
+                Column {
+                    ContextMenuItem(stringResource(R.string.meal_log_again), R.drawable.ic_refresh, MaterialTheme.colorScheme.onSurface, onLogAgain)
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    ContextMenuItem(stringResource(R.string.home_delete_meal), R.drawable.ic_trash, MaterialTheme.colorScheme.error, onDelete)
                 }
             }
         }
-        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-            DropdownMenuItem(
-                text = { Text(logAgainLabel) },
-                leadingIcon = { Icon(painterResource(R.drawable.ic_refresh), contentDescription = null) },
-                onClick = {
-                    menu = false
-                    onLogAgain()
-                },
-            )
-            DropdownMenuItem(
-                text = { Text(deleteLabel, color = MaterialTheme.colorScheme.error) },
-                leadingIcon = { Icon(painterResource(R.drawable.ic_trash), contentDescription = null, tint = MaterialTheme.colorScheme.error) },
-                onClick = {
-                    menu = false
-                    onDelete()
-                },
-            )
-        }
+    }
+}
+
+/** A menu row the iOS way: label on the left, icon on the right. */
+@Composable
+private fun ContextMenuItem(label: String, icon: Int, color: Color, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 56.dp)
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(horizontal = Spacing.md),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, style = MaterialTheme.typography.bodyLarge, color = color, modifier = Modifier.weight(1f))
+        Icon(painterResource(icon), contentDescription = null, tint = color, modifier = Modifier.size(20.dp))
     }
 }
 
