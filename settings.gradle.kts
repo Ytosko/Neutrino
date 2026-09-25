@@ -22,3 +22,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "Neutrino"
 include(":app")
+include(":glucose-ble")
+include(":metersim")

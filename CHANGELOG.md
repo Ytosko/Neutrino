@@ -2,6 +2,20 @@
 
 Every release has a section here, headed `## [x.y.z] - YYYY-MM-DD` with an optional ` · Release name`. The release workflow publishes the section as the GitHub release notes (and the name as its title), and refuses to release a version that has none.
 
+## [Unreleased]
+
+Blood glucose from your Bluetooth meter, right next to your meals.
+
+### Glucose meter
+- **Pair once:** Settings → Glucose meter → Pair meter. Put the meter in pairing mode, choose it, and type the PIN it shows. Works with meters that use the standard Bluetooth Glucose Profile, such as the CONTOUR PLUS ELITE. If you use the CONTOUR DIABETES app, turn off its syncing first.
+- **Syncs on its own:** after each test, Android wakes Neutrino and the new reading is saved, even if you haven't opened the app for days. Readings taken while the phone was away arrive the next time the meter connects.
+- **Correct times:** if the meter's clock is wrong, Neutrino sets it to your phone's time. If the meter doesn't allow that, every reading is corrected by the difference. Readings whose time can't be trusted (for example after a battery change) are marked so you can fix them.
+- **On the Days page:** each reading with its time, value in mmol/L, low / in range / high, and meal mark. Readings without a mark are saved as General. Tap one to change the meal mark or time, or delete it with Undo.
+- **On the Health page:** average glucose, a chart per day, week, month or year, time in range, and averages by meal mark.
+- **Target range:** 4.0–10.0 mmol/L by default. Change it in Settings → Glucose meter.
+- **Health Connect:** readings are written as blood glucose, with the meal mark, so they appear in Google Health. Neutrino still never reads your health data.
+- **Private:** readings stay on your phone, in your encrypted backups and in Health Connect. Notifications show only how many readings arrived, never the values. Needs the "Nearby devices" permission, which is never used for location.
+
 ## [1.0.2] - 2026-09-25 · v1.1-NeutrinoBuddy
 
 Everything you log now always reaches Health Connect, even if it wasn't connected at the time.

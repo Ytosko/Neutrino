@@ -45,7 +45,7 @@ jobs:
           } > keystore.properties
 
       - name: Test and build
-        run: ./gradlew --no-daemon -PversionName=${{ steps.version.outputs.name }} testDebugUnitTest assembleRelease
+        run: ./gradlew --no-daemon -PversionName=${{ steps.version.outputs.name }} :app:testDebugUnitTest :glucose-ble:testDebugUnitTest :app:assembleRelease
 
       - name: Check the signing certificate
         # Only builds signed with the registered key can use Google Drive backup, so refuse anything else.

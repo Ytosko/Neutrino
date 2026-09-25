@@ -1,5 +1,11 @@
 package dev.ytosko.neutrino
 
+import kotlinx.coroutines.delay
+import dev.ytosko.neutrino.data.glucose.MeterSyncOutcome
+import dev.ytosko.neutrino.data.glucose.MeterNotifications
+import dev.ytosko.neutrino.data.glucose.MeterCompanion
+import dev.ytosko.neutrino.data.glucose.MeterScan
+import dev.ytosko.neutrino.data.glucose.GlucoseRepository
 import dev.ytosko.neutrino.data.reminders.MealReminders
 import android.app.Application
 import android.content.Context
@@ -44,7 +50,9 @@ class NeutrinoApplication : Application() {
         appScope.launch {
             if (container.backups.state.first().passwordSet) container.backups.schedule()
             if (container.settings.settings.first().remindersEnabled) MealReminders.scheduleAll(this@NeutrinoApplication)
-            container.meals.syncWithHealthConnect()
+            container.syncHealthConnect()
+            // Keep watching for the meter (e.g. after an app update).
+            container.watchMeter()
         }
     }
 
@@ -94,6 +102,55 @@ class AppContainer(application: Application) {
     )
 
     val meals = MealRepository(database, healthConnect, photos, foods, onChanged = backups::scheduleSoon)
+
+    val glucose = GlucoseRepository(application, database, healthConnect, onChanged = backups::scheduleSoon)
+
+    private val context: Context = application
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    @Volatile private var meterSyncRunning = false
+    @Volatile private var lastMeterSuccess = 0L
+
+    /** Makes Health Connect match Neutrino: meals, water and glucose readings. */
+    suspend fun syncHealthConnect() {
+        meals.syncWithHealthConnect()
+        glucose.syncWithHealthConnect()
+    }
+
+    /**
+     * Called when Android sees the paired meter (it wakes up after a test). The meter's Bluetooth
+     * window is short, so a failed connection is retried a few times; repeat wake-ups within a few
+     * seconds are ignored.
+     */
+    @Synchronized
+    fun syncMeterInBackground() {
+        // One sync per meter wake-up: ignore triggers while syncing or right after a successful sync.
+        if (meterSyncRunning || System.currentTimeMillis() - lastMeterSuccess < 30_000) return
+        meterSyncRunning = true
+        scope.launch {
+            try {
+                repeat(4) { attempt ->
+                    when (val outcome = glucose.sync()) {
+                        is MeterSyncOutcome.Synced -> {
+                            lastMeterSuccess = System.currentTimeMillis()
+                            if (outcome.newReadings > 0) MeterNotifications.newReadings(context, outcome.newReadings)
+                            return@launch
+                        }
+                        is MeterSyncOutcome.Failed -> delay(3_000L * (attempt + 1))
+                        else -> return@launch
+                    }
+                }
+            } finally {
+                meterSyncRunning = false
+            }
+        }
+    }
+
+    /** Keeps both meter wake-ups running while a meter is paired. */
+    suspend fun watchMeter() {
+        val meter = glucose.meter.first() ?: return
+        MeterCompanion.observe(context, meter)
+        MeterScan.start(context)
+    }
 
     val aiClients: Map<AiProvider, AiClient> = mapOf(
         AiProvider.Gemini to GeminiClient(http, json),

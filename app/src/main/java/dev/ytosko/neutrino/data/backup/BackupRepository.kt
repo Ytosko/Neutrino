@@ -199,7 +199,7 @@ class BackupRepository(
         val key = requireNotNull(backupKey()) { "Backup key unavailable" }
         val dao = db.backup()
         val meals = dao.meals()
-        val data = BackupData(settings.snapshot(), meals, dao.items(), dao.foods(), dao.water())
+        val data = BackupData(settings.snapshot(), meals, dao.items(), dao.foods(), dao.water(), db.glucose().all())
         val photos = meals.mapNotNull { meal ->
             meal.thumbnailPath?.let(::File)?.takeIf { it.isFile }?.let { meal.id to it.readBytes() }
         }.toMap()
@@ -306,6 +306,8 @@ class BackupRepository(
             }
             val meals = data.meals.map { it.copy(thumbnailPath = saved[it.id]) }
             db.backup().replaceAll(meals, data.items, data.foods, data.water)
+            db.glucose().clear()
+            db.glucose().insertAll(data.glucose)
         }
         settings.restore(data.settings)
         saveKey(key, header.wrappedKey)

@@ -1,5 +1,17 @@
 package dev.ytosko.neutrino.ui.insights
 
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.ui.res.pluralStringResource
+import dev.ytosko.neutrino.ui.glucose.relationLabel
+import dev.ytosko.neutrino.ui.glucose.formatMmol
+import dev.ytosko.neutrino.ui.glucose.bandLabel
+import dev.ytosko.neutrino.ui.glucose.bandColor
+import dev.ytosko.neutrino.ui.glucose.band
+import dev.ytosko.neutrino.ui.glucose.GlucoseBand
+import dev.ytosko.neutrino.domain.insights.GlucoseSummary
+import dev.ytosko.neutrino.domain.insights.GlucoseBucket
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -72,6 +84,7 @@ private enum class Macro { Carbs, Protein, Fat }
 fun HealthContent(viewModel: HealthViewModel, contentPadding: PaddingValues, onOpenDay: (java.time.LocalDate) -> Unit) {
     val range by viewModel.range.collectAsStateWithLifecycle()
     val summary by viewModel.summary.collectAsStateWithLifecycle()
+    val glucose by viewModel.glucoseSummary.collectAsStateWithLifecycle()
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -92,11 +105,14 @@ fun HealthContent(viewModel: HealthViewModel, contentPadding: PaddingValues, onO
         item(key = "caption") { RangeCaption(data, width) }
         item(key = "totals") { TotalsCard(data.totals, width) }
 
+        val glucoseData = glucose?.takeIf { it.range == range && !it.isEmpty }
         if (data.isEmpty) {
+            if (glucoseData != null) item(key = "glucose-$range") { GlucoseCard(glucoseData, width) }
             item(key = "empty") { EmptyRange(width) }
             return@LazyColumn
         }
         item(key = "calories-$range") { CaloriesCard(data, onOpenDay, width) }
+        if (glucoseData != null) item(key = "glucose-$range") { GlucoseCard(glucoseData, width) }
         item(key = "macros-$range") { MacroTrendCard(data, width) }
         item(key = "split-$range") { MacroSplitCard(data, width) }
         item(key = "meals-$range") { CarbsByMealCard(data, width) }
@@ -347,6 +363,90 @@ private fun WaterCard(data: InsightSummary, modifier: Modifier) {
     }
 }
 
+/** Average glucose per bar, time in the target range, and averages by meal mark. */
+@Composable
+private fun GlucoseCard(data: GlucoseSummary, modifier: Modifier) {
+    var selected by rememberSaveable(data.range) { mutableStateOf<Int?>(null) }
+    val bucket = selected?.let(data.buckets::getOrNull)
+    val unit = stringResource(R.string.glucose_unit)
+    fun bandOf(value: Double?) = value?.let { band(it, data.low, data.high) } ?: GlucoseBand.InRange
+    ChartCard(title = stringResource(R.string.glucose_title), modifier = modifier) {
+        if (bucket != null) {
+            ReadOut(
+                label = bucketLabel(bucket.toBucket(), data.range),
+                value = bucket.average?.let { "${formatMmol(it)} $unit" } ?: "–",
+                detail = pluralStringResource(R.plurals.health_glucose_readings, bucket.readings, bucket.readings),
+                valueColor = if (bucket.average != null) bandColor(bandOf(bucket.average)) else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else {
+            ReadOut(
+                label = stringResource(R.string.health_glucose_average),
+                value = data.average?.let { "${formatMmol(it)} $unit" } ?: "–",
+                detail = pluralStringResource(R.plurals.health_glucose_readings, data.readings, data.readings),
+                valueColor = bandColor(bandOf(data.average)),
+            )
+        }
+        BarChart(
+            values = data.buckets.map { it.average ?: 0.0 },
+            color = bandColor(GlucoseBand.InRange),
+            selected = selected,
+            onSelect = { selected = it },
+            average = data.average,
+            xLabel = { axisLabel(data.range, data.buckets.map { b -> b.start }, it) },
+            height = 140.dp,
+            description = stringResource(R.string.health_glucose_desc, data.average?.let(::formatMmol) ?: "–"),
+        )
+
+        Text(
+            stringResource(R.string.health_glucose_time_in_range),
+            style = MaterialTheme.typography.titleSmall,
+            modifier = Modifier.padding(top = Spacing.xs),
+        )
+        val shares = listOf(
+            Triple(GlucoseBand.Low, data.belowShare, bandColor(GlucoseBand.Low)),
+            Triple(GlucoseBand.InRange, data.inRangeShare, bandColor(GlucoseBand.InRange)),
+            Triple(GlucoseBand.High, data.aboveShare, bandColor(GlucoseBand.High)),
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth().height(12.dp).clip(MaterialTheme.shapes.small),
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            shares.filter { it.second > 0 }.forEach { (_, share, color) ->
+                Box(Modifier.weight(share.toFloat()).fillMaxHeight().background(color))
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.lg)) {
+            shares.forEach { (band, share, color) ->
+                Column {
+                    Text("${(share * 100).roundToInt()}%", style = MaterialTheme.typography.titleMedium, color = color)
+                    Text(bandLabel(band), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+        Text(
+            stringResource(R.string.health_glucose_target, formatMmol(data.low), formatMmol(data.high)),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        if (data.byRelation.size > 1) {
+            Text(
+                stringResource(R.string.health_glucose_by_meal),
+                style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.padding(top = Spacing.xs),
+            )
+            data.byRelation.forEach { (relation, average) ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(relationLabel(relation), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                    Text("${formatMmol(average)} $unit", style = MaterialTheme.typography.labelLarge, color = bandColor(bandOf(average)))
+                }
+            }
+        }
+    }
+}
+
+private fun GlucoseBucket.toBucket() = Bucket(start, end, Nutrition.ZERO, 0, 0, 0)
+
 @Composable
 private fun TopFoodsCard(data: InsightSummary, modifier: Modifier) {
     ChartCard(title = stringResource(R.string.health_top_foods), modifier = modifier) {
@@ -462,13 +562,15 @@ private fun bucketLabel(bucket: Bucket, range: InsightRange): String = when (ran
 }
 
 /** A few labels under the bars so they don't crowd: every 7th day, every 4th week, every month, every year. */
-private fun axisLabel(data: InsightSummary, index: Int): String? {
-    val bucket = data.buckets.getOrNull(index) ?: return null
-    val fromEnd = data.buckets.lastIndex - index
-    return when (data.range) {
-        InsightRange.Day -> if (fromEnd % 7 == 0) bucket.start.dayOfMonth.toString() else null
-        InsightRange.Week -> if (fromEnd % 4 == 0) bucket.start.format(SHORT_DATE) else null
-        InsightRange.Month -> bucket.start.format(DateTimeFormatter.ofPattern("MMMMM"))
-        InsightRange.Year -> "'" + (bucket.start.year % 100).toString().padStart(2, '0')
+private fun axisLabel(data: InsightSummary, index: Int): String? = axisLabel(data.range, data.buckets.map { it.start }, index)
+
+private fun axisLabel(range: InsightRange, starts: List<java.time.LocalDate>, index: Int): String? {
+    val start = starts.getOrNull(index) ?: return null
+    val fromEnd = starts.lastIndex - index
+    return when (range) {
+        InsightRange.Day -> if (fromEnd % 7 == 0) start.dayOfMonth.toString() else null
+        InsightRange.Week -> if (fromEnd % 4 == 0) start.format(SHORT_DATE) else null
+        InsightRange.Month -> start.format(DateTimeFormatter.ofPattern("MMMMM"))
+        InsightRange.Year -> "'" + (start.year % 100).toString().padStart(2, '0')
     }
 }

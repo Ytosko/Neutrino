@@ -7,6 +7,24 @@
     <!-- Health Connect: write-only. Neutrino never reads health data. -->
     <uses-permission android:name="android.permission.health.WRITE_NUTRITION" />
     <uses-permission android:name="android.permission.health.WRITE_HYDRATION" />
+    <uses-permission android:name="android.permission.health.WRITE_BLOOD_GLUCOSE" />
+
+    <!--
+      Blood glucose meter over Bluetooth LE. Pairing goes through Android's companion device picker,
+      which also wakes Neutrino when the meter appears after a test. Bluetooth is never used to
+      find your location.
+    -->
+    <uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />
+    <uses-feature android:name="android.software.companion_device_setup" android:required="false" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation"
+        tools:targetApi="s" />
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.REQUEST_OBSERVE_COMPANION_DEVICE_PRESENCE" />
+    <uses-permission android:name="android.permission.REQUEST_COMPANION_RUN_IN_BACKGROUND" />
 
     <!--
       Local backups live in /.Neutrino/data/backup so they survive uninstalling the app. Android 11+
@@ -56,6 +74,21 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Woken by Android when the paired glucose meter appears nearby. -->
+        <service
+            android:name=".data.glucose.MeterPresenceService"
+            android:exported="true"
+            android:permission="android.permission.BIND_COMPANION_DEVICE_SERVICE">
+            <intent-filter>
+                <action android:name="android.companion.CompanionDeviceService" />
+            </intent-filter>
+        </service>
+
+        <!-- Woken by the low-power background scan when a glucose meter starts advertising. -->
+        <receiver
+            android:name=".data.glucose.MeterScanReceiver"
+            android:exported="false" />
 
         <receiver
             android:name=".data.reminders.MealReminderReceiver"

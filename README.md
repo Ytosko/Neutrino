@@ -47,7 +47,10 @@ based on your local time, so they show up in Google Health, Fitbit and any other
 - **Automatic meal type** from your local time and your own meal times
 - **Reminders** for breakfast, lunch and dinner, skipped once that meal is logged
 - **AI hints:** your cuisine and short notes to improve recognition
-- **Health Connect:** writes `NutritionRecord` and `HydrationRecord` (never reads)
+- **Glucose meter:** pair a Bluetooth blood glucose meter (Bluetooth SIG Glucose Profile, e.g. CONTOUR PLUS ELITE);
+  readings sync in the background after each test, in mmol/L, with meal marks, a target range, time in range, and the
+  meter's clock kept correct
+- **Health Connect:** writes `NutritionRecord`, `HydrationRecord` and `BloodGlucoseRecord` (never reads)
 - **Backups:** encrypted, automatic on the phone (survives uninstall), optional Google Drive, restore on reinstall
 
 ## Repository layout
@@ -55,6 +58,8 @@ based on your local time, so they show up in Google Health, Fitbit and any other
 ```
 .
 ├── app/                    # Android app (Kotlin + Jetpack Compose)
+├── glucose-ble/            # Bluetooth Glucose Profile protocol, meter sync and a simulated meter (unit-tested)
+├── metersim/               # Test-only app that turns a second phone/emulator into a virtual glucose meter
 ├── docs/                   # Developer docs (signing, OAuth setup)
 ├── logos/                  # Brand assets (SVG + PNG variants)
 ├── web/                    # Website: landing page, privacy policy, terms
@@ -100,6 +105,28 @@ No DI framework, no analytics. Google Play services is used only for optional Dr
 Open the repository root in Android Studio to run it on a device or emulator.
 Release signing and Google OAuth setup: [docs/SIGNING.md](docs/SIGNING.md). Publishing releases:
 [docs/RELEASING.md](docs/RELEASING.md) (push a `v1.2.3` tag; GitHub Actions tests, signs and publishes).
+
+## Glucose meter
+
+Neutrino talks to meters that implement the Bluetooth SIG **Glucose Profile** (service `0x1808`), which the
+CONTOUR PLUS ELITE and many other meters do.
+
+- **Pairing:** Settings → Glucose meter → Pair meter. Android's companion-device picker lists only glucose
+  meters, then the meter shows a PIN to type in. Neutrino connects only to the meter you paired.
+- **Background sync:** Android wakes Neutrino when the paired meter advertises after a test (companion device
+  presence plus a low-power, hardware-filtered background scan), even if the app hasn't been opened for days.
+  Only readings newer than the last one are requested.
+- **Correct times:** Neutrino reads the meter's clock on every sync. If it's off by more than a minute it sets it
+  through the Current Time Service; if the meter refuses, each reading is shifted by the measured offset. Readings
+  whose time can't be trusted (clock reset, time fault) are marked and can be fixed by hand.
+- **Privacy:** readings stay on the phone, in encrypted backups and in Health Connect. Values are never logged or
+  shown in notifications. Needs the "Nearby devices" permission, declared as never used for location.
+
+**Testing without a meter:** install `metersim` on a second phone or emulator (`./gradlew :metersim:installDebug`).
+It advertises as a CONTOUR PLUS ELITE, pairs with a PIN, stores readings, and lets you take tests with meal marks,
+HI/LO, control solution and strip errors, skew or reset its clock, and make the clock read-only. Two emulators
+see each other over the emulator's virtual Bluetooth. The protocol and sync logic are also covered by unit tests
+in `glucose-ble` against a simulated meter.
 
 ## Backups
 

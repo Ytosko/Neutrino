@@ -1,5 +1,6 @@
 package dev.ytosko.neutrino.ui.settings
 
+import dev.ytosko.neutrino.data.glucose.PairedMeter
 import dev.ytosko.neutrino.data.reminders.MealReminders
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.setValue
@@ -55,6 +56,8 @@ fun SettingsScreen(
     backup: Flow<BackupState>,
     onOpenBackup: () -> Unit,
     onOpenMeals: () -> Unit,
+    meter: Flow<PairedMeter?>,
+    onOpenMeter: () -> Unit,
     healthViewModel: HealthConnectViewModel,
     onBack: () -> Unit,
     onOpenAi: () -> Unit,
@@ -62,6 +65,7 @@ fun SettingsScreen(
 ) {
     val appSettings by settings.collectAsStateWithLifecycle(initialValue = AppSettings())
     val backupState by backup.collectAsStateWithLifecycle(initialValue = null)
+    val pairedMeter by meter.collectAsStateWithLifecycle(initialValue = null)
     val health by healthViewModel.state.collectAsStateWithLifecycle()
     val uriHandler = LocalUriHandler.current
     LifecycleResumeEffect(Unit) {
@@ -109,6 +113,15 @@ fun SettingsScreen(
                         ?: stringResource(R.string.backup_never)
                 },
                 onClick = onOpenBackup,
+            )
+        }
+        Section(stringResource(R.string.settings_section_meter)) {
+            SettingRow(
+                icon = R.drawable.ic_activity,
+                title = stringResource(R.string.meter_title),
+                value = pairedMeter?.let { it.model ?: it.name ?: stringResource(R.string.meter_unknown_model) }
+                    ?: stringResource(R.string.settings_meter_off),
+                onClick = onOpenMeter,
             )
         }
         Section(stringResource(R.string.settings_section_meals)) {

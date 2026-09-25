@@ -47,6 +47,9 @@ data class AppSettings(
     val breakfastReminder: LocalTime = LocalTime.of(10, 0),
     val lunchReminder: LocalTime = LocalTime.of(14, 0),
     val dinnerReminder: LocalTime = LocalTime.of(18, 0),
+    /** Blood glucose target range in mmol/L (used for colours and "time in range"). */
+    val glucoseLow: Double = 4.0,
+    val glucoseHigh: Double = 10.0,
 ) {
     val promptHints: PromptHints get() = PromptHints(cuisine, aiNotes.takeIf { it.isNotBlank() })
     val aiReady: Boolean
@@ -76,6 +79,8 @@ class SettingsRepository(context: Context, private val cipher: SecretCipher) {
         val breakfastReminder = intPreferencesKey("reminder_breakfast_min")
         val lunchReminder = intPreferencesKey("reminder_lunch_min")
         val dinnerReminder = intPreferencesKey("reminder_dinner_min")
+        val glucoseLow = androidx.datastore.preferences.core.doublePreferencesKey("glucose_low")
+        val glucoseHigh = androidx.datastore.preferences.core.doublePreferencesKey("glucose_high")
         fun model(provider: AiProvider) = stringPreferencesKey("ai_model_${provider.id}")
         fun apiKey(provider: AiProvider) = stringPreferencesKey("ai_key_${provider.id}")
     }
@@ -107,6 +112,8 @@ class SettingsRepository(context: Context, private val cipher: SecretCipher) {
             breakfastReminder = p[Keys.breakfastReminder]?.toTime() ?: LocalTime.of(10, 0),
             lunchReminder = p[Keys.lunchReminder]?.toTime() ?: LocalTime.of(14, 0),
             dinnerReminder = p[Keys.dinnerReminder]?.toTime() ?: LocalTime.of(18, 0),
+            glucoseLow = p[Keys.glucoseLow] ?: 4.0,
+            glucoseHigh = p[Keys.glucoseHigh] ?: 10.0,
         )
     }
 
@@ -186,6 +193,16 @@ class SettingsRepository(context: Context, private val cipher: SecretCipher) {
             it[Keys.lunchReminder] = lunch.toMinutes()
             it[Keys.dinnerReminder] = dinner.toMinutes()
         }
+    }
+
+    /** Saves the target range; ignored unless 2.0 <= low < high <= 20.0 mmol/L. */
+    suspend fun setGlucoseRange(low: Double, high: Double): Boolean {
+        if (low < 2.0 || high > 20.0 || low >= high) return false
+        store.edit {
+            it[Keys.glucoseLow] = low
+            it[Keys.glucoseHigh] = high
+        }
+        return true
     }
 
     suspend fun setRemindersEnabled(enabled: Boolean) {

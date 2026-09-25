@@ -15,7 +15,7 @@ class BackupWorker(context: Context, params: WorkerParameters) : CoroutineWorker
 
     override suspend fun doWork(): Result {
         val container = applicationContext.appContainer
-        runCatching { container.meals.syncWithHealthConnect() }
+        runCatching { container.syncHealthConnect() }
         val backups = container.backups
         val run = runCatching { backups.backUp() }.getOrElse { return Result.retry() }
         val problem = backups.state.first().driveProblem

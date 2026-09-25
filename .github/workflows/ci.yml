@@ -30,7 +30,7 @@ jobs:
         run: ./gradlew --no-daemon testDebugUnitTest
 
       - name: Build debug and release (unsigned)
-        run: ./gradlew --no-daemon assembleDebug assembleRelease
+        run: ./gradlew --no-daemon assembleDebug :app:assembleRelease
 
       - name: Upload test reports
         if: failure()

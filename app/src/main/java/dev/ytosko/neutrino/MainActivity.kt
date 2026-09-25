@@ -25,7 +25,13 @@ class MainActivity : ComponentActivity() {
         // "All files access" can be switched off in system settings while Neutrino is closed.
         appContainer.backups.refreshAccess()
         // Send anything saved while Health Connect wasn't connected (e.g. permission just granted in its app).
-        lifecycleScope.launch { appContainer.meals.syncWithHealthConnect() }
+        lifecycleScope.launch {
+            appContainer.syncHealthConnect()
+            // Bluetooth may have been off; restart the background meter scan.
+            appContainer.watchMeter()
+        }
+        // Before Android 12 there's no background wake-up for the meter: try when the app opens.
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.S) appContainer.syncMeterInBackground()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {

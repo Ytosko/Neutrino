@@ -7,6 +7,9 @@ import dev.ytosko.neutrino.data.meal.StoredMeal
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.ytosko.neutrino.data.meal.DaySummary
+import dev.ytosko.neutrino.data.glucose.GlucoseEntity
+import dev.ytosko.neutrino.data.glucose.GlucoseRelation
+import dev.ytosko.neutrino.data.glucose.GlucoseRepository
 import dev.ytosko.neutrino.data.meal.MealRepository
 import dev.ytosko.neutrino.data.settings.SettingsRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -26,6 +29,7 @@ import java.time.ZoneId
 class HomeViewModel(
     private val meals: MealRepository,
     private val settings: SettingsRepository,
+    private val glucose: GlucoseRepository,
     private val zone: ZoneId = ZoneId.systemDefault(),
 ) : ViewModel() {
 
@@ -40,6 +44,32 @@ class HomeViewModel(
     val day: StateFlow<DaySummary?> = _date
         .flatMapLatest { meals.observeDay(it, zone) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** Blood glucose readings on the shown day, oldest first. */
+    val glucoseReadings: StateFlow<List<GlucoseEntity>> = _date
+        .flatMapLatest { glucose.observeBetween(it, it, zone) }
+        .map { list -> list.sortedBy { it.measuredAtEpochMs } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** The glucose card shows once a meter is paired, or on any day that has readings. */
+    val meterPaired: StateFlow<Boolean> = glucose.meter
+        .map { it != null }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    val glucoseRange: StateFlow<ClosedFloatingPointRange<Double>> = settings.settings
+        .map { it.glucoseLow..it.glucoseHigh }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 4.0..10.0)
+
+    fun editGlucose(id: String, relation: GlucoseRelation, time: Instant) {
+        viewModelScope.launch { glucose.edit(id, relation, time) }
+    }
+
+    /** Deletes right away and returns what Undo needs. */
+    suspend fun deleteGlucose(id: String): GlucoseEntity? = glucose.delete(id)
+
+    fun undoGlucoseDelete(reading: GlucoseEntity) {
+        viewModelScope.launch { glucose.restore(reading) }
+    }
 
     /** Ask once for notification permission so meal reminders can show. */
     val askForNotifications: StateFlow<Boolean> = settings.settings

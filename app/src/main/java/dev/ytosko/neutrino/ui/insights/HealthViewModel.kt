@@ -3,6 +3,14 @@ package dev.ytosko.neutrino.ui.insights
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.ytosko.neutrino.data.meal.MealRepository
+import dev.ytosko.neutrino.data.glucose.GlucoseRepository
+import dev.ytosko.neutrino.data.glucose.relationEnum
+import dev.ytosko.neutrino.data.settings.SettingsRepository
+import dev.ytosko.neutrino.domain.insights.GlucoseInsights
+import dev.ytosko.neutrino.domain.insights.GlucosePoint
+import dev.ytosko.neutrino.domain.insights.GlucoseSummary
+import kotlinx.coroutines.flow.distinctUntilChanged
+import java.time.Instant
 import dev.ytosko.neutrino.domain.insights.InsightRange
 import dev.ytosko.neutrino.domain.insights.InsightSummary
 import dev.ytosko.neutrino.domain.insights.Insights
@@ -25,6 +33,8 @@ import java.util.Locale
 @OptIn(ExperimentalCoroutinesApi::class)
 class HealthViewModel(
     private val meals: MealRepository,
+    private val glucose: GlucoseRepository,
+    private val settings: SettingsRepository,
     private val zone: ZoneId = ZoneId.systemDefault(),
     private val firstDayOfWeek: DayOfWeek = WeekFields.of(Locale.getDefault()).firstDayOfWeek,
 ) : ViewModel() {
@@ -38,6 +48,21 @@ class HealthViewModel(
         .flatMapLatest { (range, day) ->
             meals.observeRange(range.firstStart(day, firstDayOfWeek), day, zone).map { data ->
                 Insights.summarize(range, day, data.meals, data.water, data.topFoods, firstDayOfWeek)
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** Blood glucose for the same range; empty until readings exist. */
+    val glucoseSummary: StateFlow<GlucoseSummary?> = combine(_range, today) { range, day -> range to day }
+        .flatMapLatest { (range, day) ->
+            combine(
+                glucose.observeBetween(range.firstStart(day, firstDayOfWeek), day, zone),
+                settings.settings.map { it.glucoseLow to it.glucoseHigh }.distinctUntilChanged(),
+            ) { readings, (low, high) ->
+                val points = readings.map {
+                    GlucosePoint(Instant.ofEpochMilli(it.measuredAtEpochMs).atZone(zone).toLocalDate(), it.mmolPerL, it.relationEnum)
+                }
+                GlucoseInsights.summarize(range, day, points, low, high, firstDayOfWeek)
             }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)

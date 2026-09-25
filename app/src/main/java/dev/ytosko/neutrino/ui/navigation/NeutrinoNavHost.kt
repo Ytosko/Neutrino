@@ -1,5 +1,7 @@
 package dev.ytosko.neutrino.ui.navigation
 
+import dev.ytosko.neutrino.ui.glucose.MeterViewModel
+import dev.ytosko.neutrino.ui.glucose.MeterScreen
 import dev.ytosko.neutrino.ui.theme.Spacing
 import androidx.compose.foundation.layout.padding
 import dev.ytosko.neutrino.ui.settings.MealsScreen
@@ -70,6 +72,7 @@ sealed interface Route {
     @Serializable data object SetupBackup : Route
     @Serializable data object SettingsBackup : Route
     @Serializable data object SettingsMeals : Route
+    @Serializable data object SettingsMeter : Route
     @Serializable data object Restore : Route
     @Serializable data object RestoreHealth : Route
 }
@@ -140,10 +143,10 @@ fun NeutrinoNavHost(startDestination: Route, modifier: Modifier = Modifier) {
         }
         composable<Route.Home> { entry ->
             val container = LocalContext.current.appContainer
-            val homeViewModel: HomeViewModel = viewModel { HomeViewModel(container.meals, container.settings) }
+            val homeViewModel: HomeViewModel = viewModel { HomeViewModel(container.meals, container.settings, container.glucose) }
             val savedResult by entry.savedStateHandle.getStateFlow<Boolean?>(KEY_SAVED_RESULT, null).collectAsStateWithLifecycle()
             val backup by container.backups.state.collectAsStateWithLifecycle(initialValue = null)
-            val healthViewModel: HealthViewModel = viewModel { HealthViewModel(container.meals) }
+            val healthViewModel: HealthViewModel = viewModel { HealthViewModel(container.meals, container.glucose, container.settings) }
             HomeScreen(
                 viewModel = homeViewModel,
                 healthViewModel = healthViewModel,
@@ -203,11 +206,21 @@ fun NeutrinoNavHost(startDestination: Route, modifier: Modifier = Modifier) {
                 backup = container.backups.state,
                 onOpenBackup = { navController.navigate(Route.SettingsBackup) },
                 onOpenMeals = { navController.navigate(Route.SettingsMeals) },
+                meter = container.glucose.meter,
+                onOpenMeter = { navController.navigate(Route.SettingsMeter) },
                 healthViewModel = healthConnectViewModel(),
                 onBack = navController::popBackStack,
                 onOpenAi = { navController.navigate(Route.SettingsAi) },
                 onOpenHealthConnect = { navController.navigate(Route.SettingsHealth) },
             )
+        }
+        composable<Route.SettingsMeter> {
+            val context = LocalContext.current
+            val container = context.appContainer
+            val meterViewModel: MeterViewModel = viewModel {
+                MeterViewModel(context.applicationContext, container.glucose, container.settings, container.healthConnect)
+            }
+            MeterScreen(viewModel = meterViewModel, onBack = navController::popBackStack)
         }
         composable<Route.SettingsMeals> {
             MealsScreen(settings = LocalContext.current.appContainer.settings, onBack = navController::popBackStack)
@@ -243,7 +256,7 @@ private fun backupViewModel(): BackupViewModel {
 @Composable
 private fun healthConnectViewModel(): HealthConnectViewModel {
     val container = LocalContext.current.appContainer
-    return viewModel { HealthConnectViewModel(container.healthConnect, onConnected = { container.meals.syncWithHealthConnect() }) }
+    return viewModel { HealthConnectViewModel(container.healthConnect, onConnected = { container.syncHealthConnect() }) }
 }
 
 @Composable

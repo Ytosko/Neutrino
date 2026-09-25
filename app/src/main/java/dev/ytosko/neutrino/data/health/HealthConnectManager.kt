@@ -1,5 +1,7 @@
 package dev.ytosko.neutrino.data.health
 
+import androidx.health.connect.client.units.BloodGlucose
+import androidx.health.connect.client.records.BloodGlucoseRecord
 import android.content.Context
 import android.content.Intent
 import androidx.core.net.toUri
@@ -9,6 +11,7 @@ import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.HydrationRecord
 import androidx.health.connect.client.records.MealType as HcMealType
 import androidx.health.connect.client.records.NutritionRecord
+import androidx.health.connect.client.records.metadata.Device
 import androidx.health.connect.client.records.metadata.Metadata
 import androidx.health.connect.client.units.Energy
 import androidx.health.connect.client.units.Mass
@@ -31,6 +34,52 @@ class HealthConnectManager(private val context: Context) {
         HealthPermission.getWritePermission(NutritionRecord::class),
         HealthPermission.getWritePermission(HydrationRecord::class),
     )
+
+    /** Asked for only when a glucose meter is set up. Write-only, like the others. */
+    val glucosePermission: String = HealthPermission.getWritePermission(BloodGlucoseRecord::class)
+
+    suspend fun hasGlucosePermission(): Boolean = glucosePermission in grantedPermissions()
+
+    /**
+     * Writes one blood glucose reading (capillary blood, from a finger-prick meter). Writing the same
+     * [id] again with a higher [version] replaces it, e.g. after the user changes its meal relation.
+     */
+    suspend fun writeGlucose(
+        id: String,
+        mmolPerL: Double,
+        time: Instant,
+        zone: ZoneId,
+        relationToMeal: Int,
+        fromMeter: Boolean,
+        meterModel: String? = null,
+        version: Long = System.currentTimeMillis(),
+    ): Boolean {
+        val client = client ?: return false
+        if (!hasGlucosePermission()) return false
+        // Meter readings are recorded by a device; readings typed in by hand would be manual entries.
+        val metadata = if (fromMeter) {
+            Metadata.autoRecorded(Device(model = meterModel, type = Device.TYPE_UNKNOWN), clientRecordId = id, clientRecordVersion = version)
+        } else {
+            Metadata.manualEntry(clientRecordId = id, clientRecordVersion = version)
+        }
+        client.insertRecords(
+            listOf(
+                BloodGlucoseRecord(
+                    time = time,
+                    zoneOffset = zone.rules.getOffset(time),
+                    metadata = metadata,
+                    level = BloodGlucose.millimolesPerLiter(mmolPerL),
+                    specimenSource = BloodGlucoseRecord.SPECIMEN_SOURCE_CAPILLARY_BLOOD,
+                    relationToMeal = relationToMeal,
+                ),
+            ),
+        )
+        return true
+    }
+
+    suspend fun deleteGlucose(id: String) {
+        if (!delete(BloodGlucoseRecord::class, id)) pending.add(GLUCOSE_PREFIX + id)
+    }
 
     fun availability(): HealthConnectAvailability =
         when (HealthConnectClient.getSdkStatus(context, PROVIDER_PACKAGE)) {
@@ -119,6 +168,7 @@ class HealthConnectManager(private val context: Context) {
     fun cancelPendingDelete(id: String) {
         pending.remove(MEAL_PREFIX + id)
         pending.remove(WATER_PREFIX + id)
+        pending.remove(GLUCOSE_PREFIX + id)
     }
 
     /** Retries deletes that failed while Health Connect was unavailable. Returns how many went through. */
@@ -129,6 +179,7 @@ class HealthConnectManager(private val context: Context) {
             val ok = when {
                 key.startsWith(MEAL_PREFIX) -> delete(NutritionRecord::class, key.removePrefix(MEAL_PREFIX))
                 key.startsWith(WATER_PREFIX) -> delete(HydrationRecord::class, key.removePrefix(WATER_PREFIX))
+                key.startsWith(GLUCOSE_PREFIX) -> delete(BloodGlucoseRecord::class, key.removePrefix(GLUCOSE_PREFIX))
                 else -> true
             }
             if (ok) {
@@ -175,6 +226,7 @@ internal fun MealType.toHealthConnect(): Int = when (this) {
 
 private const val MEAL_PREFIX = "meal:"
 private const val WATER_PREFIX = "water:"
+private const val GLUCOSE_PREFIX = "glucose:"
 
 /** Health Connect deletes still to do, kept across restarts. Only record ids, nothing else. */
 private class PendingDeletes(context: Context) {

@@ -108,6 +108,9 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.ytosko.neutrino.R
 import dev.ytosko.neutrino.data.meal.DaySummary
+import dev.ytosko.neutrino.data.glucose.GlucoseEntity
+import dev.ytosko.neutrino.ui.glucose.GlucoseDayCard
+import dev.ytosko.neutrino.ui.glucose.GlucoseEditDialog
 import dev.ytosko.neutrino.data.meal.LoggedMeal
 import dev.ytosko.neutrino.domain.MealType
 import dev.ytosko.neutrino.domain.MealWindows
@@ -157,6 +160,10 @@ fun HomeScreen(
     val shownDate by viewModel.date.collectAsStateWithLifecycle()
     val isToday by viewModel.isToday.collectAsStateWithLifecycle()
     val mealWindows by viewModel.mealWindows.collectAsStateWithLifecycle()
+    val glucoseReadings by viewModel.glucoseReadings.collectAsStateWithLifecycle()
+    val meterPaired by viewModel.meterPaired.collectAsStateWithLifecycle()
+    val glucoseRange by viewModel.glucoseRange.collectAsStateWithLifecycle()
+    var editingGlucose by remember { mutableStateOf<GlucoseEntity?>(null) }
     var pickingDate by remember { mutableStateOf(false) }
     val aiReady by viewModel.aiReady.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
@@ -217,6 +224,16 @@ fun HomeScreen(
             snackbar.currentSnackbarData?.dismiss()
             val result = snackbar.showSnackbar(mealDeleted, actionLabel = undo, duration = SnackbarDuration.Long)
             if (result == SnackbarResult.ActionPerformed) viewModel.undoDelete(stored)
+        }
+    }
+
+    val glucoseDeleted = stringResource(R.string.glucose_deleted)
+    fun deleteGlucoseWithUndo(reading: GlucoseEntity) {
+        scope.launch {
+            val stored = viewModel.deleteGlucose(reading.id) ?: return@launch
+            snackbar.currentSnackbarData?.dismiss()
+            val result = snackbar.showSnackbar(glucoseDeleted, actionLabel = undo, duration = SnackbarDuration.Long)
+            if (result == SnackbarResult.ActionPerformed) viewModel.undoGlucoseDelete(stored)
         }
     }
 
@@ -408,6 +425,17 @@ fun HomeScreen(
                     modifier = itemModifier,
                 )
             }
+            if (meterPaired || glucoseReadings.isNotEmpty()) {
+                item(key = "glucose") {
+                    GlucoseDayCard(
+                        readings = glucoseReadings,
+                        range = glucoseRange,
+                        isToday = isToday,
+                        onOpen = { editingGlucose = it },
+                        modifier = itemModifier.animateItem(),
+                    )
+                }
+            }
             if (summary != null && summary.meals.isEmpty()) {
                 if (isToday) item { NextMealHint(mealWindows.nextMainMeal(LocalTime.now()), itemModifier) }
                 item { EmptyMeals(isToday, itemModifier) }
@@ -461,6 +489,22 @@ fun HomeScreen(
                 }
             }
         }
+    }
+
+    editingGlucose?.let { reading ->
+        GlucoseEditDialog(
+            reading = reading,
+            range = glucoseRange,
+            onSave = { relation, time ->
+                viewModel.editGlucose(reading.id, relation, time)
+                editingGlucose = null
+            },
+            onDelete = {
+                editingGlucose = null
+                deleteGlucoseWithUndo(reading)
+            },
+            onDismiss = { editingGlucose = null },
+        )
     }
 
     if (pickingDate) {
