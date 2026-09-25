@@ -323,9 +323,9 @@ private fun CarbsByMealCard(data: InsightSummary, modifier: Modifier) {
     ChartCard(title = stringResource(R.string.health_carbs_by_meal), modifier = modifier) {
         order.forEach { type ->
             val carbs = data.byMealType.getValue(type).carbsG
-            val (container, content) = mealTypeColors(type)
+            val (color, soft) = mealTypeColors(type)
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                IconBadge(mealTypeIcon(type), container = container, content = content, size = 36.dp)
+                IconBadge(mealTypeIcon(type), container = soft, content = color, size = 36.dp)
                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Row {
                         Text(mealTypeLabel(type), style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
@@ -335,7 +335,7 @@ private fun CarbsByMealCard(data: InsightSummary, modifier: Modifier) {
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    ShareBar(if (totalCarbs > 0) (carbs / totalCarbs).toFloat() else 0f, container)
+                    ShareBar(if (totalCarbs > 0) (carbs / totalCarbs).toFloat() else 0f, color)
                 }
             }
         }
@@ -521,7 +521,7 @@ private fun TopFoodsCard(data: InsightSummary, modifier: Modifier) {
 @Composable
 private fun EmptyRange(modifier: Modifier) {
     Column(modifier = modifier.padding(vertical = Spacing.xl), horizontalAlignment = Alignment.CenterHorizontally) {
-        IconBadge(R.drawable.ic_chart_column, size = 64.dp)
+        IconBadge(R.drawable.ic_chart_column, container = NeutrinoTheme.colors.indigo.container, content = NeutrinoTheme.colors.indigo.content, size = 64.dp)
         Spacer(Modifier.size(Spacing.md))
         Text(stringResource(R.string.health_empty_title), style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center)
         Text(

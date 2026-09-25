@@ -1,5 +1,6 @@
 package dev.ytosko.neutrino.ui.settings
 
+import dev.ytosko.neutrino.ui.theme.NeutrinoTheme
 import android.Manifest
 import android.content.Intent
 import android.os.Build
@@ -120,7 +121,7 @@ fun MealsScreen(settings: SettingsRepository, onBack: () -> Unit) {
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(Spacing.md),
                 ) {
-                    IconBadge(icon = R.drawable.ic_bell, size = 40.dp)
+                    IconBadge(icon = R.drawable.ic_bell, container = NeutrinoTheme.colors.amber.container, content = NeutrinoTheme.colors.amber.content, size = 40.dp)
                     Column(modifier = Modifier.weight(1f)) {
                         Text(stringResource(R.string.settings_reminders), style = MaterialTheme.typography.titleSmall)
                         Text(

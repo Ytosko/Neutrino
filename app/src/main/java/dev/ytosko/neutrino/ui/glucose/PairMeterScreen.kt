@@ -253,11 +253,11 @@ fun PairMeterScreen(viewModel: PairMeterViewModel, onBack: () -> Unit, onDone: (
             MeterPicture(model, size = 180.dp)
             Spacer(Modifier.size(Spacing.lg))
             if (step == PairStep.Paired) {
-                Surface(shape = CircleShape, color = NeutrinoTheme.colors.proteinContainer) {
+                Surface(shape = CircleShape, color = NeutrinoTheme.colors.goodContainer) {
                     Icon(
                         painterResource(R.drawable.ic_check),
                         contentDescription = null,
-                        tint = NeutrinoTheme.colors.protein,
+                        tint = NeutrinoTheme.colors.good,
                         modifier = Modifier.padding(Spacing.sm).size(28.dp),
                     )
                 }

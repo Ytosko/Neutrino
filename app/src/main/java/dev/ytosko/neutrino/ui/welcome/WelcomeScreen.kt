@@ -74,16 +74,19 @@ fun WelcomeScreen(onGetStarted: () -> Unit, onRestore: () -> Unit, modifier: Mod
                     )
                     FeatureRow(
                         icon = R.drawable.ic_key,
+                        tint = NeutrinoTheme.colors.violet,
                         title = stringResource(R.string.welcome_point_ai_title),
                         body = stringResource(R.string.welcome_point_ai_body),
                     )
                     FeatureRow(
                         icon = R.drawable.ic_pencil,
+                        tint = NeutrinoTheme.colors.teal,
                         title = stringResource(R.string.welcome_point_review_title),
                         body = stringResource(R.string.welcome_point_review_body),
                     )
                     FeatureRow(
                         icon = R.drawable.ic_shield_check,
+                        tint = NeutrinoTheme.colors.sky,
                         title = stringResource(R.string.welcome_point_privacy_title),
                         body = stringResource(R.string.welcome_point_privacy_body),
                     )

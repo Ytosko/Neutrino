@@ -1,5 +1,6 @@
 package dev.ytosko.neutrino.ui.components
 
+import dev.ytosko.neutrino.ui.theme.Tint
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.height
@@ -172,13 +173,14 @@ fun FeatureRow(
     title: String,
     body: String,
     modifier: Modifier = Modifier,
+    tint: Tint = NeutrinoTheme.colors.coral,
 ) {
     Row(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(Spacing.md),
         verticalAlignment = Alignment.Top,
     ) {
-        IconBadge(icon = icon)
+        IconBadge(icon = icon, container = tint.container, content = tint.content)
         Column(modifier = Modifier.weight(1f)) {
             Text(text = title, style = MaterialTheme.typography.titleMedium)
             Text(

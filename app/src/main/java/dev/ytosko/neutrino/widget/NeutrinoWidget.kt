@@ -160,7 +160,7 @@ class NeutrinoWidget : GlanceAppWidget() {
                         style = TextStyle(color = colors.onSurfaceVariant, fontSize = 13.sp),
                     )
                     Spacer(GlanceModifier.defaultWeight())
-                    Text(data.glucose, style = TextStyle(color = colors.tertiary, fontSize = 14.sp, fontWeight = FontWeight.Medium), maxLines = 1)
+                    Text(data.glucose, style = TextStyle(color = GlucoseColor, fontSize = 14.sp, fontWeight = FontWeight.Medium), maxLines = 1)
                 }
             }
             Spacer(GlanceModifier.height(8.dp))
@@ -202,6 +202,9 @@ class NeutrinoWidget : GlanceAppWidget() {
         }
     }
 }
+
+/** Glucose magenta, as in the app. */
+private val GlucoseColor = androidx.glance.color.ColorProvider(day = androidx.compose.ui.graphics.Color(0xFFBE185D), night = androidx.compose.ui.graphics.Color(0xFFF9A8D4))
 
 /** The app's own colours (light and dark), so the widget looks like Neutrino. */
 private object NeutrinoWidgetColors {

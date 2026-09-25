@@ -50,6 +50,8 @@ import dev.ytosko.neutrino.ui.components.SetupScaffold
 import dev.ytosko.neutrino.ui.health.HealthConnectViewModel
 import dev.ytosko.neutrino.ui.theme.Spacing
 import kotlinx.coroutines.flow.Flow
+import dev.ytosko.neutrino.ui.theme.Tint
+import dev.ytosko.neutrino.ui.theme.NeutrinoTheme
 import dev.ytosko.neutrino.data.settings.AppLanguage
 import dev.ytosko.neutrino.widget.NeutrinoWidget
 import kotlinx.coroutines.launch
@@ -82,6 +84,7 @@ fun SettingsScreen(
     repository: SettingsRepository,
 ) {
     val appSettings by settings.collectAsStateWithLifecycle(initialValue = AppSettings())
+    val c = NeutrinoTheme.colors
     val backupState by backup.collectAsStateWithLifecycle(initialValue = null)
     val pairedMeters by meters.collectAsStateWithLifecycle(initialValue = emptyList())
     val health by healthViewModel.state.collectAsStateWithLifecycle()
@@ -112,6 +115,7 @@ fun SettingsScreen(
             val provider = appSettings.activeProvider
             SettingRow(
                 icon = R.drawable.ic_sparkles,
+                tint = c.violet,
                 title = stringResource(R.string.settings_ai_provider),
                 value = if (provider != null && appSettings.aiReady) {
                     "${provider.displayName} · ${appSettings.models[provider]}"
@@ -124,6 +128,7 @@ fun SettingsScreen(
         Section(stringResource(R.string.settings_section_health)) {
             SettingRow(
                 icon = R.drawable.ic_heart_pulse,
+                tint = c.coral,
                 title = stringResource(R.string.settings_section_health),
                 value = stringResource(
                     if (health.granted) R.string.settings_hc_status_connected else R.string.settings_hc_status_disconnected,
@@ -135,6 +140,7 @@ fun SettingsScreen(
             val current = backupState
             SettingRow(
                 icon = R.drawable.ic_archive,
+                tint = c.sky,
                 title = stringResource(R.string.backup_settings_title),
                 value = when {
                     current == null -> null
@@ -149,6 +155,7 @@ fun SettingsScreen(
         Section(stringResource(R.string.settings_section_meter)) {
             SettingRow(
                 icon = R.drawable.ic_activity,
+                tint = c.rose,
                 title = stringResource(R.string.meters_title),
                 value = when (pairedMeters.size) {
                     0 -> stringResource(R.string.settings_meter_off)
@@ -160,6 +167,7 @@ fun SettingsScreen(
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             SettingRow(
                 icon = R.drawable.ic_chart_column,
+                tint = c.rose,
                 title = stringResource(R.string.settings_glucose_unit),
                 value = appSettings.glucoseUnit.label,
                 onClick = { choosingUnit = true },
@@ -167,6 +175,7 @@ fun SettingsScreen(
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             SwitchRow(
                 icon = R.drawable.ic_bell,
+                tint = c.rose,
                 title = stringResource(R.string.settings_test_reminder),
                 subtitle = stringResource(R.string.settings_test_reminder_body),
                 checked = appSettings.afterMealReminder,
@@ -181,6 +190,7 @@ fun SettingsScreen(
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             SwitchRow(
                 icon = R.drawable.ic_smartphone,
+                tint = c.rose,
                 title = stringResource(R.string.settings_widget_glucose),
                 subtitle = stringResource(R.string.settings_widget_glucose_body),
                 checked = appSettings.widgetShowsGlucose,
@@ -190,6 +200,7 @@ fun SettingsScreen(
         Section(stringResource(R.string.settings_section_goals)) {
             SettingRow(
                 icon = R.drawable.ic_chart_column,
+                tint = c.green,
                 title = stringResource(R.string.goals_title),
                 value = goalsSummary(appSettings),
                 onClick = onOpenGoals,
@@ -199,6 +210,7 @@ fun SettingsScreen(
             val time = { t: java.time.LocalTime -> t.format(java.time.format.DateTimeFormatter.ofLocalizedTime(java.time.format.FormatStyle.SHORT)) }
             SettingRow(
                 icon = R.drawable.ic_bell,
+                tint = c.amber,
                 title = stringResource(R.string.meals_title),
                 value = if (appSettings.remindersEnabled) {
                     stringResource(
@@ -215,6 +227,7 @@ fun SettingsScreen(
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             SwitchRow(
                 icon = R.drawable.ic_history,
+                tint = c.amber,
                 title = stringResource(R.string.settings_weekly),
                 subtitle = stringResource(R.string.settings_weekly_body),
                 checked = appSettings.weeklySummary,
@@ -230,6 +243,7 @@ fun SettingsScreen(
         Section(stringResource(R.string.settings_section_data)) {
             SettingRow(
                 icon = R.drawable.ic_archive,
+                tint = c.indigo,
                 title = stringResource(R.string.export_title),
                 value = stringResource(R.string.settings_export_value),
                 onClick = onOpenExport,
@@ -238,6 +252,7 @@ fun SettingsScreen(
         Section(stringResource(R.string.settings_section_privacy)) {
             SwitchRow(
                 icon = R.drawable.ic_lock,
+                tint = c.slate,
                 title = stringResource(R.string.settings_app_lock),
                 subtitle = stringResource(R.string.settings_app_lock_body),
                 checked = appSettings.appLock,
@@ -254,6 +269,7 @@ fun SettingsScreen(
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             SwitchRow(
                 icon = R.drawable.ic_eye_off,
+                tint = c.slate,
                 title = stringResource(R.string.settings_hide_recents),
                 subtitle = stringResource(R.string.settings_hide_recents_body),
                 checked = appSettings.hideInRecents,
@@ -263,17 +279,18 @@ fun SettingsScreen(
         Section(stringResource(R.string.settings_section_general)) {
             SettingRow(
                 icon = R.drawable.ic_globe,
+                tint = c.cyan,
                 title = stringResource(R.string.settings_language),
                 value = languageName(language),
                 onClick = { choosingLanguage = true },
             )
         }
         Section(stringResource(R.string.settings_section_about)) {
-            SettingRow(R.drawable.ic_shield_check, stringResource(R.string.settings_privacy), null, external = true) { uriHandler.openUri(privacyUrl) }
+            SettingRow(icon = R.drawable.ic_shield_check, tint = c.slate, title = stringResource(R.string.settings_privacy), value = null, external = true) { uriHandler.openUri(privacyUrl) }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            SettingRow(R.drawable.ic_info, stringResource(R.string.settings_terms), null, external = true) { uriHandler.openUri(termsUrl) }
+            SettingRow(icon = R.drawable.ic_info, tint = c.slate, title = stringResource(R.string.settings_terms), value = null, external = true) { uriHandler.openUri(termsUrl) }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            SettingRow(R.drawable.ic_code, stringResource(R.string.settings_source), null, external = true) { uriHandler.openUri(sourceUrl) }
+            SettingRow(icon = R.drawable.ic_code, tint = c.slate, title = stringResource(R.string.settings_source), value = null, external = true) { uriHandler.openUri(sourceUrl) }
         }
         Text(
             stringResource(R.string.settings_version, BuildConfig.VERSION_NAME),
@@ -379,7 +396,7 @@ private fun goalsSummary(settings: AppSettings): String {
 
 /** A setting that's on or off: the whole row toggles it. */
 @Composable
-private fun SwitchRow(icon: Int, title: String, subtitle: String?, checked: Boolean, onChange: (Boolean) -> Unit) {
+private fun SwitchRow(icon: Int, title: String, subtitle: String?, checked: Boolean, tint: Tint, onChange: (Boolean) -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -389,7 +406,7 @@ private fun SwitchRow(icon: Int, title: String, subtitle: String?, checked: Bool
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
-        IconBadge(icon = icon, size = 40.dp)
+        IconBadge(icon = icon, container = tint.container, content = tint.content, size = 40.dp)
         Column(modifier = Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.titleSmall)
             if (subtitle != null) {
@@ -420,6 +437,7 @@ private fun Section(title: String, content: @Composable () -> Unit) {
 @Composable
 private fun SettingRow(
     icon: Int,
+    tint: Tint,
     title: String,
     value: String?,
     external: Boolean = false,
@@ -434,7 +452,7 @@ private fun SettingRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
-        IconBadge(icon = icon, size = 40.dp)
+        IconBadge(icon = icon, container = tint.container, content = tint.content, size = 40.dp)
         Column(modifier = Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.titleSmall)
             if (value != null) {

@@ -1,5 +1,7 @@
 package dev.ytosko.neutrino.ui.export
 
+import dev.ytosko.neutrino.ui.theme.Tint
+import dev.ytosko.neutrino.ui.theme.NeutrinoTheme
 import android.content.ClipData
 import android.content.Intent
 import android.net.Uri
@@ -130,6 +132,7 @@ fun ExportScreen(export: DataExport, onBack: () -> Unit) {
         Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
             ExportCard(
                 icon = R.drawable.ic_heart_pulse,
+                tint = NeutrinoTheme.colors.rose,
                 title = stringResource(R.string.export_report_title),
                 body = stringResource(R.string.export_report_body),
                 working = working == Kind.Report,
@@ -149,6 +152,7 @@ fun ExportScreen(export: DataExport, onBack: () -> Unit) {
             }
             ExportCard(
                 icon = R.drawable.ic_archive,
+                tint = NeutrinoTheme.colors.indigo,
                 title = stringResource(R.string.export_data_title),
                 body = stringResource(R.string.export_data_body),
                 working = working == Kind.Data,
@@ -168,6 +172,7 @@ fun ExportScreen(export: DataExport, onBack: () -> Unit) {
 @Composable
 private fun ExportCard(
     icon: Int,
+    tint: Tint,
     title: String,
     body: String,
     working: Boolean,
@@ -183,7 +188,7 @@ private fun ExportCard(
     ) {
         Column(Modifier.fillMaxWidth().padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
-                IconBadge(icon, size = 44.dp)
+                IconBadge(icon, container = tint.container, content = tint.content, size = 44.dp)
                 Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
             }
             Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)

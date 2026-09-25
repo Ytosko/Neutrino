@@ -426,7 +426,7 @@ private fun AnalyzingBanner(model: String?, modifier: Modifier) {
     Row(
         modifier = modifier
             .clip(MaterialTheme.shapes.large)
-            .background(MaterialTheme.colorScheme.primaryContainer)
+            .background(NeutrinoTheme.colors.violet.container)
             .padding(horizontal = Spacing.md, vertical = Spacing.sm)
             .semantics { liveRegion = LiveRegionMode.Polite },
         verticalAlignment = Alignment.CenterVertically,

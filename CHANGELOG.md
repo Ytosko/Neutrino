@@ -6,6 +6,11 @@ Every release has a section here, headed `## [x.y.z] - YYYY-MM-DD` with an optio
 
 Faster logging, your glucose next to your meals, reports for your doctor, and Neutrino in Bangla.
 
+### A fresh new look
+- **Clean and colourful:** white cards on a soft grey page (deep blue-grey in dark mode) instead of pink everywhere, so food photos and numbers stand out.
+- **Colours that mean something:** coral for Neutrino and its main buttons; amber carbs, teal protein, violet fat, blue water, magenta glucose, green for "in range"; each part of Settings has its own colour.
+- **Clearer warnings:** errors use a deeper red, so they no longer look like the brand colour.
+
 ### Logging
 - **Log again:** your starred and recent meals are in the "Log a meal" sheet. Tap one to log it again now (no photo, no AI cost), with Undo. Star the ones you eat often to keep them at the top.
 - **Home screen widget:** today's carbs and calories, your water with a one-tap + 250 ml, a camera button that opens straight into logging a meal, and your latest glucose reading (you can hide it in Settings).

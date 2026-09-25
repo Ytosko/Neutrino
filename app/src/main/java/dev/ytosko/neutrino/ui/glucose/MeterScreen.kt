@@ -158,14 +158,14 @@ private fun Hero(meter: PairedMeter, context: android.content.Context) {
         Spacer(Modifier.size(Spacing.sm))
         Surface(
             shape = CircleShape,
-            color = if (notPaired) MaterialTheme.colorScheme.errorContainer else NeutrinoTheme.colors.proteinContainer,
+            color = if (notPaired) MaterialTheme.colorScheme.errorContainer else NeutrinoTheme.colors.goodContainer,
         ) {
             Row(
                 modifier = Modifier.padding(horizontal = Spacing.sm, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                val tint = if (notPaired) MaterialTheme.colorScheme.onErrorContainer else NeutrinoTheme.colors.protein
+                val tint = if (notPaired) MaterialTheme.colorScheme.onErrorContainer else NeutrinoTheme.colors.good
                 Icon(painterResource(if (notPaired) R.drawable.ic_circle_alert else R.drawable.ic_check), contentDescription = null, tint = tint, modifier = Modifier.size(16.dp))
                 Text(
                     if (notPaired) stringResource(R.string.meters_needs_pairing) else lastSyncText(context, meter.lastSyncAt),
@@ -180,7 +180,7 @@ private fun Hero(meter: PairedMeter, context: android.content.Context) {
 @Composable
 private fun SyncCard(meter: PairedMeter, syncing: Boolean, onSync: () -> Unit) {
     SectionCard(title = stringResource(R.string.meter_sync_title)) {
-        InfoRow(R.drawable.ic_refresh, NeutrinoTheme.colors.protein) {
+        InfoRow(R.drawable.ic_refresh, NeutrinoTheme.colors.glucose) {
             Text(
                 stringResource(if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) R.string.meter_auto_note else R.string.meter_auto_note_old),
                 style = MaterialTheme.typography.bodyMedium,
@@ -216,7 +216,7 @@ private fun ClockStatus(meter: PairedMeter) {
         abs(offset) >= 24 * 3600 -> stringResource(R.string.meter_clock_reset) to true
         else -> stringResource(if (offset > 0) R.string.meter_clock_behind else R.string.meter_clock_ahead, duration(abs(offset))) to true
     }
-    InfoRow(R.drawable.ic_clock, if (isProblem) NeutrinoTheme.colors.carbs else NeutrinoTheme.colors.protein) {
+    InfoRow(R.drawable.ic_clock, if (isProblem) NeutrinoTheme.colors.carbs else NeutrinoTheme.colors.good) {
         Text(text, style = MaterialTheme.typography.bodyMedium)
     }
 }

@@ -1,5 +1,6 @@
 package dev.ytosko.neutrino.ui.glucose
 
+import dev.ytosko.neutrino.ui.theme.NeutrinoTheme
 import android.text.format.DateFormat
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
@@ -96,8 +97,8 @@ fun GlucoseDayCard(
         ) {
             IconBadge(
                 R.drawable.ic_activity,
-                container = MaterialTheme.colorScheme.tertiaryContainer,
-                content = MaterialTheme.colorScheme.tertiary,
+                container = NeutrinoTheme.colors.glucoseContainer,
+                content = NeutrinoTheme.colors.glucose,
             )
             Column(modifier = Modifier.weight(1f)) {
                 Text(stringResource(R.string.glucose_title), style = MaterialTheme.typography.titleMedium)

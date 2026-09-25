@@ -1,5 +1,6 @@
 package dev.ytosko.neutrino.ui.glucose
 
+import dev.ytosko.neutrino.ui.theme.NeutrinoTheme
 import android.content.Context
 import android.text.format.DateUtils
 import androidx.compose.foundation.layout.Arrangement
@@ -104,7 +105,7 @@ fun MetersScreen(viewModel: MetersViewModel, onBack: () -> Unit, onAdd: () -> Un
             if (!healthConnectAllowed) {
                 Card(
                     shape = MaterialTheme.shapes.large,
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                    colors = CardDefaults.cardColors(containerColor = NeutrinoTheme.colors.glucoseContainer),
                 ) {
                     Column(Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                         Text(stringResource(R.string.meter_hc_title), style = MaterialTheme.typography.titleSmall)

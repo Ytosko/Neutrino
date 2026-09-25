@@ -43,7 +43,7 @@ fun glucoseUnitLabel(): String = LocalGlucoseUnit.current.label
 @Composable
 fun bandColor(band: GlucoseBand): Color = when (band) {
     GlucoseBand.Low -> MaterialTheme.colorScheme.error
-    GlucoseBand.InRange -> NeutrinoTheme.colors.protein
+    GlucoseBand.InRange -> NeutrinoTheme.colors.good
     GlucoseBand.High -> NeutrinoTheme.colors.carbs
 }
 

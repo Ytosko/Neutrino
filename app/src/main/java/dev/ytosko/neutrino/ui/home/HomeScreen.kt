@@ -1,5 +1,7 @@
 package dev.ytosko.neutrino.ui.home
 
+import androidx.compose.material3.ButtonDefaults
+import dev.ytosko.neutrino.ui.theme.Tint
 import dev.ytosko.neutrino.domain.insights.compactNumber
 import dev.ytosko.neutrino.domain.insights.formatWater
 import dev.ytosko.neutrino.ui.components.mealTypeIcon
@@ -406,8 +408,8 @@ fun HomeScreen(
                 FloatingActionButton(
                     onClick = { tab = HomeTab.Health },
                     shape = CircleShape,
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.primary,
+                    containerColor = NeutrinoTheme.colors.rose.container,
+                    contentColor = NeutrinoTheme.colors.rose.content,
                 ) {
                     Icon(painterResource(R.drawable.ic_heart), contentDescription = stringResource(R.string.nav_open_health))
                 }
@@ -524,17 +526,17 @@ fun HomeScreen(
                     style = MaterialTheme.typography.titleLarge,
                     modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.sm),
                 )
-                SheetOption(R.drawable.ic_camera, stringResource(R.string.home_take_photo)) {
+                SheetOption(R.drawable.ic_camera, stringResource(R.string.home_take_photo), NeutrinoTheme.colors.coral) {
                     withAi { openCamera() }
                 }
-                SheetOption(R.drawable.ic_image, stringResource(R.string.home_choose_photo)) {
+                SheetOption(R.drawable.ic_image, stringResource(R.string.home_choose_photo), NeutrinoTheme.colors.sky) {
                     withAi { gallery.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
                 }
-                SheetOption(R.drawable.ic_search, stringResource(R.string.home_add_manually)) {
+                SheetOption(R.drawable.ic_search, stringResource(R.string.home_add_manually), NeutrinoTheme.colors.amber) {
                     showSheet = false
                     onAddManually()
                 }
-                SheetOption(R.drawable.ic_activity, stringResource(R.string.home_add_glucose)) {
+                SheetOption(R.drawable.ic_activity, stringResource(R.string.home_add_glucose), NeutrinoTheme.colors.rose) {
                     showSheet = false
                     addingGlucose = true
                 }
@@ -603,7 +605,7 @@ private fun BackupReminder(backup: BackupState, onOpen: () -> Unit, modifier: Mo
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(
-            containerColor = if (problem) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.primaryContainer,
+            containerColor = if (problem) MaterialTheme.colorScheme.errorContainer else NeutrinoTheme.colors.sky.container,
         ),
     ) {
         Row(
@@ -611,7 +613,7 @@ private fun BackupReminder(backup: BackupState, onOpen: () -> Unit, modifier: Mo
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
-            val content = if (problem) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimaryContainer
+            val content = if (problem) MaterialTheme.colorScheme.onErrorContainer else NeutrinoTheme.colors.sky.content
             Icon(painterResource(if (problem) R.drawable.ic_circle_alert else R.drawable.ic_shield_check), contentDescription = null, tint = content)
             Column(modifier = Modifier.weight(1f)) {
                 Text(stringResource(R.string.home_backup_title), style = MaterialTheme.typography.titleSmall, color = content)
@@ -634,7 +636,7 @@ private fun newCaptureUri(context: Context): Uri {
 }
 
 @Composable
-private fun SheetOption(icon: Int, label: String, onClick: () -> Unit) {
+private fun SheetOption(icon: Int, label: String, tint: Tint, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -644,7 +646,7 @@ private fun SheetOption(icon: Int, label: String, onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
-        IconBadge(icon = icon)
+        IconBadge(icon = icon, container = tint.container, content = tint.content)
         Text(label, style = MaterialTheme.typography.titleMedium)
     }
 }
@@ -698,6 +700,7 @@ private fun WaterCard(waterMl: Int, goalMl: Int?, isToday: Boolean, onRemove: ()
             }
             FilledTonalButton(
                 onClick = onAdd,
+                colors = ButtonDefaults.filledTonalButtonColors(containerColor = colors.waterContainer, contentColor = colors.water),
                 enabled = waterMl + HomeViewModel.GLASS_ML <= HomeViewModel.MAX_WATER_ML,
                 modifier = Modifier.heightIn(min = 48.dp),
             ) {
@@ -868,7 +871,7 @@ enum class HomeTab { Days, Health }
 /** "🌅 Breakfast ········ 520 kcal": the meal's icon, name and subtotal. */
 @Composable
 private fun MealGroupHeader(type: MealType, kcal: Double, modifier: Modifier = Modifier) {
-    val (container, content) = mealTypeColors(type)
+    val (content, container) = mealTypeColors(type)
     Row(
         modifier = modifier.fillMaxWidth().padding(top = Spacing.xs).semantics(mergeDescendants = true) { heading() },
         verticalAlignment = Alignment.CenterVertically,
@@ -896,7 +899,7 @@ private fun MealGlucoseLine(glucose: MealGlucose) {
         else -> stringResource(R.string.home_meal_glucose_after, unit.format(glucose.after!!.mmolPerL), unit.label)
     }
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.padding(top = 2.dp)) {
-        Icon(painterResource(R.drawable.ic_activity), contentDescription = null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(14.dp))
+        Icon(painterResource(R.drawable.ic_activity), contentDescription = null, tint = NeutrinoTheme.colors.glucose, modifier = Modifier.size(14.dp))
         Text(text, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

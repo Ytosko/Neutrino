@@ -1,5 +1,6 @@
 package dev.ytosko.neutrino.ui.lock
 
+import dev.ytosko.neutrino.ui.theme.NeutrinoTheme
 import android.content.Context
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_WEAK
@@ -66,7 +67,7 @@ fun LockScreen(onUnlock: () -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            IconBadge(R.drawable.ic_lock, size = 72.dp)
+            IconBadge(R.drawable.ic_lock, container = NeutrinoTheme.colors.slate.container, content = NeutrinoTheme.colors.slate.content, size = 72.dp)
             Spacer(Modifier.size(Spacing.lg))
             Text(stringResource(R.string.lock_title), style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center)
             Text(
