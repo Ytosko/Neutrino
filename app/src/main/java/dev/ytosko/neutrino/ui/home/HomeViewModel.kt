@@ -9,6 +9,8 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -23,9 +25,15 @@ class HomeViewModel(
     private val zone: ZoneId = ZoneId.systemDefault(),
 ) : ViewModel() {
 
-    private val date = MutableStateFlow(LocalDate.now(zone))
+    private val today = MutableStateFlow(LocalDate.now(zone))
+    private val _date = MutableStateFlow(today.value)
+    /** The day on screen; never after today. */
+    val date: StateFlow<LocalDate> = _date.asStateFlow()
 
-    val day: StateFlow<DaySummary?> = date
+    val isToday: StateFlow<Boolean> = combine(_date, today) { shown, now -> shown == now }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, true)
+
+    val day: StateFlow<DaySummary?> = _date
         .flatMapLatest { meals.observeDay(it, zone) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
@@ -33,10 +41,23 @@ class HomeViewModel(
         .map { it.aiReady }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
 
-    /** Call on resume so the screen rolls over at midnight. */
+    /** Call on resume: if today was on screen, it rolls over at midnight; a past day stays put. */
     fun refreshDate() {
-        date.value = LocalDate.now(zone)
+        val now = LocalDate.now(zone)
+        if (_date.value == today.value) _date.value = now
+        today.value = now
     }
+
+    fun showDate(value: LocalDate) {
+        _date.value = minOf(value, today.value)
+    }
+
+    fun previousDay() = showDate(_date.value.minusDays(1))
+    fun nextDay() = showDate(_date.value.plusDays(1))
+    fun showToday() = showDate(today.value)
+
+    /** The shown day for logging a meal, or null when it's today. */
+    fun pastDayEpoch(): Long? = _date.value.takeIf { it != today.value }?.toEpochDay()
 
     fun deleteMeal(id: String) {
         viewModelScope.launch { meals.deleteMeal(id) }

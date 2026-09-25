@@ -50,6 +50,15 @@
     <string name="home_delete_confirm">Delete</string>
     <string name="home_cancel">Cancel</string>
     <string name="home_meal_line">%1$s · %2$d kcal</string>
+    <string name="home_yesterday">Yesterday</string>
+    <string name="home_pick_date">Choose a day</string>
+    <string name="home_previous_day">Previous day</string>
+    <string name="home_next_day">Next day</string>
+    <string name="home_back_to_today">Back to today</string>
+    <string name="home_show_day">Show</string>
+    <string name="home_water_amount_day">%1$d ml</string>
+    <string name="home_empty_day_title">Nothing logged this day</string>
+    <string name="home_empty_day_body">Forgot something? Tap Log a meal to add it to this day.</string>
     <string name="home_not_synced">Not synced</string>
 
     <!-- Review -->
@@ -271,17 +280,17 @@
     <string name="home_backup_problem">Your backup needs attention.</string>
 
     <!-- Restore -->
+    <string name="restore_result_title">Restore your data</string>
+    <string name="restore_found_phone">Backup on this phone</string>
+    <string name="restore_found_drive">Backup in Google Drive</string>
+    <string name="restore_none_in_account">No Neutrino backup in %1$s</string>
+    <string name="restore_none_in_drive">No Neutrino backup in this Google account</string>
+    <string name="restore_try_elsewhere">Not the right one? Go back to look on this phone or in another Google account.</string>
+    <string name="restore_look_elsewhere">Look somewhere else</string>
     <string name="restore_start_fresh">No, start fresh</string>
-    <string name="restore_latest">Latest</string>
-    <string name="restore_none_in_accounts">No backup in %1$s</string>
-    <string name="restore_drive_another">Check another Google account</string>
-    <string name="restore_on_phone">On this phone</string>
-    <string name="restore_found_on_phone">Backup found</string>
     <string name="restore_none_on_phone">No backup on this phone</string>
     <string name="restore_from_phone_body">Look for a backup saved on this phone</string>
     <string name="restore_from_phone">On this phone</string>
-    <string name="restore_look_title">Look for a backup</string>
-    <string name="restore_found_title">Backups found</string>
     <string name="storage_access_continue">Continue</string>
     <string name="storage_access_body">Neutrino keeps its backup on this phone so it\'s still there if you reinstall the app. On the next screen, turn on the switch to allow access. Neutrino only touches its own backup and never looks at your other files.</string>
     <string name="storage_access_title">Allow storage access</string>
@@ -290,7 +299,7 @@
     <string name="restore_title">Do you have a Neutrino backup?</string>
     <string name="restore_body">Bring back your meals, foods and AI settings from this phone or your Google Drive.</string>
     <string name="restore_from_drive">From Google Drive</string>
-    <string name="restore_from_drive_body">Pick your Google account to find its backup</string>
+    <string name="restore_from_drive_body">Choose a Google account to look in its Drive</string>
     <string name="restore_searching">Looking for your backup…</string>
     <string name="restore_found_line">%1$s · %2$s · %3$s · %4$s</string>
     <plurals name="restore_meals">

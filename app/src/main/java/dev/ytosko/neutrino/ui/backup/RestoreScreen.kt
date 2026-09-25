@@ -2,10 +2,10 @@ package dev.ytosko.neutrino.ui.backup
 
 import android.app.Activity
 import android.text.format.Formatter
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
@@ -25,8 +24,8 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -34,8 +33,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.foundation.background
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
@@ -55,8 +52,8 @@ import dev.ytosko.neutrino.ui.theme.NeutrinoTheme
 import dev.ytosko.neutrino.ui.theme.Spacing
 
 /**
- * "Do you have a Neutrino backup?": checks this phone and the Google accounts the user picks,
- * lists what it finds (newest marked Latest) and restores the chosen one with its password.
+ * "Do you have a Neutrino backup?": pick where to look, see what's there, go back and try
+ * somewhere else (another Google account, say) until you tap Restore.
  */
 @Composable
 fun RestoreScreen(viewModel: RestoreViewModel, onBack: () -> Unit, onStartFresh: () -> Unit, onRestored: () -> Unit) {
@@ -69,16 +66,19 @@ fun RestoreScreen(viewModel: RestoreViewModel, onBack: () -> Unit, onStartFresh:
     LaunchedEffect(viewModel) { viewModel.consent.collect { consent.launch(IntentSenderRequest.Builder(it).build()) } }
     LaunchedEffect(viewModel) { viewModel.restored.collect { onRestored() } }
 
-    val selected = state.selected
+    val step = state.step
+    // From a result, back returns to the choice rather than leaving the screen.
+    BackHandler(enabled = step != RestoreStep.Choose) { viewModel.back() }
+
     SetupScaffold(
-        title = stringResource(R.string.restore_title),
-        subtitle = stringResource(R.string.restore_body),
-        onBack = onBack,
+        title = stringResource(if (step == RestoreStep.Choose) R.string.restore_title else R.string.restore_result_title),
+        subtitle = if (step == RestoreStep.Choose) stringResource(R.string.restore_body) else null,
+        onBack = { if (!viewModel.back()) onBack() },
         bottomBar = {
-            if (selected != null) {
-                Button(
+            when (step) {
+                is RestoreStep.Found -> Button(
                     onClick = viewModel::restore,
-                    enabled = state.password.isNotEmpty() && !state.busy,
+                    enabled = state.password.isNotEmpty() && !state.restoring,
                     modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
                 ) {
                     if (state.restoring) {
@@ -89,64 +89,56 @@ fun RestoreScreen(viewModel: RestoreViewModel, onBack: () -> Unit, onStartFresh:
                         Text(stringResource(R.string.restore_button))
                     }
                 }
-            }
-            TextButton(onClick = onStartFresh, enabled = !state.restoring, modifier = Modifier.heightIn(min = 48.dp)) {
-                Text(stringResource(R.string.restore_start_fresh))
+                RestoreStep.Choose -> TextButton(onClick = onStartFresh, modifier = Modifier.heightIn(min = 48.dp)) {
+                    Text(stringResource(R.string.restore_start_fresh))
+                }
+                else -> Unit
             }
         },
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
-            if (state.found.isNotEmpty()) {
-                Text(stringResource(R.string.restore_found_title), style = MaterialTheme.typography.titleSmall)
-                state.found.forEach { backup ->
-                    FoundCard(
-                        backup = backup,
-                        selected = backup.id == state.selectedId,
-                        latest = backup.id == state.latestId,
-                        enabled = !state.restoring,
-                        onSelect = { viewModel.select(backup.id) },
+            when (step) {
+                RestoreStep.Choose -> {
+                    PlaceCard(
+                        icon = R.drawable.ic_smartphone,
+                        title = stringResource(R.string.restore_from_phone),
+                        body = stringResource(R.string.restore_from_phone_body),
+                        onClick = { withAccess { viewModel.lookOnPhone() } },
                     )
-                }
-            }
-
-            if (selected != null) {
-                PasswordEntry(state, viewModel)
-            }
-
-            // Once a backup is found there's nothing more to look for; just restore it.
-            if (state.found.isNotEmpty()) return@Column
-            Text(stringResource(R.string.restore_look_title), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = Spacing.xs))
-            SourceCard(
-                icon = R.drawable.ic_smartphone,
-                title = stringResource(R.string.restore_from_phone),
-                status = when (state.phone) {
-                    CheckState.NotChecked -> stringResource(R.string.restore_from_phone_body)
-                    CheckState.Checking -> stringResource(R.string.restore_searching)
-                    CheckState.None -> stringResource(R.string.restore_none_on_phone)
-                    CheckState.Found -> stringResource(R.string.restore_found_on_phone)
-                    CheckState.Failed -> stringResource(R.string.restore_failed)
-                },
-                busy = state.phone == CheckState.Checking,
-                enabled = !state.busy,
-                onClick = { withAccess { viewModel.checkPhone() } },
-            )
-            if (state.driveAvailable) {
-                val checkedAny = state.drive != CheckState.NotChecked
-                SourceCard(
-                    icon = R.drawable.ic_cloud_upload,
-                    title = stringResource(if (checkedAny) R.string.restore_drive_another else R.string.restore_from_drive),
-                    status = when {
-                        state.drive == CheckState.Checking -> stringResource(R.string.restore_searching)
-                        state.drive == CheckState.Failed -> stringResource(R.string.restore_failed)
-                        state.emptyAccounts.isNotEmpty() -> stringResource(
-                            R.string.restore_none_in_accounts,
-                            state.emptyAccounts.joinToString { it.ifEmpty { "Google" } },
+                    if (state.driveAvailable) {
+                        PlaceCard(
+                            icon = R.drawable.ic_cloud_upload,
+                            title = stringResource(R.string.restore_from_drive),
+                            body = stringResource(R.string.restore_from_drive_body),
+                            onClick = viewModel::lookInDrive,
                         )
-                        else -> stringResource(R.string.restore_from_drive_body)
+                    }
+                }
+                is RestoreStep.Looking -> Row(
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(vertical = Spacing.md),
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                    Text(stringResource(R.string.restore_searching), style = MaterialTheme.typography.bodyLarge)
+                }
+                is RestoreStep.Found -> {
+                    FoundCard(step.backup)
+                    PasswordEntry(state, viewModel)
+                }
+                is RestoreStep.NotFound -> ResultMessage(
+                    icon = if (step.place == RestorePlace.Phone) R.drawable.ic_smartphone else R.drawable.ic_cloud_upload,
+                    text = when {
+                        step.place == RestorePlace.Phone -> stringResource(R.string.restore_none_on_phone)
+                        !step.email.isNullOrEmpty() -> stringResource(R.string.restore_none_in_account, step.email)
+                        else -> stringResource(R.string.restore_none_in_drive)
                     },
-                    busy = state.drive == CheckState.Checking,
-                    enabled = !state.busy,
-                    onClick = { viewModel.checkDrive(anotherAccount = checkedAny) },
+                    onBack = { viewModel.back() },
+                )
+                is RestoreStep.Failed -> ResultMessage(
+                    icon = R.drawable.ic_circle_alert,
+                    text = stringResource(R.string.restore_failed),
+                    onBack = { viewModel.back() },
                 )
             }
         }
@@ -154,27 +146,39 @@ fun RestoreScreen(viewModel: RestoreViewModel, onBack: () -> Unit, onStartFresh:
 }
 
 @Composable
-private fun FoundCard(backup: FoundBackup, selected: Boolean, latest: Boolean, enabled: Boolean, onSelect: () -> Unit) {
-    val colors = NeutrinoTheme.colors
-    val context = LocalContext.current
-    val header = backup.header
+private fun PlaceCard(icon: Int, title: String, body: String, onClick: () -> Unit) {
     Card(
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
-        border = BorderStroke(
-            if (selected) 2.dp else 1.dp,
-            if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
-        ),
+        border = CardDefaults.outlinedCardBorder(),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .selectable(selected = selected, enabled = enabled, role = Role.RadioButton, onClick = onSelect)
+                .heightIn(min = 72.dp)
+                .clickable(role = Role.Button, onClick = onClick)
                 .padding(horizontal = Spacing.md, vertical = Spacing.sm),
             horizontalArrangement = Arrangement.spacedBy(Spacing.md),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            val phone = backup.source == RestoreSource.Phone
+            IconBadge(icon, size = 40.dp)
+            Column(modifier = Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.titleSmall)
+                Text(body, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Icon(painterResource(R.drawable.ic_chevron_right), contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+        }
+    }
+}
+
+@Composable
+private fun FoundCard(backup: FoundBackup) {
+    val colors = NeutrinoTheme.colors
+    val context = LocalContext.current
+    val header = backup.header
+    val phone = backup.source == RestoreSource.Phone
+    BackupCard {
+        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md), verticalAlignment = Alignment.CenterVertically) {
             IconBadge(
                 if (phone) R.drawable.ic_smartphone else R.drawable.ic_cloud_upload,
                 container = if (phone) colors.proteinContainer else colors.waterContainer,
@@ -182,23 +186,10 @@ private fun FoundCard(backup: FoundBackup, selected: Boolean, latest: Boolean, e
                 size = 40.dp,
             )
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                    Text(
-                        if (phone) stringResource(R.string.restore_on_phone) else stringResource(R.string.backup_drive),
-                        style = MaterialTheme.typography.titleSmall,
-                    )
-                    if (latest) {
-                        Text(
-                            stringResource(R.string.restore_latest),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onPrimary,
-                            modifier = Modifier
-                                .clip(MaterialTheme.shapes.extraSmall)
-                                .background(MaterialTheme.colorScheme.primary)
-                                .padding(horizontal = 6.dp, vertical = 2.dp),
-                        )
-                    }
-                }
+                Text(
+                    stringResource(if (phone) R.string.restore_found_phone else R.string.restore_found_drive),
+                    style = MaterialTheme.typography.titleSmall,
+                )
                 (backup.source as? RestoreSource.Drive)?.email?.takeIf { it.isNotEmpty() }?.let {
                     Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
@@ -214,7 +205,6 @@ private fun FoundCard(backup: FoundBackup, selected: Boolean, latest: Boolean, e
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            RadioButton(selected = selected, onClick = null)
         }
     }
 }
@@ -254,35 +244,19 @@ private fun PasswordEntry(state: RestoreUiState, viewModel: RestoreViewModel) {
             },
             modifier = Modifier.fillMaxWidth(),
         )
+        Text(stringResource(R.string.restore_try_elsewhere), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
 @Composable
-private fun SourceCard(icon: Int, title: String, status: String, busy: Boolean, enabled: Boolean, onClick: () -> Unit) {
-    Card(
-        shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
-        border = CardDefaults.outlinedCardBorder(),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 72.dp)
-                .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
-                .padding(horizontal = Spacing.md, vertical = Spacing.sm),
-            horizontalArrangement = Arrangement.spacedBy(Spacing.md),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            IconBadge(icon, size = 40.dp)
-            Column(modifier = Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.titleSmall)
-                Text(status, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            if (busy) {
-                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-            } else {
-                Icon(painterResource(R.drawable.ic_chevron_right), contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
-            }
+private fun ResultMessage(icon: Int, text: String, onBack: () -> Unit) {
+    BackupCard {
+        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md), verticalAlignment = Alignment.CenterVertically) {
+            IconBadge(icon, container = MaterialTheme.colorScheme.surfaceContainerHigh, content = MaterialTheme.colorScheme.onSurfaceVariant, size = 40.dp)
+            Text(text, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+        }
+        OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+            Text(stringResource(R.string.restore_look_elsewhere))
         }
     }
 }

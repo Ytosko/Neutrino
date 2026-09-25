@@ -111,9 +111,13 @@ class ReviewViewModel(
     private val zone: ZoneId = ZoneId.systemDefault(),
     private val mealWindows: MealWindows = MealWindows(),
     private val onPhotoConsumed: () -> Unit = {},
+    /** The day being viewed on Today when logging started; a past day starts the meal on that date. */
+    logDate: LocalDate? = null,
 ) : ViewModel() {
 
-    private val now = ZonedDateTime.now(zone)
+    private val now = ZonedDateTime.now(zone).let { current ->
+        logDate?.takeIf { it != current.toLocalDate() }?.let { current.with(it) } ?: current
+    }
     private val _state = MutableStateFlow(
         ReviewUiState(
             phase = if (photoUri == null) ReviewPhase.Ready else ReviewPhase.Preparing,
@@ -281,8 +285,9 @@ class ReviewViewModel(
     /** Photo time if it's plausible (in the past, within a week), otherwise now. */
     private fun resolveEatenAt(takenAt: Instant?): ZonedDateTime {
         val nowInstant = Instant.now()
+        // A photo's own capture time wins; otherwise the day being logged for.
         val valid = takenAt?.takeIf { !it.isAfter(nowInstant) && it.isAfter(nowInstant.minusSeconds(7 * 24 * 3600)) }
-        return (valid ?: nowInstant).atZone(zone)
+        return valid?.atZone(zone) ?: now
     }
 }
 

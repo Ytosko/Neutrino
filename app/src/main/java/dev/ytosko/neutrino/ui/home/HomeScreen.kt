@@ -1,5 +1,12 @@
 package dev.ytosko.neutrino.ui.home
 
+import java.time.Instant
+import java.time.ZoneOffset
+import java.time.temporal.ChronoUnit
+import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.SelectableDates
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.DatePicker
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.graphics.BitmapFactory
@@ -118,6 +125,9 @@ fun HomeScreen(
 ) {
     val context = LocalContext.current
     val day by viewModel.day.collectAsStateWithLifecycle()
+    val shownDate by viewModel.date.collectAsStateWithLifecycle()
+    val isToday by viewModel.isToday.collectAsStateWithLifecycle()
+    var pickingDate by remember { mutableStateOf(false) }
     val aiReady by viewModel.aiReady.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -181,21 +191,46 @@ fun HomeScreen(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         NeutrinoLogo(size = 32.dp)
                         Spacer(Modifier.size(Spacing.sm))
-                        Column {
+                        // Tap the day to jump to any date; the arrows step one day at a time.
+                        Column(
+                            modifier = Modifier
+                                .clip(MaterialTheme.shapes.small)
+                                .clickable(
+                                    onClickLabel = stringResource(R.string.home_pick_date),
+                                    role = Role.Button,
+                                    onClick = { pickingDate = true },
+                                )
+                                .padding(horizontal = 4.dp, vertical = 2.dp),
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    dayTitle(shownDate),
+                                    style = MaterialTheme.typography.titleLarge,
+                                    maxLines = 1,
+                                    modifier = Modifier.semantics { heading() },
+                                )
+                                Icon(
+                                    painterResource(R.drawable.ic_chevron_down),
+                                    contentDescription = null,
+                                    modifier = Modifier.padding(start = 2.dp).size(18.dp),
+                                )
+                            }
                             Text(
-                                stringResource(R.string.home_title),
-                                style = MaterialTheme.typography.titleLarge,
-                                modifier = Modifier.semantics { heading() },
-                            )
-                            Text(
-                                LocalDate.now().format(DateTimeFormatter.ofLocalizedDate(FormatStyle.FULL)),
+                                shownDate.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.FULL)),
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
                             )
                         }
                     }
                 },
                 actions = {
+                    IconButton(onClick = viewModel::previousDay) {
+                        Icon(painterResource(R.drawable.ic_chevron_left), contentDescription = stringResource(R.string.home_previous_day))
+                    }
+                    IconButton(onClick = viewModel::nextDay, enabled = !isToday) {
+                        Icon(painterResource(R.drawable.ic_chevron_right), contentDescription = stringResource(R.string.home_next_day))
+                    }
                     IconButton(onClick = onOpenSettings) {
                         Icon(painterResource(R.drawable.ic_settings), contentDescription = stringResource(R.string.home_settings))
                     }
@@ -236,9 +271,19 @@ fun HomeScreen(
                 item(key = "backup") { BackupReminder(backup, onOpenBackup, itemModifier) }
             }
             item { DailyTotalsCard(summary, itemModifier) }
+            if (!isToday) {
+                item(key = "back-to-today") {
+                    TextButton(onClick = viewModel::showToday, modifier = itemModifier.heightIn(min = 48.dp)) {
+                        Icon(painterResource(R.drawable.ic_calendar), contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.size(Spacing.xs))
+                        Text(stringResource(R.string.home_back_to_today))
+                    }
+                }
+            }
             item {
                 WaterCard(
                     waterMl = summary?.waterMl ?: 0,
+                    isToday = isToday,
                     onAdd = {
                         viewModel.addWater()
                         scope.launch { snackbar.showSnackbar(waterAdded) }
@@ -247,8 +292,8 @@ fun HomeScreen(
                 )
             }
             if (summary != null && summary.meals.isEmpty()) {
-                item { NextMealHint(MealWindows().nextMainMeal(LocalTime.now()), itemModifier) }
-                item { EmptyMeals(itemModifier) }
+                if (isToday) item { NextMealHint(MealWindows().nextMainMeal(LocalTime.now()), itemModifier) }
+                item { EmptyMeals(isToday, itemModifier) }
             }
             summary?.meals?.groupBy { it.mealType }?.let { groups ->
                 MEAL_ORDER.filter { it in groups }.forEach { type ->
@@ -295,6 +340,17 @@ fun HomeScreen(
                 }
             }
         }
+    }
+
+    if (pickingDate) {
+        DayPickerDialog(
+            selected = shownDate,
+            onPick = {
+                viewModel.showDate(it)
+                pickingDate = false
+            },
+            onDismiss = { pickingDate = false },
+        )
     }
 
     mealToDelete?.let { meal ->
@@ -392,7 +448,7 @@ private fun DailyTotalsCard(summary: DaySummary?, modifier: Modifier = Modifier)
 private fun grams(value: Double?): String = "${(value ?: 0.0).roundGrams().let { if (it >= 100) it.toInt().toString() else it.toString().removeSuffix(".0") }}g"
 
 @Composable
-private fun WaterCard(waterMl: Int, onAdd: () -> Unit, modifier: Modifier = Modifier) {
+private fun WaterCard(waterMl: Int, isToday: Boolean, onAdd: () -> Unit, modifier: Modifier = Modifier) {
     val colors = NeutrinoTheme.colors
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -409,13 +465,16 @@ private fun WaterCard(waterMl: Int, onAdd: () -> Unit, modifier: Modifier = Modi
             Column(modifier = Modifier.weight(1f)) {
                 Text(stringResource(R.string.home_water), style = MaterialTheme.typography.titleMedium)
                 Text(
-                    stringResource(R.string.home_water_amount, waterMl),
+                    stringResource(if (isToday) R.string.home_water_amount else R.string.home_water_amount_day, waterMl),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            FilledTonalButton(onClick = onAdd, modifier = Modifier.heightIn(min = 48.dp)) {
-                Text(stringResource(R.string.home_add_glass))
+            // Water is logged "now", so adding only makes sense on today.
+            if (isToday) {
+                FilledTonalButton(onClick = onAdd, modifier = Modifier.heightIn(min = 48.dp)) {
+                    Text(stringResource(R.string.home_add_glass))
+                }
             }
         }
     }
@@ -514,20 +573,62 @@ private fun NextMealHint(meal: MealType, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun EmptyMeals(modifier: Modifier = Modifier) {
+private fun EmptyMeals(isToday: Boolean, modifier: Modifier = Modifier) {
     Column(
         modifier = modifier.fillMaxWidth().padding(vertical = Spacing.xl, horizontal = Spacing.lg),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         IconBadge(icon = R.drawable.ic_utensils, size = 64.dp)
         Spacer(Modifier.height(Spacing.md))
-        Text(stringResource(R.string.home_empty_title), style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center)
         Text(
-            stringResource(R.string.home_empty_body),
+            stringResource(if (isToday) R.string.home_empty_title else R.string.home_empty_day_title),
+            style = MaterialTheme.typography.titleLarge,
+            textAlign = TextAlign.Center,
+        )
+        Text(
+            stringResource(if (isToday) R.string.home_empty_body else R.string.home_empty_day_body),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(top = Spacing.xs),
         )
+    }
+}
+
+/** "Today", "Yesterday", the weekday for the last week, then the date. */
+@Composable
+private fun dayTitle(date: LocalDate): String {
+    val daysAgo = ChronoUnit.DAYS.between(date, LocalDate.now())
+    return when {
+        daysAgo <= 0L -> stringResource(R.string.home_title)
+        daysAgo == 1L -> stringResource(R.string.home_yesterday)
+        daysAgo < 7L -> date.format(DateTimeFormatter.ofPattern("EEEE"))
+        else -> date.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))
+    }
+}
+
+/** Calendar to jump to any past day (future days can't be picked). */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DayPickerDialog(selected: LocalDate, onPick: (LocalDate) -> Unit, onDismiss: () -> Unit) {
+    val todayUtcMs = remember { LocalDate.now().atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli() }
+    val state = rememberDatePickerState(
+        initialSelectedDateMillis = selected.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
+        selectableDates = object : SelectableDates {
+            override fun isSelectableDate(utcTimeMillis: Long): Boolean = utcTimeMillis <= todayUtcMs
+            override fun isSelectableYear(year: Int): Boolean = year <= LocalDate.now().year
+        },
+    )
+    DatePickerDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = {
+                val millis = state.selectedDateMillis
+                if (millis != null) onPick(Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate()) else onDismiss()
+            }) { Text(stringResource(R.string.home_show_day)) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.home_cancel)) } },
+    ) {
+        DatePicker(state = state)
     }
 }

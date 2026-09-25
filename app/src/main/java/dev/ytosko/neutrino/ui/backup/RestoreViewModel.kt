@@ -10,6 +10,7 @@ import dev.ytosko.neutrino.data.backup.CorruptBackupException
 import dev.ytosko.neutrino.data.backup.GoogleDriveAuth
 import dev.ytosko.neutrino.data.backup.RestoreSource
 import dev.ytosko.neutrino.data.backup.WrongPasswordException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -25,36 +26,34 @@ sealed interface RestoreProblem {
 }
 
 /** A backup found on the phone or in a Google account. */
-class FoundBackup(val file: ByteArray, val header: BackupHeader, val source: RestoreSource) {
-    val id: String get() = when (source) {
-        RestoreSource.Phone -> "phone"
-        is RestoreSource.Drive -> "drive:${source.email}"
-    }
+class FoundBackup(val file: ByteArray, val header: BackupHeader, val source: RestoreSource)
+
+/** Where the user chose to look. */
+enum class RestorePlace { Phone, Drive }
+
+/** One step of the restore flow; back from any step returns to [Choose]. */
+sealed interface RestoreStep {
+    data object Choose : RestoreStep
+    data class Looking(val place: RestorePlace) : RestoreStep
+    data class Found(val backup: FoundBackup) : RestoreStep
+    /** Nothing there; [email] names the Google account that was checked. */
+    data class NotFound(val place: RestorePlace, val email: String? = null) : RestoreStep
+    data class Failed(val place: RestorePlace) : RestoreStep
 }
 
-enum class CheckState { NotChecked, Checking, None, Found, Failed }
-
 data class RestoreUiState(
-    val found: List<FoundBackup> = emptyList(),
-    val phone: CheckState = CheckState.NotChecked,
-    val drive: CheckState = CheckState.NotChecked,
-    /** Accounts checked that had no backup, e.g. "a@gmail.com". */
-    val emptyAccounts: List<String> = emptyList(),
-    val selectedId: String? = null,
+    val step: RestoreStep = RestoreStep.Choose,
     val password: String = "",
     val passwordVisible: Boolean = false,
     val restoring: Boolean = false,
     val problem: RestoreProblem? = null,
     val driveAvailable: Boolean = true,
-) {
-    val selected: FoundBackup? get() = found.firstOrNull { it.id == selectedId }
-    val latestId: String? get() = found.takeIf { it.size > 1 }?.maxByOrNull { it.header.createdAtEpochMs }?.id
-    val busy: Boolean get() = restoring || phone == CheckState.Checking || drive == CheckState.Checking
-}
+)
 
 /**
- * First-launch restore: looks in the phone's backup folder and in the Google accounts the user
- * picks, lists every backup found (newest marked), and restores the one chosen.
+ * "Do you have a Neutrino backup?": the user picks where to look (this phone, or a Google account
+ * via Google's picker), sees what's there, and can go back and try elsewhere as often as they
+ * like. Nothing changes until they tap Restore.
  */
 class RestoreViewModel(private val backups: BackupRepository) : ViewModel() {
 
@@ -68,78 +67,65 @@ class RestoreViewModel(private val backups: BackupRepository) : ViewModel() {
     /** Emits once everything is restored. */
     val restored = _restored.receiveAsFlow()
 
-    init {
-        // With storage access already allowed (e.g. Android 9–10 or a kept permission), look straight away.
-        if (backups.local.hasAccess()) checkPhone()
-    }
+    private var lookJob: Job? = null
 
     fun hasStorageAccess(): Boolean = backups.local.hasAccess()
     fun storageSettingsIntent() = backups.local.accessSettingsIntent()
 
     fun onPasswordChange(value: String) = _state.update { it.copy(password = value, problem = null) }
     fun togglePasswordVisible() = _state.update { it.copy(passwordVisible = !it.passwordVisible) }
-    fun select(id: String) = _state.update { if (it.restoring) it else it.copy(selectedId = id, password = "", problem = null) }
 
-    /** Reads the fixed phone backup file. Needs storage access. */
-    fun checkPhone() {
-        if (_state.value.phone == CheckState.Checking) return
-        _state.update { it.copy(phone = CheckState.Checking) }
-        viewModelScope.launch {
-            val result = runCatching { backups.readPhoneBackup()?.let { FoundBackup(it, backups.inspect(it), RestoreSource.Phone) } }
-            _state.update { state ->
-                val found = result.getOrNull()
-                state.copy(
-                    phone = when {
-                        result.isFailure -> CheckState.Failed
-                        found == null -> CheckState.None
-                        else -> CheckState.Found
-                    },
-                ).withFound(found)
-            }
-        }
+    /** Back to "where do you want to look?". Returns false when already there. */
+    fun back(): Boolean {
+        val current = _state.value
+        if (current.restoring || current.step == RestoreStep.Choose) return false
+        lookJob?.cancel()
+        _state.update { it.copy(step = RestoreStep.Choose, password = "", passwordVisible = false, problem = null) }
+        return true
     }
 
-    /** Opens Google's account picker ([anotherAccount] always shows it) and looks in that Drive. */
-    fun checkDrive(anotherAccount: Boolean) {
-        if (_state.value.drive == CheckState.Checking) return
-        _state.update { it.copy(drive = CheckState.Checking) }
-        viewModelScope.launch {
+    /** Reads the phone backup. Needs storage access. */
+    fun lookOnPhone() = look(RestorePlace.Phone) {
+        val file = backups.readPhoneBackup()
+        if (file == null) RestoreStep.NotFound(RestorePlace.Phone) else RestoreStep.Found(FoundBackup(file, backups.inspect(file), RestoreSource.Phone))
+    }
+
+    /** Opens Google's account picker, then looks in that account's Drive. */
+    fun lookInDrive() {
+        if (_state.value.restoring) return
+        _state.update { it.copy(step = RestoreStep.Looking(RestorePlace.Drive), problem = null) }
+        lookJob?.cancel()
+        lookJob = viewModelScope.launch {
             try {
-                when (val outcome = backups.auth.authorize(chooseAccount = anotherAccount)) {
-                    is GoogleDriveAuth.Outcome.Token -> loadFromDrive(outcome.accessToken)
-                    is GoogleDriveAuth.Outcome.NeedsConsent -> {
-                        _state.update { it.copy(drive = driveSettled()) }
-                        _consent.send(outcome.intent)
-                    }
+                when (val outcome = backups.auth.authorize(chooseAccount = true)) {
+                    is GoogleDriveAuth.Outcome.Token -> _state.update { it.copy(step = driveStep(outcome.accessToken)) }
+                    is GoogleDriveAuth.Outcome.NeedsConsent -> _consent.send(outcome.intent)
                 }
             } catch (e: Exception) {
                 if (e is kotlinx.coroutines.CancellationException) throw e
-                _state.update { it.copy(drive = CheckState.Failed) }
+                _state.update { it.copy(step = RestoreStep.Failed(RestorePlace.Drive)) }
             }
         }
     }
 
+    /** Result of Google's picker/consent; cancelling goes back to the choice. */
     fun onConsentResult(data: Intent?) {
-        val token = backups.auth.tokenFromIntent(data) ?: return
-        _state.update { it.copy(drive = CheckState.Checking) }
-        viewModelScope.launch {
-            try {
-                loadFromDrive(token)
-            } catch (e: Exception) {
-                if (e is kotlinx.coroutines.CancellationException) throw e
-                _state.update { it.copy(drive = CheckState.Failed) }
-            }
+        val token = backups.auth.tokenFromIntent(data)
+        if (token == null) {
+            _state.update { it.copy(step = RestoreStep.Choose) }
+            return
         }
+        look(RestorePlace.Drive) { driveStep(token) }
     }
 
     fun restore() {
         val current = _state.value
-        val chosen = current.selected ?: return
-        if (current.busy || current.password.isEmpty()) return
+        val found = (current.step as? RestoreStep.Found)?.backup ?: return
+        if (current.restoring || current.password.isEmpty()) return
         _state.update { it.copy(restoring = true, problem = null) }
         viewModelScope.launch {
             try {
-                backups.restore(chosen.file, current.password.toCharArray(), chosen.source)
+                backups.restore(found.file, current.password.toCharArray(), found.source)
                 _state.update { it.copy(password = "") }
                 _restored.send(Unit)
             } catch (_: WrongPasswordException) {
@@ -155,28 +141,24 @@ class RestoreViewModel(private val backups: BackupRepository) : ViewModel() {
         }
     }
 
-    private suspend fun loadFromDrive(token: String) {
+    private suspend fun driveStep(token: String): RestoreStep {
         val email = backups.driveEmail(token)
-        val file = backups.downloadFromDrive(token)
-        _state.update { state ->
-            if (file == null) {
-                state.copy(
-                    drive = driveSettled(state),
-                    emptyAccounts = (state.emptyAccounts + (email ?: "")).distinct(),
-                )
-            } else {
-                state.copy(drive = CheckState.Found).withFound(FoundBackup(file, backups.inspect(file), RestoreSource.Drive(email)))
-            }
-        }
+        val file = backups.downloadFromDrive(token) ?: return RestoreStep.NotFound(RestorePlace.Drive, email)
+        return RestoreStep.Found(FoundBackup(file, backups.inspect(file), RestoreSource.Drive(email)))
     }
 
-    private fun driveSettled(state: RestoreUiState = _state.value) =
-        if (state.found.any { it.source is RestoreSource.Drive }) CheckState.Found else CheckState.None
-
-    /** Adds (or replaces) a found backup and selects the newest when nothing is chosen yet. */
-    private fun RestoreUiState.withFound(backup: FoundBackup?): RestoreUiState {
-        if (backup == null) return this
-        val list = (found.filterNot { it.id == backup.id } + backup).sortedByDescending { it.header.createdAtEpochMs }
-        return copy(found = list, selectedId = selectedId ?: list.first().id)
+    private fun look(place: RestorePlace, block: suspend () -> RestoreStep) {
+        if (_state.value.restoring) return
+        _state.update { it.copy(step = RestoreStep.Looking(place), password = "", problem = null) }
+        lookJob?.cancel()
+        lookJob = viewModelScope.launch {
+            val step = try {
+                block()
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                RestoreStep.Failed(place)
+            }
+            _state.update { it.copy(step = step) }
+        }
     }
 }

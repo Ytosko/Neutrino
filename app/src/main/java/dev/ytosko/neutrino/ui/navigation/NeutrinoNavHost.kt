@@ -54,7 +54,8 @@ sealed interface Route {
     @Serializable data object Settings : Route
     @Serializable data object SettingsAi : Route
     @Serializable data object SettingsHealth : Route
-    @Serializable data class Review(val photoUri: String? = null, val fromCamera: Boolean = false) : Route
+    /** [logEpochDay]: the day shown on Today when logging started, if not today. */
+    @Serializable data class Review(val photoUri: String? = null, val fromCamera: Boolean = false, val logEpochDay: Long? = null) : Route
     @Serializable data object SetupBackup : Route
     @Serializable data object SettingsBackup : Route
     @Serializable data object Restore : Route
@@ -136,8 +137,10 @@ fun NeutrinoNavHost(startDestination: Route, modifier: Modifier = Modifier) {
                 onOpenSettings = { navController.navigate(Route.Settings) },
                 onOpenAiSettings = { navController.navigate(Route.SettingsAi) },
                 onOpenBackup = { navController.navigate(Route.SettingsBackup) },
-                onPhotoSelected = { uri, fromCamera -> navController.navigate(Route.Review(uri.toString(), fromCamera)) },
-                onAddManually = { navController.navigate(Route.Review()) },
+                onPhotoSelected = { uri, fromCamera ->
+                    navController.navigate(Route.Review(uri.toString(), fromCamera, homeViewModel.pastDayEpoch()))
+                },
+                onAddManually = { navController.navigate(Route.Review(logEpochDay = homeViewModel.pastDayEpoch())) },
                 savedResult = savedResult,
                 onSavedResultShown = { entry.savedStateHandle[KEY_SAVED_RESULT] = null },
             )
@@ -157,6 +160,7 @@ fun NeutrinoNavHost(startDestination: Route, modifier: Modifier = Modifier) {
                     foods = container.foods,
                     // Camera captures are temporary; delete once the photo is prepared.
                     onPhotoConsumed = { if (route.fromCamera && uri != null) runCatching { context.contentResolver.delete(uri, null, null) } },
+                    logDate = route.logEpochDay?.let(java.time.LocalDate::ofEpochDay),
                 )
             }
             ReviewScreen(
