@@ -82,6 +82,8 @@ fun GlucoseDayCard(
     isToday: Boolean,
     onOpen: (GlucoseEntity) -> Unit,
     onAdd: () -> Unit,
+    /** Opens the page with all of the day's readings. */
+    onSeeAll: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Card(
@@ -122,22 +124,19 @@ fun GlucoseDayCard(
                 Icon(painterResource(R.drawable.ic_plus), contentDescription = stringResource(R.string.glucose_add_title))
             }
         }
-        // A busy day would push the meals far down: show the latest few until asked for all.
-        var expanded by rememberSaveable { mutableStateOf(false) }
-        val shown = if (expanded || readings.size <= COLLAPSED_COUNT) readings else readings.takeLast(COLLAPSED_COUNT)
+        // The latest few only; a busy day's full list is on its own page.
+        val shown = readings.takeLast(COLLAPSED_COUNT)
         shown.forEachIndexed { index, reading ->
             if (index > 0) HorizontalDivider(modifier = Modifier.padding(start = Spacing.md), color = MaterialTheme.colorScheme.outlineVariant)
             GlucoseRow(reading, range, onClick = { onOpen(reading) })
         }
         if (readings.size > COLLAPSED_COUNT) {
             TextButton(
-                onClick = { expanded = !expanded },
+                onClick = onSeeAll,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.sm),
             ) {
-                Text(
-                    if (expanded) stringResource(R.string.glucose_show_less)
-                    else stringResource(R.string.glucose_show_all, readings.size),
-                )
+                Text(stringResource(R.string.glucose_show_all, readings.size))
+                Icon(painterResource(R.drawable.ic_chevron_right), contentDescription = null, modifier = Modifier.size(18.dp))
             }
         } else if (readings.isNotEmpty()) {
             Spacer(Modifier.size(Spacing.xs))
@@ -146,7 +145,7 @@ fun GlucoseDayCard(
 }
 
 @Composable
-private fun GlucoseRow(reading: GlucoseEntity, range: ClosedFloatingPointRange<Double>, onClick: () -> Unit) {
+internal fun GlucoseRow(reading: GlucoseEntity, range: ClosedFloatingPointRange<Double>, onClick: () -> Unit) {
     val band = band(reading.mmolPerL, range.start, range.endInclusive)
     val color = bandColor(band)
     val time = remember(reading.measuredAtEpochMs) { shortTime(reading.measuredAtEpochMs) }

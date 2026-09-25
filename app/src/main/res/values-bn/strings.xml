@@ -391,11 +391,10 @@
     <string name="meter_range_desc">%1$s-এর নিচে কম, %1$s থেকে %2$s সীমার মধ্যে, %2$s %3$s-এর ওপরে বেশি</string>
     <string name="meter_range_shared">এই সীমা আপনার সব মিটারের জন্য প্রযোজ্য।</string>
     <string name="settings_meter_off">কোনো মিটার পেয়ার করা নেই</string>
+    <string name="meal_more">আরও অপশন</string>
+    <string name="meal_log_again_today">আজ আবার লগ করুন</string>
     <string name="home_logged_again">আবার লগ হয়েছে</string>
     <string name="home_add_glucose">গ্লুকোজ রিডিং যোগ করুন</string>
-    <string name="home_log_again">আবার লগ করুন</string>
-    <string name="home_star">খাবারটি স্টার করুন</string>
-    <string name="home_unstar">স্টার সরান</string>
     <string name="home_water_of_goal">%2$s-এর মধ্যে %1$s</string>
     <string name="home_meal_glucose_both">গ্লুকোজ %1$s → %2$s %3$s</string>
     <string name="home_meal_glucose_before">খাবারের আগে গ্লুকোজ: %1$s %2$s</string>
@@ -403,7 +402,7 @@
     <string name="glucose_add_title">গ্লুকোজ রিডিং যোগ করুন</string>
     <string name="glucose_value_label">রিডিং (%1$s)</string>
     <string name="glucose_value_error">%1$s থেকে %2$s %3$s-এর মধ্যে একটি মান দিন</string>
-    <string name="goal_of">লক্ষ্য %1$s</string>
+    <string name="goal_progress">%2$d %3$s-এর মধ্যে %1$d · %4$d%%</string>
     <string name="test_reminder_channel">গ্লুকোজ টেস্টের রিমাইন্ডার</string>
     <string name="test_reminder_channel_body">খাবারের কিছুক্ষণ পরে গ্লুকোজ টেস্ট করার রিমাইন্ডার।</string>
     <string name="test_reminder_title">গ্লুকোজ টেস্ট করার সময়?</string>
@@ -436,6 +435,8 @@
     <string name="goals_note">লক্ষ্য আপনার নিজের পছন্দ। আপনার জন্য কী ঠিক, ডাক্তার বা পুষ্টিবিদের কাছে জেনে নিন।</string>
     <string name="goals_none">কোনো লক্ষ্য সেট করা নেই</string>
     <string name="goals_summary_carbs">%1$d g কার্বস</string>
+    <string name="goals_summary_protein">%1$d g প্রোটিন</string>
+    <string name="goals_summary_fat">%1$d g ফ্যাট</string>
     <string name="goals_summary_kcal">%1$d kcal</string>
     <string name="goals_summary_water">%1$s পানি</string>
     <string name="lock_prompt_title">Neutrino আনলক করুন</string>
@@ -525,6 +526,7 @@
         <item quantity="one">%1$dটি রিডিং · গড় %2$s %3$s</item>
         <item quantity="other">%1$dটি রিডিং · গড় %2$s %3$s</item>
     </plurals>
+    <string name="glucose_day_chart_desc">সারা দিনের %1$dটি রিডিংয়ের চার্ট, লক্ষ্য সীমা %2$s থেকে %3$s %4$s</string>
     <string name="glucose_date">তারিখ</string>
     <string name="health_glucose_average">গড়</string>
     <plurals name="health_glucose_readings">
@@ -541,8 +543,7 @@
         <item quantity="one">%1$d বার</item>
         <item quantity="other">%1$d বার</item>
     </plurals>
-    <string name="glucose_show_all">সব %1$dটি রিডিং দেখান</string>
-    <string name="glucose_show_less">কম দেখান</string>
+    <string name="glucose_show_all">সব %1$dটি রিডিং দেখুন</string>
     <string name="glucose_save">সেভ করুন</string>
     <string name="glucose_future">সময় ভবিষ্যতের হতে পারবে না।</string>
     <string name="glucose_edit_title">গ্লুকোজ রিডিং</string>

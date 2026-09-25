@@ -48,7 +48,7 @@ data class MealEntity(
     val inputTokens: Int,
     val outputTokens: Int,
     val createdAtEpochMs: Long,
-    /** Starred for "Log again". */
+    /** Starred in an earlier version; no longer used, kept so old databases and backups load. */
     @ColumnInfo(defaultValue = "0") val favorite: Boolean = false,
 )
 
@@ -138,26 +138,6 @@ interface MealDao {
         GROUP BY i.foodId ORDER BY times DESC, MAX(m.eatenAtEpochMs) DESC LIMIT :limit""",
     )
     fun observeTopFoods(fromMs: Long, toMs: Long, limit: Int): Flow<List<TopFoodRow>>
-
-    /** Latest meals, newest first, for "Log again" (duplicates by name are dropped by the caller). */
-    @Query(
-        """SELECT meals.*, (SELECT category FROM meal_items WHERE mealId = meals.id ORDER BY position LIMIT 1) AS firstCategory
-        FROM meals ORDER BY eatenAtEpochMs DESC LIMIT :limit""",
-    )
-    fun observeRecent(limit: Int): Flow<List<MealWithCategory>>
-
-    @Query(
-        """SELECT meals.*, (SELECT category FROM meal_items WHERE mealId = meals.id ORDER BY position LIMIT 1) AS firstCategory
-        FROM meals WHERE favorite = 1 ORDER BY eatenAtEpochMs DESC""",
-    )
-    fun observeFavorites(): Flow<List<MealWithCategory>>
-
-    @Query("UPDATE meals SET favorite = :favorite WHERE id = :id")
-    suspend fun setFavorite(id: String, favorite: Boolean)
-
-    /** Un-stars every meal with this name, so a favourite can be removed from any copy of it. */
-    @Query("UPDATE meals SET favorite = 0 WHERE name = :name")
-    suspend fun clearFavoriteByName(name: String)
 
     @Query("SELECT COUNT(*) FROM meals WHERE mealType = :mealType AND eatenAtEpochMs >= :fromMs AND eatenAtEpochMs < :toMs")
     suspend fun countOfType(mealType: String, fromMs: Long, toMs: Long): Int

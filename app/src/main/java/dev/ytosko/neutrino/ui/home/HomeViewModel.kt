@@ -70,22 +70,13 @@ class HomeViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
     val goals: StateFlow<DailyGoals> = settings.settings
-        .map { DailyGoals(it.carbGoalG, it.kcalGoal, it.waterGoalMl) }
+        .map { DailyGoals(it.carbGoalG, it.proteinGoalG, it.fatGoalG, it.kcalGoal, it.waterGoalMl) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DailyGoals())
 
-    /** Starred and recent meals for one-tap logging. */
-    val logAgain: StateFlow<List<LoggedMeal>> = meals.observeLogAgain()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
-
-    /** Logs a copy of [meal] now (or at this time of day on a past day). Returns the new meal's id for Undo. */
-    suspend fun logAgain(meal: LoggedMeal, mealWindows: MealWindows): String? {
-        val at = timeOnShownDay()
-        val type = mealWindows.mealAt(at, zone)
-        return meals.logAgain(meal.id, at, zone, type)?.id
-    }
-
-    fun toggleFavorite(meal: LoggedMeal) {
-        viewModelScope.launch { meals.setFavorite(meal.id, !meal.favorite) }
+    /** Logs a copy of meal [mealId] today, now. Returns the new meal's id for Undo. */
+    suspend fun logAgainToday(mealId: String, mealWindows: MealWindows): String? {
+        val at = Instant.now()
+        return meals.logAgain(mealId, at, zone, mealWindows.mealAt(at, zone))?.id
     }
 
     /** Now on today, or the current time of day on a past day. */
@@ -178,4 +169,10 @@ class HomeViewModel(
 }
 
 /** Optional daily targets; null means no goal. */
-data class DailyGoals(val carbsG: Int? = null, val kcal: Int? = null, val waterMl: Int? = null)
+data class DailyGoals(
+    val carbsG: Int? = null,
+    val proteinG: Int? = null,
+    val fatG: Int? = null,
+    val kcal: Int? = null,
+    val waterMl: Int? = null,
+)

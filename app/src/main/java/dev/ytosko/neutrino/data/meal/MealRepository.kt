@@ -106,30 +106,6 @@ class MealRepository(
     }
 
     /**
-     * Meals to offer under "Log again": starred ones first, then recent ones, one per name so the
-     * same breakfast doesn't appear five times.
-     */
-    fun observeLogAgain(limit: Int = 8): Flow<List<LoggedMeal>> =
-        combine(db.meals().observeFavorites(), db.meals().observeRecent(60)) { favorites, recent ->
-            val seen = HashSet<String>()
-            val favoriteNames = favorites.mapTo(HashSet()) { it.meal.name.lowercase() }
-            (favorites + recent)
-                .filter { seen.add(it.meal.name.lowercase()) }
-                .map { row ->
-                    row.meal.toLoggedMeal(row.firstCategory?.let(FoodCategory::fromKey))
-                        .copy(favorite = row.meal.name.lowercase() in favoriteNames)
-                }
-                .take(limit)
-        }
-
-    /** Stars or un-stars a meal for "Log again". Un-starring clears every copy with that name. */
-    suspend fun setFavorite(id: String, favorite: Boolean) {
-        val meal = db.meals().get(id) ?: return
-        if (favorite) db.meals().setFavorite(id, true) else db.meals().clearFavoriteByName(meal.name)
-        onChanged()
-    }
-
-    /**
      * Logs a copy of meal [sourceId] at [at] as [mealType]: same foods, amounts and photo, a new
      * record in Health Connect. Returns the new meal's id.
      */

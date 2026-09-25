@@ -55,6 +55,8 @@ data class AppSettings(
     val glucoseUnit: GlucoseUnit = GlucoseUnit.defaultFor(),
     /** Optional daily goals; null means no goal. */
     val carbGoalG: Int? = null,
+    val proteinGoalG: Int? = null,
+    val fatGoalG: Int? = null,
     val kcalGoal: Int? = null,
     val waterGoalMl: Int? = null,
     /** Remind to test glucose some time after a meal (only useful with a meter). */
@@ -101,6 +103,8 @@ class SettingsRepository(context: Context, private val cipher: SecretCipher) {
         val glucoseHigh = androidx.datastore.preferences.core.doublePreferencesKey("glucose_high")
         val glucoseUnit = stringPreferencesKey("glucose_unit")
         val carbGoal = intPreferencesKey("goal_carbs_g")
+        val proteinGoal = intPreferencesKey("goal_protein_g")
+        val fatGoal = intPreferencesKey("goal_fat_g")
         val kcalGoal = intPreferencesKey("goal_kcal")
         val waterGoal = intPreferencesKey("goal_water_ml")
         val afterMealReminder = booleanPreferencesKey("after_meal_reminder")
@@ -144,6 +148,8 @@ class SettingsRepository(context: Context, private val cipher: SecretCipher) {
             glucoseHigh = p[Keys.glucoseHigh] ?: 10.0,
             glucoseUnit = GlucoseUnit.fromId(p[Keys.glucoseUnit]) ?: GlucoseUnit.defaultFor(),
             carbGoalG = p[Keys.carbGoal],
+            proteinGoalG = p[Keys.proteinGoal],
+            fatGoalG = p[Keys.fatGoal],
             kcalGoal = p[Keys.kcalGoal],
             waterGoalMl = p[Keys.waterGoal],
             afterMealReminder = p[Keys.afterMealReminder] ?: false,
@@ -255,12 +261,14 @@ class SettingsRepository(context: Context, private val cipher: SecretCipher) {
     }
 
     /** Daily goals; null clears a goal. Out-of-range values are ignored. */
-    suspend fun setGoals(carbsG: Int?, kcal: Int?, waterMl: Int?) {
+    suspend fun setGoals(carbsG: Int?, proteinG: Int?, fatG: Int?, kcal: Int?, waterMl: Int?) {
         store.edit { p ->
             fun put(key: androidx.datastore.preferences.core.Preferences.Key<Int>, value: Int?, range: IntRange) {
                 if (value == null) p.remove(key) else if (value in range) p[key] = value
             }
             put(Keys.carbGoal, carbsG, 10..1_000)
+            put(Keys.proteinGoal, proteinG, 10..500)
+            put(Keys.fatGoal, fatG, 10..500)
             put(Keys.kcalGoal, kcal, 500..10_000)
             put(Keys.waterGoal, waterMl, 250..10_000)
         }

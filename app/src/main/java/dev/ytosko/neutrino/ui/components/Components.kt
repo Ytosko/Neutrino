@@ -1,5 +1,19 @@
 package dev.ytosko.neutrino.ui.components
 
+import kotlinx.coroutines.delay
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
+import kotlin.math.roundToInt
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.PathMeasure
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.foundation.clickable
 import dev.ytosko.neutrino.ui.theme.Tint
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -86,24 +100,42 @@ fun IconBadge(
     }
 }
 
-/** One macro total: value above label, coloured value plus a text label (never colour alone). */
+/**
+ * One number in the totals row. With a daily goal, the tile's border fills clockwise from the
+ * top as the day's total approaches the goal, and closes in a stronger line once it's reached.
+ * Tapping shows the goal figures in place of the label for a few seconds, so the tile never
+ * changes size.
+ */
 @Composable
 fun MacroStat(
     value: String,
     label: String,
     color: Color,
     modifier: Modifier = Modifier,
-    /** e.g. "of 150g"; shown with a progress bar when a daily goal is set. */
+    /** e.g. "122 of 150 g · 81%", read by screen readers. */
     goal: String? = null,
+    /** e.g. "81% · 150g", shown on tap. */
+    goalShort: String? = null,
+    /** 0..1+ toward the goal; null without a goal. */
     progress: Float? = null,
 ) {
+    var showGoal by remember { mutableStateOf(false) }
+    LaunchedEffect(showGoal) {
+        if (showGoal) {
+            delay(3_000)
+            showGoal = false
+        }
+    }
+    val shape = RoundedCornerShape(16.dp)
     Column(
         modifier = modifier
-            .clip(MaterialTheme.shapes.medium)
+            .clip(shape)
             .background(MaterialTheme.colorScheme.surfaceContainerLowest)
+            .then(if (progress != null) Modifier.goalRing(progress, color, color.copy(alpha = 0.16f)) else Modifier)
+            .then(if (goalShort != null) Modifier.clickable(onClickLabel = goal) { showGoal = !showGoal } else Modifier)
             .heightIn(min = 64.dp)
             .padding(vertical = Spacing.sm, horizontal = Spacing.xs)
-            .clearAndSetSemantics { contentDescription = listOfNotNull(label, value, goal).joinToString(" ") },
+            .clearAndSetSemantics { contentDescription = listOfNotNull(label, value, goal).joinToString(", ") },
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
@@ -115,52 +147,95 @@ fun MacroStat(
             maxLines = 1,
         )
         Text(
-            text = label,
+            text = if (showGoal && goalShort != null) goalShort else label,
             style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = if (showGoal) color else MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
         )
-        if (goal != null && progress != null) {
-            Text(goal, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
-            LinearProgressIndicator(
-                progress = { progress.coerceIn(0f, 1f) },
-                color = color,
-                trackColor = color.copy(alpha = 0.15f),
-                drawStopIndicator = {},
-                modifier = Modifier.padding(top = 4.dp, start = Spacing.xs, end = Spacing.xs).fillMaxWidth().height(4.dp).clip(CircleShape),
-            )
-        }
     }
 }
 
 /**
- * Carbs, protein, fat and kcal in four tiles. Numbers are shortened ("1.2kg", "12k") so even
- * long ranges fit.
+ * Draws the tile's border as a progress ring: a faint track all round, and the progress in
+ * [color] from the top centre, clockwise. At the goal the ring closes and gets thicker.
  */
+private fun Modifier.goalRing(progress: Float, color: Color, track: Color): Modifier = drawWithContent {
+    drawContent()
+    val done = progress >= 1f
+    val stroke = (if (done) 3.5.dp else 2.5.dp).toPx()
+    val inset = stroke / 2
+    val radius = 16.dp.toPx() - inset
+    val path = roundedRectFromTop(size.width, size.height, radius, inset)
+    drawPath(path, track, style = Stroke(width = 2.5.dp.toPx()))
+    val fraction = progress.coerceIn(0f, 1f)
+    if (fraction <= 0f) return@drawWithContent
+    val measure = PathMeasure().apply { setPath(path, false) }
+    val part = Path()
+    measure.getSegment(0f, measure.length * fraction, part, true)
+    drawPath(part, color, style = Stroke(width = stroke, cap = if (done) StrokeCap.Butt else StrokeCap.Round))
+}
+
+/** A rounded rectangle traced clockwise from the middle of its top edge. */
+private fun roundedRectFromTop(w: Float, h: Float, r: Float, inset: Float): Path = Path().apply {
+    val l = inset
+    val t = inset
+    val rr = w - inset
+    val b = h - inset
+    moveTo((l + rr) / 2, t)
+    lineTo(rr - r, t)
+    arcTo(Rect(rr - 2 * r, t, rr, t + 2 * r), -90f, 90f, false)
+    lineTo(rr, b - r)
+    arcTo(Rect(rr - 2 * r, b - 2 * r, rr, b), 0f, 90f, false)
+    lineTo(l + r, b)
+    arcTo(Rect(l, b - 2 * r, l + 2 * r, b), 90f, 90f, false)
+    lineTo(l, t + r)
+    arcTo(Rect(l, t, l + 2 * r, t + 2 * r), 180f, 90f, false)
+    close()
+}
+
+/** The day's (or range's) carbs, protein, fat and calories, with goal rings when goals are set. */
 @Composable
-fun TotalsCard(totals: Nutrition?, modifier: Modifier = Modifier, carbGoalG: Int? = null, kcalGoal: Int? = null) {
+fun TotalsCard(
+    totals: Nutrition?,
+    modifier: Modifier = Modifier,
+    carbGoalG: Int? = null,
+    proteinGoalG: Int? = null,
+    fatGoalG: Int? = null,
+    kcalGoal: Int? = null,
+) {
     val colors = NeutrinoTheme.colors
     val n = totals ?: Nutrition.ZERO
+    @Composable
+    fun goalText(value: Double, goal: Int?, unit: String): String? = goal?.let {
+        stringResource(R.string.goal_progress, value.roundToInt(), it, unit, (value / it * 100).roundToInt())
+    }
+    fun goalShort(value: Double, goal: Int?, unit: String): String? = goal?.let {
+        "${(value / it * 100).roundToInt()}% · $it$unit"
+    }
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
     ) {
         Row(
-            // Every tile as tall as the tallest (a goal adds a line to some).
-            modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min).padding(Spacing.sm),
+            modifier = Modifier.fillMaxWidth().padding(Spacing.sm),
             horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
         ) {
             MacroStat(
-                compactGrams(n.carbsG), stringResource(R.string.macro_carbs), colors.carbs, Modifier.weight(1f).fillMaxHeight(),
-                goal = carbGoalG?.let { stringResource(R.string.goal_of, compactGrams(it.toDouble())) },
-                progress = carbGoalG?.let { (n.carbsG / it).toFloat() },
+                compactGrams(n.carbsG), stringResource(R.string.macro_carbs), colors.carbs, Modifier.weight(1f),
+                goal = goalText(n.carbsG, carbGoalG, "g"), goalShort = goalShort(n.carbsG, carbGoalG, "g"), progress = carbGoalG?.let { (n.carbsG / it).toFloat() },
             )
-            MacroStat(compactGrams(n.proteinG), stringResource(R.string.macro_protein), colors.protein, Modifier.weight(1f).fillMaxHeight())
-            MacroStat(compactGrams(n.fatG), stringResource(R.string.macro_fat), colors.fat, Modifier.weight(1f).fillMaxHeight())
             MacroStat(
-                compactNumber(n.calories), stringResource(R.string.macro_energy), MaterialTheme.colorScheme.onSurface, Modifier.weight(1f).fillMaxHeight(),
-                goal = kcalGoal?.let { stringResource(R.string.goal_of, compactNumber(it.toDouble())) },
-                progress = kcalGoal?.let { (n.calories / it).toFloat() },
+                compactGrams(n.proteinG), stringResource(R.string.macro_protein), colors.protein, Modifier.weight(1f),
+                goal = goalText(n.proteinG, proteinGoalG, "g"), goalShort = goalShort(n.proteinG, proteinGoalG, "g"), progress = proteinGoalG?.let { (n.proteinG / it).toFloat() },
+            )
+            MacroStat(
+                compactGrams(n.fatG), stringResource(R.string.macro_fat), colors.fat, Modifier.weight(1f),
+                goal = goalText(n.fatG, fatGoalG, "g"), goalShort = goalShort(n.fatG, fatGoalG, "g"), progress = fatGoalG?.let { (n.fatG / it).toFloat() },
+            )
+            MacroStat(
+                compactNumber(n.calories), stringResource(R.string.macro_energy), MaterialTheme.colorScheme.onSurface, Modifier.weight(1f),
+                goal = goalText(n.calories, kcalGoal, "kcal"), goalShort = goalShort(n.calories, kcalGoal, ""), progress = kcalGoal?.let { (n.calories / it).toFloat() },
             )
         }
     }

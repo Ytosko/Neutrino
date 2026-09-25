@@ -42,7 +42,13 @@ fun GoalsScreen(settings: SettingsRepository, onBack: () -> Unit) {
     val s by settings.settings.collectAsStateWithLifecycle(initialValue = AppSettings())
     val scope = rememberCoroutineScope()
     val colors = NeutrinoTheme.colors
-    fun save(carbs: Int?, kcal: Int?, water: Int?) = scope.launch { settings.setGoals(carbs, kcal, water) }
+    fun save(
+        carbs: Int? = s.carbGoalG,
+        protein: Int? = s.proteinGoalG,
+        fat: Int? = s.fatGoalG,
+        kcal: Int? = s.kcalGoal,
+        water: Int? = s.waterGoalMl,
+    ) = scope.launch { settings.setGoals(carbs, protein, fat, kcal, water) }
 
     SetupScaffold(
         title = stringResource(R.string.goals_title),
@@ -56,7 +62,23 @@ fun GoalsScreen(settings: SettingsRepository, onBack: () -> Unit) {
                 text = { "$it g" },
                 color = colors.carbs,
                 default = 150, step = 10, range = 10..1_000,
-                onChange = { save(it, s.kcalGoal, s.waterGoalMl) },
+                onChange = { save(carbs = it) },
+            )
+            GoalCard(
+                title = stringResource(R.string.macro_protein),
+                value = s.proteinGoalG,
+                text = { "$it g" },
+                color = colors.protein,
+                default = 60, step = 5, range = 10..500,
+                onChange = { save(protein = it) },
+            )
+            GoalCard(
+                title = stringResource(R.string.macro_fat),
+                value = s.fatGoalG,
+                text = { "$it g" },
+                color = colors.fat,
+                default = 60, step = 5, range = 10..500,
+                onChange = { save(fat = it) },
             )
             GoalCard(
                 title = stringResource(R.string.goals_calories),
@@ -64,7 +86,7 @@ fun GoalsScreen(settings: SettingsRepository, onBack: () -> Unit) {
                 text = { "$it kcal" },
                 color = MaterialTheme.colorScheme.onSurface,
                 default = 2_000, step = 50, range = 500..10_000,
-                onChange = { save(s.carbGoalG, it, s.waterGoalMl) },
+                onChange = { save(kcal = it) },
             )
             GoalCard(
                 title = stringResource(R.string.home_water),
@@ -72,7 +94,7 @@ fun GoalsScreen(settings: SettingsRepository, onBack: () -> Unit) {
                 text = { formatWater(it) },
                 color = colors.water,
                 default = 2_000, step = 250, range = 250..10_000,
-                onChange = { save(s.carbGoalG, s.kcalGoal, it) },
+                onChange = { save(water = it) },
             )
             Text(
                 stringResource(R.string.goals_note),

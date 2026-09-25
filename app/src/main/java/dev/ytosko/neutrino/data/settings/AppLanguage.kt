@@ -56,8 +56,10 @@ enum class AppLanguage(val tag: String) {
             if (locale.language == "bn" && locale.getUnicodeLocaleType("nu") == null) {
                 locale = Locale.Builder().setLocale(locale).setUnicodeLocaleKeyword("nu", "latn").build()
             }
-            if (locale == base.resources.configuration.locales[0]) return base
+            // Always reset the process default too: dates are formatted with it, and switching back
+            // to English must not leave the previous language behind.
             Locale.setDefault(locale)
+            if (locale == base.resources.configuration.locales[0]) return base
             val config = Configuration(base.resources.configuration).apply { setLocale(locale) }
             return base.createConfigurationContext(config)
         }

@@ -3,6 +3,8 @@ package dev.ytosko.neutrino.ui.navigation
 import dev.ytosko.neutrino.ui.glucose.MeterViewModel
 import dev.ytosko.neutrino.ui.glucose.MeterScreen
 import dev.ytosko.neutrino.ui.settings.GoalsScreen
+import dev.ytosko.neutrino.ui.glucose.GlucoseDayScreen
+import dev.ytosko.neutrino.ui.glucose.GlucoseDayViewModel
 import dev.ytosko.neutrino.ui.export.ExportScreen
 import dev.ytosko.neutrino.data.glucose.MeterModel
 import dev.ytosko.neutrino.ui.glucose.PairMeterViewModel
@@ -83,6 +85,7 @@ sealed interface Route {
     @Serializable data object SettingsMeter : Route
     @Serializable data object AddMeter : Route
     @Serializable data object SettingsGoals : Route
+    @Serializable data class GlucoseDay(val epochDay: Long) : Route
     @Serializable data object SettingsExport : Route
     @Serializable data class PairMeter(val model: String) : Route
     @Serializable data class MeterDetail(val id: String) : Route
@@ -91,6 +94,9 @@ sealed interface Route {
 }
 
 private const val KEY_SAVED_RESULT = "meal_saved_synced"
+
+/** "again:<meal id>" or "delete:<meal id>", from the meal page's menu to the day view. */
+private const val KEY_MEAL_ACTION = "meal_action"
 
 
 private const val SETUP_STEPS = 3
@@ -158,6 +164,7 @@ fun NeutrinoNavHost(startDestination: Route, modifier: Modifier = Modifier) {
             val container = LocalContext.current.appContainer
             val homeViewModel: HomeViewModel = viewModel { HomeViewModel(container.meals, container.settings, container.glucose) }
             val savedResult by entry.savedStateHandle.getStateFlow<Boolean?>(KEY_SAVED_RESULT, null).collectAsStateWithLifecycle()
+            val mealAction by entry.savedStateHandle.getStateFlow<String?>(KEY_MEAL_ACTION, null).collectAsStateWithLifecycle()
             val backup by container.backups.state.collectAsStateWithLifecycle(initialValue = null)
             val healthViewModel: HealthViewModel = viewModel { HealthViewModel(container.meals, container.glucose, container.settings) }
             HomeScreen(
@@ -172,8 +179,11 @@ fun NeutrinoNavHost(startDestination: Route, modifier: Modifier = Modifier) {
                 },
                 onAddManually = { navController.navigate(Route.Review(logEpochDay = homeViewModel.pastDayEpoch())) },
                 onOpenMeal = { id -> navController.navigate(Route.Review(editMealId = id)) },
+                onOpenGlucoseDay = { date -> navController.navigate(Route.GlucoseDay(date.toEpochDay())) },
                 savedResult = savedResult,
                 onSavedResultShown = { entry.savedStateHandle[KEY_SAVED_RESULT] = null },
+                mealAction = mealAction,
+                onMealActionHandled = { entry.savedStateHandle[KEY_MEAL_ACTION] = null },
             )
         }
         composable<Route.Review> { entry ->
@@ -208,6 +218,18 @@ fun NeutrinoNavHost(startDestination: Route, modifier: Modifier = Modifier) {
                 },
                 onOpenAiSettings = { navController.navigate(Route.SettingsAi) },
                 onDiscard = navController::popBackStack,
+                onLogAgain = route.editMealId?.let { id ->
+                    {
+                        navController.previousBackStackEntry?.savedStateHandle?.set(KEY_MEAL_ACTION, "again:$id")
+                        navController.popBackStack()
+                    }
+                },
+                onDelete = route.editMealId?.let { id ->
+                    {
+                        navController.previousBackStackEntry?.savedStateHandle?.set(KEY_MEAL_ACTION, "delete:$id")
+                        navController.popBackStack()
+                    }
+                },
             )
         }
         composable<Route.Settings> {
@@ -242,6 +264,12 @@ fun NeutrinoNavHost(startDestination: Route, modifier: Modifier = Modifier) {
         }
         composable<Route.SettingsExport> {
             ExportScreen(export = LocalContext.current.appContainer.exports, onBack = navController::popBackStack)
+        }
+        composable<Route.GlucoseDay> { entry ->
+            val container = LocalContext.current.appContainer
+            val date = java.time.LocalDate.ofEpochDay(entry.toRoute<Route.GlucoseDay>().epochDay)
+            val dayViewModel: GlucoseDayViewModel = viewModel { GlucoseDayViewModel(container.glucose, container.settings, date) }
+            GlucoseDayScreen(viewModel = dayViewModel, onBack = navController::popBackStack)
         }
         composable<Route.SettingsGoals> {
             GoalsScreen(settings = LocalContext.current.appContainer.settings, onBack = navController::popBackStack)

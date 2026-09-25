@@ -160,8 +160,11 @@ fun HomeScreen(
     onPhotoSelected: (uri: Uri, fromCamera: Boolean) -> Unit,
     onAddManually: () -> Unit,
     onOpenMeal: (id: String) -> Unit,
+    onOpenGlucoseDay: (LocalDate) -> Unit,
     savedResult: Boolean?,
     onSavedResultShown: () -> Unit,
+    mealAction: String?,
+    onMealActionHandled: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -174,7 +177,6 @@ fun HomeScreen(
     val glucoseRange by viewModel.glucoseRange.collectAsStateWithLifecycle()
     val mealGlucose by viewModel.mealGlucose.collectAsStateWithLifecycle()
     val goals by viewModel.goals.collectAsStateWithLifecycle()
-    val logAgainMeals by viewModel.logAgain.collectAsStateWithLifecycle()
     var editingGlucose by remember { mutableStateOf<GlucoseEntity?>(null) }
     var addingGlucose by remember { mutableStateOf(false) }
     var pickingDate by remember { mutableStateOf(false) }
@@ -232,9 +234,9 @@ fun HomeScreen(
     val undo = stringResource(R.string.home_undo)
 
     /** Deletes at once, with Undo in the snackbar instead of a confirmation dialog. */
-    fun deleteWithUndo(meal: LoggedMeal) {
+    fun deleteWithUndo(mealId: String) {
         scope.launch {
-            val stored = viewModel.deleteMeal(meal.id) ?: return@launch
+            val stored = viewModel.deleteMeal(mealId) ?: return@launch
             snackbar.currentSnackbarData?.dismiss()
             val result = snackbar.showSnackbar(mealDeleted, actionLabel = undo, duration = SnackbarDuration.Long)
             if (result == SnackbarResult.ActionPerformed) viewModel.undoDelete(stored)
@@ -252,13 +254,27 @@ fun HomeScreen(
     }
 
     val loggedAgain = stringResource(R.string.home_logged_again)
-    fun logAgain(meal: LoggedMeal) {
-        showSheet = false
+    fun logAgain(mealId: String) {
         scope.launch {
-            val id = viewModel.logAgain(meal, mealWindows) ?: return@launch
+            val id = viewModel.logAgainToday(mealId, mealWindows) ?: return@launch
             snackbar.currentSnackbarData?.dismiss()
             val result = snackbar.showSnackbar(loggedAgain, actionLabel = undo, duration = SnackbarDuration.Long)
             if (result == SnackbarResult.ActionPerformed) viewModel.deleteMeal(id)
+        }
+    }
+
+    // From the meal page's menu: log a copy today, or delete it (both with Undo).
+    LaunchedEffect(mealAction) {
+        val action = mealAction ?: return@LaunchedEffect
+        onMealActionHandled()
+        val id = action.substringAfter(':')
+        when {
+            action.startsWith("again:") -> {
+                tab = HomeTab.Days
+                viewModel.showToday()
+                logAgain(id)
+            }
+            action.startsWith("delete:") -> deleteWithUndo(id)
         }
     }
 
@@ -465,7 +481,12 @@ fun HomeScreen(
             if (backup != null && backup.needsAttention) {
                 item(key = "backup") { BackupReminder(backup, onOpenBackup, itemModifier) }
             }
-            item { TotalsCard(summary?.totals, itemModifier, carbGoalG = goals.carbsG, kcalGoal = goals.kcal) }
+            item {
+                TotalsCard(
+                    summary?.totals, itemModifier,
+                    carbGoalG = goals.carbsG, proteinGoalG = goals.proteinG, fatGoalG = goals.fatG, kcalGoal = goals.kcal,
+                )
+            }
             item {
                 WaterCard(
                     waterMl = summary?.waterMl ?: 0,
@@ -494,7 +515,6 @@ fun HomeScreen(
                             meal,
                             glucose = mealGlucose[meal.id],
                             onOpen = { onOpenMeal(meal.id) },
-                            onDelete = { deleteWithUndo(meal) },
                             modifier = itemModifier.animateItem(),
                         )
                     }
@@ -509,6 +529,7 @@ fun HomeScreen(
                         isToday = isToday,
                         onOpen = { editingGlucose = it },
                         onAdd = { addingGlucose = true },
+                        onSeeAll = { onOpenGlucoseDay(shownDate) },
                         modifier = itemModifier.animateItem(),
                     )
                 }
@@ -539,16 +560,6 @@ fun HomeScreen(
                 SheetOption(R.drawable.ic_activity, stringResource(R.string.home_add_glucose), NeutrinoTheme.colors.rose) {
                     showSheet = false
                     addingGlucose = true
-                }
-                if (logAgainMeals.isNotEmpty()) {
-                    Text(
-                        stringResource(R.string.home_log_again),
-                        style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.padding(start = Spacing.lg, end = Spacing.lg, top = Spacing.md, bottom = Spacing.xs).semantics { heading() },
-                    )
-                    logAgainMeals.forEach { meal ->
-                        LogAgainRow(meal, onLog = { logAgain(meal) }, onToggleFavorite = { viewModel.toggleFavorite(meal) })
-                    }
                 }
             }
         }
@@ -711,7 +722,7 @@ private fun WaterCard(waterMl: Int, goalMl: Int?, isToday: Boolean, onRemove: ()
 }
 
 @Composable
-private fun MealRow(meal: LoggedMeal, glucose: MealGlucose?, onOpen: () -> Unit, onDelete: () -> Unit, modifier: Modifier = Modifier) {
+private fun MealRow(meal: LoggedMeal, glucose: MealGlucose?, onOpen: () -> Unit, modifier: Modifier = Modifier) {
     val colors = NeutrinoTheme.colors
     val time = remember(meal.eatenAt) {
         meal.eatenAt.atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT))
@@ -745,14 +756,6 @@ private fun MealRow(meal: LoggedMeal, glucose: MealGlucose?, onOpen: () -> Unit,
                     }
                 }
                 if (glucose != null) MealGlucoseLine(glucose)
-            }
-            IconButton(onClick = onDelete) {
-                Icon(
-                    painterResource(R.drawable.ic_trash),
-                    contentDescription = stringResource(R.string.home_delete_meal),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(20.dp),
-                )
             }
         }
     }
@@ -904,33 +907,3 @@ private fun MealGlucoseLine(glucose: MealGlucose) {
     }
 }
 
-/** A starred or recent meal in the log sheet: tap to log it again, star to keep it at the top. */
-@Composable
-private fun LogAgainRow(meal: LoggedMeal, onLog: () -> Unit, onToggleFavorite: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 64.dp)
-            .clickable(role = Role.Button, onClickLabel = stringResource(R.string.home_log_again), onClick = onLog)
-            .padding(start = Spacing.lg, end = Spacing.sm, top = Spacing.xs, bottom = Spacing.xs),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(Spacing.md),
-    ) {
-        Thumbnail(meal.thumbnailPath, meal.category, size = 44.dp)
-        Column(Modifier.weight(1f)) {
-            Text(meal.name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(
-                "${meal.nutrition.calories.roundKcal()} ${stringResource(R.string.macro_energy)} · ${mealTypeLabel(meal.mealType)}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        IconButton(onClick = onToggleFavorite) {
-            Icon(
-                painterResource(if (meal.favorite) R.drawable.ic_star_filled else R.drawable.ic_star),
-                contentDescription = stringResource(if (meal.favorite) R.string.home_unstar else R.string.home_star),
-                tint = if (meal.favorite) NeutrinoTheme.colors.carbs else MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-}

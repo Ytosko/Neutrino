@@ -388,6 +388,8 @@ private fun languageName(language: AppLanguage): String = when (language) {
 private fun goalsSummary(settings: AppSettings): String {
     val parts = listOfNotNull(
         settings.carbGoalG?.let { stringResource(R.string.goals_summary_carbs, it) },
+        settings.proteinGoalG?.let { stringResource(R.string.goals_summary_protein, it) },
+        settings.fatGoalG?.let { stringResource(R.string.goals_summary_fat, it) },
         settings.kcalGoal?.let { stringResource(R.string.goals_summary_kcal, it) },
         settings.waterGoalMl?.let { stringResource(R.string.goals_summary_water, dev.ytosko.neutrino.domain.insights.formatWater(it)) },
     )

@@ -12,15 +12,16 @@ Faster logging, your glucose next to your meals, reports for your doctor, and Ne
 - **Clearer warnings:** errors use a deeper red, so they no longer look like the brand colour.
 
 ### Logging
-- **Log again:** your starred and recent meals are in the "Log a meal" sheet. Tap one to log it again now (no photo, no AI cost), with Undo. Star the ones you eat often to keep them at the top.
-- **Home screen widget:** today's carbs and calories, your water with a one-tap + 250 ml, a camera button that opens straight into logging a meal, and your latest glucose reading (you can hide it in Settings).
+- **Log again:** open any meal and choose ⋮ → **Log again today** to log the same foods now (no photo, no AI cost), with Undo. Deleting a meal is in the same menu, so meal cards stay clean.
+- **Home screen widget:** today's carbs, protein, fat and calories (with your goal rings), your water with a one-tap + 250 ml, a camera button that opens straight into logging a meal, and your latest glucose reading (you can hide it in Settings).
 - **App shortcuts:** long-press the Neutrino icon for "Log a meal" and "Add water".
-- **Daily goals:** optional carbs, calories and water targets, shown as progress on each day (Settings → Daily goals).
+- **Daily goals:** optional carbs, protein, fat, calories and water targets (Settings → Daily goals). Progress fills the border of each total on your day, so nothing shifts; tap a total to see the exact figures.
 
 ### Glucose
 - **Add readings by hand:** tap + on the glucose card (or "Add a glucose reading" when logging) for readings from any meter. Readings you type in can be edited; readings from a paired meter never change.
 - **mg/dL or mmol/L:** Settings → Glucose unit. It only changes how readings are shown. Existing users keep mmol/L; new users get the unit of their country.
 - **Meals and glucose:** each meal shows your reading before it and about 2 hours after, and the Health page shows which meals raise your glucose the most, on average. Your own numbers only, no advice.
+- **A page for each day's readings:** the day view shows your latest 3 readings; "See all" opens every reading of that day with a chart over your target range.
 - **Test reminder:** optionally, "Time to check your glucose?" about 2 hours after a meal, skipped if you've already tested.
 
 ### Your data
