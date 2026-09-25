@@ -2,6 +2,37 @@
 
 Every release has a section here, headed `## [x.y.z] - YYYY-MM-DD` with an optional ` · Release name`. The release workflow publishes the section as the GitHub release notes (and the name as its title), and refuses to release a version that has none.
 
+## [Unreleased]
+
+Faster logging, your glucose next to your meals, reports for your doctor, and Neutrino in Bangla.
+
+### Logging
+- **Log again:** your starred and recent meals are in the "Log a meal" sheet. Tap one to log it again now (no photo, no AI cost), with Undo. Star the ones you eat often to keep them at the top.
+- **Home screen widget:** today's carbs and calories, your water with a one-tap + 250 ml, a camera button that opens straight into logging a meal, and your latest glucose reading (you can hide it in Settings).
+- **App shortcuts:** long-press the Neutrino icon for "Log a meal" and "Add water".
+- **Daily goals:** optional carbs, calories and water targets, shown as progress on each day (Settings → Daily goals).
+
+### Glucose
+- **Add readings by hand:** tap + on the glucose card (or "Add a glucose reading" when logging) for readings from any meter. Readings you type in can be edited; readings from a paired meter never change.
+- **mg/dL or mmol/L:** Settings → Glucose unit. It only changes how readings are shown. Existing users keep mmol/L; new users get the unit of their country.
+- **Meals and glucose:** each meal shows your reading before it and about 2 hours after, and the Health page shows which meals raise your glucose the most, on average. Your own numbers only, no advice.
+- **Test reminder:** optionally, "Time to check your glucose?" about 2 hours after a meal, skipped if you've already tested.
+
+### Your data
+- **Report for your doctor:** a PDF for the last 2 weeks, 1 month or 3 months, with glucose average, time in range, a daily chart, food and water per day, and every reading. Share it or save it (Settings → Reports and export).
+- **Export everything:** meals, foods, water, glucose and your food list as spreadsheet (CSV) files in one zip.
+- **Weekly summary:** an optional Sunday-evening notification about your week. Values are hidden on the lock screen.
+
+### Privacy
+- **App lock:** unlock Neutrino with your fingerprint, face or screen lock. It locks again after 2 minutes away.
+- **Hide in recent apps:** blank Neutrino's preview in the app switcher and block screenshots.
+
+### Bangla
+- **Neutrino in Bangla (বাংলা):** Settings → App language, or follow your phone's language. Numbers stay in regular digits so readings are never ambiguous.
+
+### Fixes
+- Restoring a backup on Android 9 to 12 no longer fails.
+
 ## [1.0.3] - 2026-09-26 · v1.2-NeutrinoBuddy
 
 Blood glucose from your Bluetooth meter, right next to your meals.

@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
     <cache-path name="captures" path="captures/" />
+    <!-- Reports and data exports the user shares or saves; only the latest is kept. -->
+    <cache-path name="exports" path="exports/" />
 </paths>

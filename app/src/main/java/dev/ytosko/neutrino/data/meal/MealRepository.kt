@@ -32,6 +32,7 @@ data class LoggedMeal(
     val syncedToHealthConnect: Boolean,
     /** First food's category, for the icon when there's no photo. */
     val category: FoodCategory? = null,
+    val favorite: Boolean = false,
 )
 
 data class DaySummary(
@@ -87,6 +88,8 @@ class MealRepository(
     private val foods: FoodRepository,
     /** Called after meals or water change, e.g. to schedule a backup. */
     private val onChanged: () -> Unit = {},
+    /** Called when a new meal is logged (not edited), e.g. to book the "time to test" reminder. */
+    private val onMealLogged: (Instant, MealType) -> Unit = { _, _ -> },
 ) {
 
     fun observeDay(date: LocalDate, zone: ZoneId): Flow<DaySummary> {
@@ -100,6 +103,63 @@ class MealRepository(
                 waterEntries = water.map { it.id },
             )
         }
+    }
+
+    /**
+     * Meals to offer under "Log again": starred ones first, then recent ones, one per name so the
+     * same breakfast doesn't appear five times.
+     */
+    fun observeLogAgain(limit: Int = 8): Flow<List<LoggedMeal>> =
+        combine(db.meals().observeFavorites(), db.meals().observeRecent(60)) { favorites, recent ->
+            val seen = HashSet<String>()
+            val favoriteNames = favorites.mapTo(HashSet()) { it.meal.name.lowercase() }
+            (favorites + recent)
+                .filter { seen.add(it.meal.name.lowercase()) }
+                .map { row ->
+                    row.meal.toLoggedMeal(row.firstCategory?.let(FoodCategory::fromKey))
+                        .copy(favorite = row.meal.name.lowercase() in favoriteNames)
+                }
+                .take(limit)
+        }
+
+    /** Stars or un-stars a meal for "Log again". Un-starring clears every copy with that name. */
+    suspend fun setFavorite(id: String, favorite: Boolean) {
+        val meal = db.meals().get(id) ?: return
+        if (favorite) db.meals().setFavorite(id, true) else db.meals().clearFavoriteByName(meal.name)
+        onChanged()
+    }
+
+    /**
+     * Logs a copy of meal [sourceId] at [at] as [mealType]: same foods, amounts and photo, a new
+     * record in Health Connect. Returns the new meal's id.
+     */
+    suspend fun logAgain(sourceId: String, at: Instant, zone: ZoneId, mealType: MealType): SaveResult? {
+        val source = loadMeal(sourceId) ?: return null
+        val id = UUID.randomUUID().toString()
+        val meal = source.meal
+        val nutrition = Nutrition(meal.calories, meal.proteinG, meal.carbsG, meal.fatG)
+        val synced = runCatching { healthConnect.writeMeal(id, meal.name, nutrition, mealType, at, zone) }.getOrDefault(false)
+        val thumbnail = source.thumbnail?.let { photos.saveThumbnail(it, id) }
+        db.meals().insertWithItems(
+            meal.copy(
+                id = id,
+                mealType = mealType.name,
+                eatenAtEpochMs = at.toEpochMilli(),
+                zoneId = zone.id,
+                thumbnailPath = thumbnail,
+                syncedToHealthConnect = synced,
+                provider = null,
+                model = null,
+                inputTokens = 0,
+                outputTokens = 0,
+                createdAtEpochMs = System.currentTimeMillis(),
+                favorite = false,
+            ),
+            source.items.map { it.copy(rowId = 0, mealId = id) },
+        )
+        onChanged()
+        onMealLogged(at, mealType)
+        return SaveResult(id, synced)
     }
 
     /** Whether a meal of [type] is already logged on [date], so its reminder can be skipped. */
@@ -125,6 +185,8 @@ class MealRepository(
                         date = Instant.ofEpochMilli(meal.eatenAtEpochMs).atZone(zone).toLocalDate(),
                         type = runCatching { MealType.valueOf(meal.mealType) }.getOrDefault(MealType.Snack),
                         nutrition = Nutrition(meal.calories, meal.proteinG, meal.carbsG, meal.fatG),
+                        name = meal.name,
+                        at = Instant.ofEpochMilli(meal.eatenAtEpochMs),
                     )
                 },
                 water = water.map { WaterPoint(Instant.ofEpochMilli(it.loggedAtEpochMs).atZone(zone).toLocalDate(), it.amountMl) },
@@ -165,6 +227,7 @@ class MealRepository(
         // Teach the directory: every food eaten moves up the user's search results.
         draft.items.forEach { foods.recordUse(it.food, draft.mealType, it.portion) }
         onChanged()
+        onMealLogged(draft.eatenAt, draft.mealType)
         return SaveResult(id, synced)
     }
 
@@ -301,6 +364,7 @@ class MealRepository(
         thumbnailPath = thumbnailPath,
         syncedToHealthConnect = syncedToHealthConnect,
         category = category,
+        favorite = favorite,
     )
 }
 

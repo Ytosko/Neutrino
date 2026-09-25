@@ -6,6 +6,7 @@ import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattCallback
 import android.bluetooth.BluetoothGattCharacteristic
 import android.bluetooth.BluetoothGattDescriptor
+import android.bluetooth.BluetoothStatusCodes
 import android.bluetooth.BluetoothProfile
 import android.content.Context
 import android.os.Build
@@ -54,7 +55,7 @@ class AndroidMeterLink private constructor(private val device: BluetoothDevice) 
         op {
             val c = find(service, characteristic) ?: throw MeterSyncException("Missing $characteristic")
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                gatt!!.writeCharacteristic(c, value, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT) == BluetoothGatt.GATT_SUCCESS
+                gatt!!.writeCharacteristic(c, value, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT) == BluetoothStatusCodes.SUCCESS
             } else {
                 @Suppress("DEPRECATION")
                 c.value = value
@@ -73,7 +74,7 @@ class AndroidMeterLink private constructor(private val device: BluetoothDevice) 
             val descriptor = c.getDescriptor(GlucoseUuids.CCCD) ?: throw MeterSyncException("Missing CCCD")
             val value = if (indicate) BluetoothGattDescriptor.ENABLE_INDICATION_VALUE else BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                g.writeDescriptor(descriptor, value) == BluetoothGatt.GATT_SUCCESS
+                g.writeDescriptor(descriptor, value) == BluetoothStatusCodes.SUCCESS
             } else {
                 @Suppress("DEPRECATION")
                 descriptor.value = value

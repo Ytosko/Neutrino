@@ -9,6 +9,9 @@ import dev.ytosko.neutrino.data.settings.SettingsRepository
 import dev.ytosko.neutrino.domain.insights.GlucoseInsights
 import dev.ytosko.neutrino.domain.insights.GlucosePoint
 import dev.ytosko.neutrino.domain.insights.GlucoseSummary
+import dev.ytosko.neutrino.domain.insights.MealGlucoseInsights
+import dev.ytosko.neutrino.domain.insights.MealRise
+import dev.ytosko.neutrino.domain.insights.TimedReading
 import kotlinx.coroutines.flow.distinctUntilChanged
 import java.time.Instant
 import dev.ytosko.neutrino.domain.insights.InsightRange
@@ -63,6 +66,22 @@ class HealthViewModel(
                     GlucosePoint(Instant.ofEpochMilli(it.measuredAtEpochMs).atZone(zone).toLocalDate(), it.mmolPerL, it.relationEnum)
                 }
                 GlucoseInsights.summarize(range, day, points, low, high, firstDayOfWeek)
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** Meals with a glucose reading before and ~2 h after, biggest average rise first. */
+    val mealRises: StateFlow<Pair<InsightRange, List<MealRise>>?> = combine(_range, today) { range, day -> range to day }
+        .flatMapLatest { (range, day) ->
+            val from = range.firstStart(day, firstDayOfWeek)
+            combine(
+                meals.observeRange(from, day, zone),
+                // One extra day, for "after" readings of late dinners.
+                glucose.observeBetween(from, day.plusDays(1), zone),
+            ) { data, readings ->
+                val timed = readings.map { TimedReading(Instant.ofEpochMilli(it.measuredAtEpochMs), it.mmolPerL) }
+                val eaten = data.meals.mapNotNull { m -> m.at?.let { m.name to it } }
+                range to MealGlucoseInsights.biggestRises(eaten, timed)
             }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)

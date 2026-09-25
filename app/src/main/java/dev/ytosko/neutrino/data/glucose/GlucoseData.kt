@@ -78,4 +78,10 @@ interface GlucoseDao {
 
     @Query("SELECT COUNT(*) FROM glucose_readings")
     fun observeCount(): Flow<Int>
+
+    @Query("SELECT * FROM glucose_readings ORDER BY measuredAtEpochMs DESC LIMIT 1")
+    suspend fun latest(): GlucoseEntity?
+
+    @Query("SELECT * FROM glucose_readings ORDER BY measuredAtEpochMs DESC LIMIT 1")
+    fun observeLatest(): Flow<GlucoseEntity?>
 }

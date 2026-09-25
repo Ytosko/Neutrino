@@ -80,7 +80,7 @@ object BackupPackage {
                     buffer.write(chunk, 0, read)
                 }
                 when {
-                    entry.name == DATA -> data = json.decodeFromString(BackupData.serializer(), buffer.toString(Charsets.UTF_8))
+                    entry.name == DATA -> data = json.decodeFromString(BackupData.serializer(), String(buffer.toByteArray(), Charsets.UTF_8))
                     entry.name.startsWith(PHOTOS) && entry.name.endsWith(".jpg") ->
                         photos[entry.name.removePrefix(PHOTOS).removeSuffix(".jpg")] = buffer.toByteArray()
                 }

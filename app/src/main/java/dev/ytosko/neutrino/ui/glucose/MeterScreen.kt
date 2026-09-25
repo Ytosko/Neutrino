@@ -42,6 +42,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -53,6 +54,7 @@ import dev.ytosko.neutrino.data.glucose.GlucoseRepository
 import dev.ytosko.neutrino.data.glucose.MeterModel
 import dev.ytosko.neutrino.data.glucose.PairedMeter
 import dev.ytosko.neutrino.glucose.MeterSync
+import dev.ytosko.neutrino.domain.GlucoseUnit
 import dev.ytosko.neutrino.ui.components.SetupScaffold
 import dev.ytosko.neutrino.ui.theme.NeutrinoTheme
 import dev.ytosko.neutrino.ui.theme.Spacing
@@ -64,13 +66,14 @@ import kotlin.math.roundToInt
 fun MeterScreen(viewModel: MeterViewModel, onBack: () -> Unit, onPairAgain: (MeterModel) -> Unit) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val resources = LocalResources.current
     val snackbar = remember { SnackbarHostState() }
     var confirmForget by remember { mutableStateOf(false) }
 
     LaunchedEffect(viewModel) {
         viewModel.messages.collect { message ->
             snackbar.showSnackbar(
-                context.getString(
+                resources.getString(
                     when (message) {
                         MeterMessage.Synced -> R.string.meter_msg_synced
                         MeterMessage.NoNewReadings -> R.string.meter_msg_none
@@ -244,7 +247,8 @@ private fun RangeCard(low: Double, high: Double, onChange: (Double, Double) -> U
         val lowColor = bandColor(GlucoseBand.Low)
         val inColor = bandColor(GlucoseBand.InRange)
         val highColor = bandColor(GlucoseBand.High)
-        val bandsDescription = stringResource(R.string.meter_range_desc, formatMmol(low), formatMmol(high))
+        val unit = LocalGlucoseUnit.current
+        val bandsDescription = stringResource(R.string.meter_range_desc, unit.format(low), unit.format(high), unit.label)
         Column(Modifier.semantics(mergeDescendants = true) { contentDescription = bandsDescription }) {
             Row(
                 Modifier.fillMaxWidth().height(10.dp).clip(CircleShape),
@@ -255,16 +259,16 @@ private fun RangeCard(low: Double, high: Double, onChange: (Double, Double) -> U
                 Box(Modifier.weight(1f).fillMaxHeight().background(highColor))
             }
             Row(Modifier.fillMaxWidth().padding(top = 4.dp)) {
-                Text("< ${formatMmol(low)}", style = MaterialTheme.typography.labelSmall, color = lowColor, modifier = Modifier.weight(1f))
+                Text("< ${unit.format(low)}", style = MaterialTheme.typography.labelSmall, color = lowColor, modifier = Modifier.weight(1f))
                 Text(
-                    "${formatMmol(low)}–${formatMmol(high)}",
+                    "${unit.format(low)}–${unit.format(high)}",
                     style = MaterialTheme.typography.labelSmall,
                     color = inColor,
                     modifier = Modifier.weight(2.4f),
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                 )
                 Text(
-                    "> ${formatMmol(high)}",
+                    "> ${unit.format(high)}",
                     style = MaterialTheme.typography.labelSmall,
                     color = highColor,
                     modifier = Modifier.weight(1f),
@@ -272,13 +276,17 @@ private fun RangeCard(low: Double, high: Double, onChange: (Double, Double) -> U
                 )
             }
         }
-        Stepper(stringResource(R.string.meter_range_low), low, lowColor, onMinus = { onChange(round1(low - 0.1), high) }, onPlus = { onChange(round1(low + 0.1), high) })
-        Stepper(stringResource(R.string.meter_range_high), high, highColor, onMinus = { onChange(low, round1(high - 0.1)) }, onPlus = { onChange(low, round1(high + 0.1)) })
+        Stepper(stringResource(R.string.meter_range_low), low, lowColor, onMinus = { onChange(unit.step(low, -1), high) }, onPlus = { onChange(unit.step(low, 1), high) })
+        Stepper(stringResource(R.string.meter_range_high), high, highColor, onMinus = { onChange(low, unit.step(high, -1)) }, onPlus = { onChange(low, unit.step(high, 1)) })
         Text(stringResource(R.string.meter_range_shared), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
-private fun round1(v: Double) = (v * 10).roundToInt() / 10.0
+/** One stepper click: 0.1 mmol/L, or 1 mg/dL (kept as whole mg/dL). */
+private fun GlucoseUnit.step(mmol: Double, direction: Int): Double = when (this) {
+    GlucoseUnit.MmolL -> ((mmol + 0.1 * direction) * 10).roundToInt() / 10.0
+    GlucoseUnit.MgDl -> toMmol((fromMmol(mmol).roundToInt() + direction).toDouble())
+}
 
 @Composable
 private fun Stepper(label: String, value: Double, color: Color, onMinus: () -> Unit, onPlus: () -> Unit) {
@@ -287,7 +295,7 @@ private fun Stepper(label: String, value: Double, color: Color, onMinus: () -> U
         Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
         FilledTonalIconButton(onClick = onMinus) { Icon(painterResource(R.drawable.ic_minus), contentDescription = stringResource(R.string.review_less)) }
         Text(
-            "${formatMmol(value)} ${stringResource(R.string.glucose_unit)}",
+            "${glucoseText(value)} ${glucoseUnitLabel()}",
             style = MaterialTheme.typography.titleSmall,
             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
             modifier = Modifier.widthIn(min = 104.dp),

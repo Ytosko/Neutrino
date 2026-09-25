@@ -179,10 +179,37 @@ class GlucoseRepository(
             toInclusive.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli(),
         )
 
-    /** Changes a reading's meal relation and/or time; Health Connect gets the new version. */
-    suspend fun edit(id: String, relation: GlucoseRelation, time: Instant) {
+    suspend fun latest(): GlucoseEntity? = db.glucose().latest()
+
+    val latestReading: Flow<GlucoseEntity?> = db.glucose().observeLatest()
+
+    /** True once any reading exists, so the glucose card can stay visible without a meter. */
+    val hasReadings: Flow<Boolean> = db.glucose().observeCount().map { it > 0 }.distinctUntilChanged()
+
+    /** Saves a reading typed in by hand (e.g. from a meter that isn't paired). */
+    suspend fun addManual(mmolPerL: Double, time: Instant, relation: GlucoseRelation, zone: ZoneId = ZoneId.systemDefault()): GlucoseEntity {
+        val reading = GlucoseEntity(
+            id = "manual-${java.util.UUID.randomUUID()}",
+            mmolPerL = mmolPerL,
+            measuredAtEpochMs = time.toEpochMilli(),
+            zoneId = zone.id,
+            relation = relation.name,
+            createdAtEpochMs = System.currentTimeMillis(),
+        )
+        db.glucose().insert(reading)
+        pushToHealthConnect(reading)
+        onChanged()
+        return reading
+    }
+
+    /**
+     * Changes a reading's meal relation and/or time; Health Connect gets the new version. [mmolPerL]
+     * changes the value too, but only for readings typed in by hand: a meter's value is never edited.
+     */
+    suspend fun edit(id: String, relation: GlucoseRelation, time: Instant, mmolPerL: Double? = null) {
         val current = db.glucose().get(id) ?: return
         val updated = current.copy(
+            mmolPerL = if (mmolPerL != null && current.isManual) mmolPerL else current.mmolPerL,
             relation = relation.name,
             measuredAtEpochMs = time.toEpochMilli(),
             timeEstimated = current.timeEstimated && time.toEpochMilli() == current.measuredAtEpochMs,
@@ -365,6 +392,9 @@ class GlucoseRepository(
         private val ID_STAMP: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyyMMddHHmmss")
     }
 }
+
+/** Typed in by hand rather than downloaded from a meter. */
+val GlucoseEntity.isManual: Boolean get() = meterSequence == null && meterSerial == null
 
 val GlucoseEntity.relationEnum: GlucoseRelation
     get() = runCatching { GlucoseRelation.valueOf(relation) }.getOrDefault(GlucoseRelation.General)

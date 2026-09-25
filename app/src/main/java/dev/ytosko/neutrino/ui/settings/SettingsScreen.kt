@@ -50,6 +50,20 @@ import dev.ytosko.neutrino.ui.components.SetupScaffold
 import dev.ytosko.neutrino.ui.health.HealthConnectViewModel
 import dev.ytosko.neutrino.ui.theme.Spacing
 import kotlinx.coroutines.flow.Flow
+import dev.ytosko.neutrino.data.settings.AppLanguage
+import dev.ytosko.neutrino.widget.NeutrinoWidget
+import kotlinx.coroutines.launch
+import dev.ytosko.neutrino.ui.lock.AppLock
+import dev.ytosko.neutrino.domain.GlucoseUnit
+import dev.ytosko.neutrino.data.settings.SettingsRepository
+import dev.ytosko.neutrino.data.reminders.WeeklySummary
+import dev.ytosko.neutrino.data.reminders.TestReminders
+import androidx.fragment.app.FragmentActivity
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.AlertDialog
 
 @Composable
 fun SettingsScreen(
@@ -63,6 +77,9 @@ fun SettingsScreen(
     onBack: () -> Unit,
     onOpenAi: () -> Unit,
     onOpenHealthConnect: () -> Unit,
+    onOpenGoals: () -> Unit,
+    onOpenExport: () -> Unit,
+    repository: SettingsRepository,
 ) {
     val appSettings by settings.collectAsStateWithLifecycle(initialValue = AppSettings())
     val backupState by backup.collectAsStateWithLifecycle(initialValue = null)
@@ -76,6 +93,19 @@ fun SettingsScreen(
     val privacyUrl = stringResource(R.string.url_privacy)
     val termsUrl = stringResource(R.string.url_terms)
     val sourceUrl = stringResource(R.string.url_source)
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var choosingUnit by remember { mutableStateOf(false) }
+    var choosingLanguage by remember { mutableStateOf(false) }
+    val language = remember(choosingLanguage) { AppLanguage.current(context) }
+    var lockUnavailable by remember { mutableStateOf(false) }
+    // Reminders and the weekly summary need notifications (Android 13+ asks once).
+    val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+    fun askNotificationsIfNeeded() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !MealReminders.canNotify(context)) {
+            notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
 
     SetupScaffold(title = stringResource(R.string.settings_title), onBack = onBack) {
         Section(stringResource(R.string.settings_section_ai)) {
@@ -127,6 +157,43 @@ fun SettingsScreen(
                 },
                 onClick = onOpenMeter,
             )
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            SettingRow(
+                icon = R.drawable.ic_chart_column,
+                title = stringResource(R.string.settings_glucose_unit),
+                value = appSettings.glucoseUnit.label,
+                onClick = { choosingUnit = true },
+            )
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            SwitchRow(
+                icon = R.drawable.ic_bell,
+                title = stringResource(R.string.settings_test_reminder),
+                subtitle = stringResource(R.string.settings_test_reminder_body),
+                checked = appSettings.afterMealReminder,
+                onChange = { on ->
+                    if (on) askNotificationsIfNeeded()
+                    scope.launch {
+                        repository.setAfterMealReminder(on)
+                        if (!on) TestReminders.cancel(context)
+                    }
+                },
+            )
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            SwitchRow(
+                icon = R.drawable.ic_smartphone,
+                title = stringResource(R.string.settings_widget_glucose),
+                subtitle = stringResource(R.string.settings_widget_glucose_body),
+                checked = appSettings.widgetShowsGlucose,
+                onChange = { on -> scope.launch { repository.setWidgetShowsGlucose(on); NeutrinoWidget.refresh(context) } },
+            )
+        }
+        Section(stringResource(R.string.settings_section_goals)) {
+            SettingRow(
+                icon = R.drawable.ic_chart_column,
+                title = stringResource(R.string.goals_title),
+                value = goalsSummary(appSettings),
+                onClick = onOpenGoals,
+            )
         }
         Section(stringResource(R.string.settings_section_meals)) {
             val time = { t: java.time.LocalTime -> t.format(java.time.format.DateTimeFormatter.ofLocalizedTime(java.time.format.FormatStyle.SHORT)) }
@@ -145,6 +212,61 @@ fun SettingsScreen(
                 },
                 onClick = onOpenMeals,
             )
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            SwitchRow(
+                icon = R.drawable.ic_history,
+                title = stringResource(R.string.settings_weekly),
+                subtitle = stringResource(R.string.settings_weekly_body),
+                checked = appSettings.weeklySummary,
+                onChange = { on ->
+                    if (on) askNotificationsIfNeeded()
+                    scope.launch {
+                        repository.setWeeklySummary(on)
+                        WeeklySummary.sync(context)
+                    }
+                },
+            )
+        }
+        Section(stringResource(R.string.settings_section_data)) {
+            SettingRow(
+                icon = R.drawable.ic_archive,
+                title = stringResource(R.string.export_title),
+                value = stringResource(R.string.settings_export_value),
+                onClick = onOpenExport,
+            )
+        }
+        Section(stringResource(R.string.settings_section_privacy)) {
+            SwitchRow(
+                icon = R.drawable.ic_lock,
+                title = stringResource(R.string.settings_app_lock),
+                subtitle = stringResource(R.string.settings_app_lock_body),
+                checked = appSettings.appLock,
+                onChange = { on ->
+                    val activity = context as? FragmentActivity
+                    when {
+                        !on -> scope.launch { repository.setAppLock(false) }
+                        activity == null || !AppLock.available(context) -> lockUnavailable = true
+                        // Prove it works before turning it on, so nobody locks themselves out.
+                        else -> AppLock.authenticate(activity, onSuccess = { scope.launch { repository.setAppLock(true) } })
+                    }
+                },
+            )
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            SwitchRow(
+                icon = R.drawable.ic_eye_off,
+                title = stringResource(R.string.settings_hide_recents),
+                subtitle = stringResource(R.string.settings_hide_recents_body),
+                checked = appSettings.hideInRecents,
+                onChange = { on -> scope.launch { repository.setHideInRecents(on) } },
+            )
+        }
+        Section(stringResource(R.string.settings_section_general)) {
+            SettingRow(
+                icon = R.drawable.ic_globe,
+                title = stringResource(R.string.settings_language),
+                value = languageName(language),
+                onClick = { choosingLanguage = true },
+            )
         }
         Section(stringResource(R.string.settings_section_about)) {
             SettingRow(R.drawable.ic_shield_check, stringResource(R.string.settings_privacy), null, external = true) { uriHandler.openUri(privacyUrl) }
@@ -159,6 +281,122 @@ fun SettingsScreen(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = Spacing.lg),
         )
+    }
+
+    if (choosingUnit) {
+        AlertDialog(
+            onDismissRequest = { choosingUnit = false },
+            title = { Text(stringResource(R.string.settings_glucose_unit)) },
+            text = {
+                Column {
+                    GlucoseUnit.entries.forEach { unit ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 52.dp)
+                                .selectable(selected = appSettings.glucoseUnit == unit, role = Role.RadioButton) {
+                                    scope.launch { repository.setGlucoseUnit(unit); NeutrinoWidget.refresh(context) }
+                                    choosingUnit = false
+                                },
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                        ) {
+                            RadioButton(selected = appSettings.glucoseUnit == unit, onClick = null)
+                            Text(unit.label, style = MaterialTheme.typography.bodyLarge)
+                        }
+                    }
+                    Text(
+                        stringResource(R.string.settings_glucose_unit_body),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = Spacing.xs),
+                    )
+                }
+            },
+            confirmButton = { TextButton(onClick = { choosingUnit = false }) { Text(stringResource(R.string.backup_cancel)) } },
+        )
+    }
+
+    if (choosingLanguage) {
+        AlertDialog(
+            onDismissRequest = { choosingLanguage = false },
+            title = { Text(stringResource(R.string.settings_language)) },
+            text = {
+                Column {
+                    AppLanguage.entries.forEach { option ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 52.dp)
+                                .selectable(selected = language == option, role = Role.RadioButton) {
+                                    choosingLanguage = false
+                                    if (option != language) {
+                                        AppLanguage.set(context, option)
+                                        // Android 13+ restarts the screen itself; before that, Neutrino does.
+                                        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) (context as? android.app.Activity)?.recreate()
+                                    }
+                                },
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                        ) {
+                            RadioButton(selected = language == option, onClick = null)
+                            Text(languageName(option), style = MaterialTheme.typography.bodyLarge)
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { choosingLanguage = false }) { Text(stringResource(R.string.backup_cancel)) } },
+        )
+    }
+
+    if (lockUnavailable) {
+        AlertDialog(
+            onDismissRequest = { lockUnavailable = false },
+            title = { Text(stringResource(R.string.settings_app_lock)) },
+            text = { Text(stringResource(R.string.settings_app_lock_unavailable)) },
+            confirmButton = { TextButton(onClick = { lockUnavailable = false }) { Text(stringResource(R.string.meters_done)) } },
+        )
+    }
+}
+
+/** Each language is named in itself, so anyone can find their own. */
+@Composable
+private fun languageName(language: AppLanguage): String = when (language) {
+    AppLanguage.System -> stringResource(R.string.settings_language_system)
+    AppLanguage.English -> "English"
+    AppLanguage.Bangla -> "বাংলা"
+}
+
+@Composable
+private fun goalsSummary(settings: AppSettings): String {
+    val parts = listOfNotNull(
+        settings.carbGoalG?.let { stringResource(R.string.goals_summary_carbs, it) },
+        settings.kcalGoal?.let { stringResource(R.string.goals_summary_kcal, it) },
+        settings.waterGoalMl?.let { stringResource(R.string.goals_summary_water, dev.ytosko.neutrino.domain.insights.formatWater(it)) },
+    )
+    return if (parts.isEmpty()) stringResource(R.string.goals_none) else parts.joinToString(" · ")
+}
+
+/** A setting that's on or off: the whole row toggles it. */
+@Composable
+private fun SwitchRow(icon: Int, title: String, subtitle: String?, checked: Boolean, onChange: (Boolean) -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 64.dp)
+            .toggleable(value = checked, role = Role.Switch, onValueChange = onChange)
+            .padding(horizontal = Spacing.md, vertical = Spacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+    ) {
+        IconBadge(icon = icon, size = 40.dp)
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.titleSmall)
+            if (subtitle != null) {
+                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        Switch(checked = checked, onCheckedChange = null)
     }
 }
 

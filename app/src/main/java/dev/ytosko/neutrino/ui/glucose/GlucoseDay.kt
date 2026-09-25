@@ -22,6 +22,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -57,6 +58,7 @@ import dev.ytosko.neutrino.R
 import dev.ytosko.neutrino.data.glucose.GlucoseEntity
 import dev.ytosko.neutrino.data.glucose.GlucoseRelation
 import dev.ytosko.neutrino.data.glucose.relationEnum
+import dev.ytosko.neutrino.data.glucose.isManual
 import dev.ytosko.neutrino.ui.components.IconBadge
 import dev.ytosko.neutrino.ui.theme.Spacing
 import java.time.Instant
@@ -78,6 +80,7 @@ fun GlucoseDayCard(
     range: ClosedFloatingPointRange<Double>,
     isToday: Boolean,
     onOpen: (GlucoseEntity) -> Unit,
+    onAdd: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Card(
@@ -106,12 +109,16 @@ fun GlucoseDayCard(
                             R.plurals.glucose_day_summary,
                             readings.size,
                             readings.size,
-                            formatMmol(readings.map { it.mmolPerL }.average()),
+                            glucoseText(readings.map { it.mmolPerL }.average()),
+                            glucoseUnitLabel(),
                         )
                     },
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            }
+            FilledTonalIconButton(onClick = onAdd) {
+                Icon(painterResource(R.drawable.ic_plus), contentDescription = stringResource(R.string.glucose_add_title))
             }
         }
         // A busy day would push the meals far down: show the latest few until asked for all.
@@ -144,7 +151,7 @@ private fun GlucoseRow(reading: GlucoseEntity, range: ClosedFloatingPointRange<D
     val time = remember(reading.measuredAtEpochMs) { shortTime(reading.measuredAtEpochMs) }
     val relation = relationLabel(reading.relationEnum)
     val bandText = bandLabel(band)
-    val description = stringResource(R.string.glucose_reading_desc, reading.valueText(), time, relation, bandText) +
+    val description = stringResource(R.string.glucose_reading_desc, reading.valueText(), time, relation, bandText, glucoseUnitLabel()) +
         if (reading.timeEstimated) ". " + stringResource(R.string.glucose_estimated_short) else ""
     val openLabel = stringResource(R.string.glucose_edit_title)
     Row(
@@ -189,7 +196,7 @@ private fun GlucoseRow(reading: GlucoseEntity, range: ClosedFloatingPointRange<D
             Row(verticalAlignment = Alignment.Bottom) {
                 Text(reading.valueText(), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, color = color)
                 Text(
-                    " " + stringResource(R.string.glucose_unit),
+                    " " + glucoseUnitLabel(),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(bottom = 3.dp),
@@ -201,37 +208,67 @@ private fun GlucoseRow(reading: GlucoseEntity, range: ClosedFloatingPointRange<D
 }
 
 /**
- * Change a reading's meal mark or time, or delete it. The value itself is never editable: it is
- * exactly what the meter measured.
+ * Add a reading by hand ([reading] null), or change one: its meal mark and time, and its value
+ * only if it was typed in by hand. A meter's value is never editable: it is exactly what the
+ * meter measured.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GlucoseEditDialog(
-    reading: GlucoseEntity,
+    reading: GlucoseEntity?,
     range: ClosedFloatingPointRange<Double>,
-    onSave: (GlucoseRelation, Instant) -> Unit,
+    /** Where a new reading starts: now, or the same time of day on a past day. */
+    newReadingTime: Instant = Instant.now(),
+    onSave: (mmolPerL: Double?, GlucoseRelation, Instant) -> Unit,
     onDelete: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
+    val unit = LocalGlucoseUnit.current
     val zone = remember { ZoneId.systemDefault() }
-    val original = remember(reading.id) { Instant.ofEpochMilli(reading.measuredAtEpochMs).atZone(zone) }
-    var relation by remember(reading.id) { mutableStateOf(reading.relationEnum) }
-    var at by remember(reading.id) { mutableStateOf(original) }
+    val key = reading?.id ?: "new"
+    val original = remember(key) { Instant.ofEpochMilli(reading?.measuredAtEpochMs ?: newReadingTime.toEpochMilli()).atZone(zone) }
+    val originalRelation = reading?.relationEnum ?: GlucoseRelation.General
+    var relation by remember(key) { mutableStateOf(originalRelation) }
+    var at by remember(key) { mutableStateOf(original) }
     var relationMenu by remember { mutableStateOf(false) }
     var pickDate by remember { mutableStateOf(false) }
     var pickTime by remember { mutableStateOf(false) }
-    val band = band(reading.mmolPerL, range.start, range.endInclusive)
+    val valueEditable = reading == null || reading.isManual
+    var valueText by remember(key) { mutableStateOf(reading?.takeIf { it.isManual }?.let { unit.format(it.mmolPerL) } ?: "") }
+    // Typed in the user's unit; meters measure roughly 0.6–33.3 mmol/L (10–600 mg/dL).
+    val typedMmol = valueText.replace(',', '.').toDoubleOrNull()?.let(unit::toMmol)?.takeIf { it in 0.6..33.3 }
+    val valueError = valueEditable && valueText.isNotBlank() && typedMmol == null
     val inFuture = at.toInstant().isAfter(Instant.now().plusSeconds(60))
     // Only the minute is shown, so an untouched time keeps its seconds.
     val timeChanged = at.withSecond(0).withNano(0) != original.withSecond(0).withNano(0)
-    val changed = relation != reading.relationEnum || timeChanged
+    val valueChanged = valueEditable && typedMmol != null && (reading == null || kotlin.math.abs(typedMmol - reading.mmolPerL) > 1e-6)
+    val changed = reading == null || relation != originalRelation || timeChanged || valueChanged
+    val canSave = changed && !inFuture && (!valueEditable || typedMmol != null)
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.glucose_edit_title)) },
+        title = { Text(stringResource(if (reading == null) R.string.glucose_add_title else R.string.glucose_edit_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                if (valueEditable) {
+                    OutlinedTextField(
+                        value = valueText,
+                        onValueChange = { valueText = it.filter { c -> c.isDigit() || c == '.' || c == ',' }.take(5) },
+                        singleLine = true,
+                        label = { Text(stringResource(R.string.glucose_value_label, unit.label)) },
+                        isError = valueError,
+                        supportingText = if (valueError) {
+                            { Text(stringResource(R.string.glucose_value_error, unit.format(0.6), unit.format(33.3), unit.label)) }
+                        } else {
+                            null
+                        },
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+                if (reading != null && !valueEditable) {
+                val band = band(reading.mmolPerL, range.start, range.endInclusive)
                 Row(verticalAlignment = Alignment.Bottom) {
                     Text(
                         reading.valueText(),
@@ -240,13 +277,14 @@ fun GlucoseEditDialog(
                         color = bandColor(band),
                     )
                     Text(
-                        " " + stringResource(R.string.glucose_unit) + " · " + bandLabel(band),
+                        " " + glucoseUnitLabel() + " · " + bandLabel(band),
                         style = MaterialTheme.typography.titleSmall,
                         color = bandColor(band),
                         modifier = Modifier.padding(bottom = 6.dp),
                     )
                 }
-                if (reading.timeEstimated) {
+                }
+                if (reading?.timeEstimated == true) {
                     Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
                         Icon(painterResource(R.drawable.ic_clock), contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
                         Text(stringResource(R.string.glucose_estimated), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
@@ -282,17 +320,19 @@ fun GlucoseEditDialog(
                 if (inFuture) {
                     Text(stringResource(R.string.glucose_future), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
                 }
-                TextButton(onClick = onDelete) {
-                    Icon(painterResource(R.drawable.ic_trash), contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.size(6.dp))
-                    Text(stringResource(R.string.glucose_delete), color = MaterialTheme.colorScheme.error)
+                if (reading != null) {
+                    TextButton(onClick = onDelete) {
+                        Icon(painterResource(R.drawable.ic_trash), contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.size(6.dp))
+                        Text(stringResource(R.string.glucose_delete), color = MaterialTheme.colorScheme.error)
+                    }
                 }
             }
         },
         confirmButton = {
             TextButton(
-                onClick = { onSave(relation, if (timeChanged) at.toInstant() else original.toInstant()) },
-                enabled = changed && !inFuture,
+                onClick = { onSave(if (valueEditable) typedMmol else null, relation, if (timeChanged) at.toInstant() else original.toInstant()) },
+                enabled = canSave,
             ) { Text(stringResource(R.string.glucose_save)) }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.home_cancel)) } },

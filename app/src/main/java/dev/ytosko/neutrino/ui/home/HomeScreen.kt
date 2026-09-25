@@ -41,6 +41,11 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
+import dev.ytosko.neutrino.ui.glucose.LocalGlucoseUnit
+import dev.ytosko.neutrino.domain.insights.MealGlucose
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -108,6 +113,8 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.ytosko.neutrino.R
 import dev.ytosko.neutrino.data.meal.DaySummary
+import dev.ytosko.neutrino.appContainer
+import dev.ytosko.neutrino.widget.LaunchAction
 import dev.ytosko.neutrino.data.glucose.GlucoseEntity
 import dev.ytosko.neutrino.ui.glucose.GlucoseDayCard
 import dev.ytosko.neutrino.ui.glucose.GlucoseEditDialog
@@ -161,9 +168,13 @@ fun HomeScreen(
     val isToday by viewModel.isToday.collectAsStateWithLifecycle()
     val mealWindows by viewModel.mealWindows.collectAsStateWithLifecycle()
     val glucoseReadings by viewModel.glucoseReadings.collectAsStateWithLifecycle()
-    val meterPaired by viewModel.meterPaired.collectAsStateWithLifecycle()
+    val glucoseVisible by viewModel.glucoseVisible.collectAsStateWithLifecycle()
     val glucoseRange by viewModel.glucoseRange.collectAsStateWithLifecycle()
+    val mealGlucose by viewModel.mealGlucose.collectAsStateWithLifecycle()
+    val goals by viewModel.goals.collectAsStateWithLifecycle()
+    val logAgainMeals by viewModel.logAgain.collectAsStateWithLifecycle()
     var editingGlucose by remember { mutableStateOf<GlucoseEntity?>(null) }
+    var addingGlucose by remember { mutableStateOf(false) }
     var pickingDate by remember { mutableStateOf(false) }
     val aiReady by viewModel.aiReady.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
@@ -209,6 +220,7 @@ fun HomeScreen(
     val gallery = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         if (uri != null) onPhotoSelected(uri, false)
     }
+    val launchActions = context.appContainer.launchAction
 
     val noCamera = stringResource(R.string.home_no_camera)
     val aiNeeded = stringResource(R.string.home_ai_needed)
@@ -237,6 +249,27 @@ fun HomeScreen(
         }
     }
 
+    val loggedAgain = stringResource(R.string.home_logged_again)
+    fun logAgain(meal: LoggedMeal) {
+        showSheet = false
+        scope.launch {
+            val id = viewModel.logAgain(meal, mealWindows) ?: return@launch
+            snackbar.currentSnackbarData?.dismiss()
+            val result = snackbar.showSnackbar(loggedAgain, actionLabel = undo, duration = SnackbarDuration.Long)
+            if (result == SnackbarResult.ActionPerformed) viewModel.deleteMeal(id)
+        }
+    }
+
+    fun openCamera() {
+        val uri = newCaptureUri(context)
+        pendingCapture = uri.toString()
+        try {
+            camera.launch(uri)
+        } catch (_: ActivityNotFoundException) {
+            scope.launch { snackbar.showSnackbar(noCamera) }
+        }
+    }
+
     fun startLogging() {
         showSheet = true
     }
@@ -250,6 +283,24 @@ fun HomeScreen(
             scope.launch {
                 val result = snackbar.showSnackbar(aiNeeded, actionLabel = setUp, duration = SnackbarDuration.Long)
                 if (result == SnackbarResult.ActionPerformed) onOpenAiSettings()
+            }
+        }
+    }
+
+    // The widget's camera and water buttons, and the app shortcuts.
+    LaunchedEffect(launchActions) {
+        launchActions.collect { action ->
+            if (action == null) return@collect
+            launchActions.value = null
+            tab = HomeTab.Days
+            viewModel.showToday()
+            when (action) {
+                LaunchAction.LOG_MEAL_PHOTO -> withAi { openCamera() }
+                LaunchAction.LOG_MEAL -> showSheet = true
+                LaunchAction.ADD_WATER -> {
+                    viewModel.addWater()
+                    snackbar.showSnackbar(waterAdded)
+                }
             }
         }
     }
@@ -412,10 +463,11 @@ fun HomeScreen(
             if (backup != null && backup.needsAttention) {
                 item(key = "backup") { BackupReminder(backup, onOpenBackup, itemModifier) }
             }
-            item { TotalsCard(summary?.totals, itemModifier) }
+            item { TotalsCard(summary?.totals, itemModifier, carbGoalG = goals.carbsG, kcalGoal = goals.kcal) }
             item {
                 WaterCard(
                     waterMl = summary?.waterMl ?: 0,
+                    goalMl = goals.waterMl,
                     isToday = isToday,
                     onRemove = viewModel::removeLastWater,
                     onAdd = {
@@ -438,6 +490,7 @@ fun HomeScreen(
                     items(meals, key = { it.id }) { meal ->
                         MealRow(
                             meal,
+                            glucose = mealGlucose[meal.id],
                             onOpen = { onOpenMeal(meal.id) },
                             onDelete = { deleteWithUndo(meal) },
                             modifier = itemModifier.animateItem(),
@@ -446,13 +499,14 @@ fun HomeScreen(
                 }
             }
             // Meals first; blood glucose comes after them.
-            if (meterPaired || glucoseReadings.isNotEmpty()) {
+            if (glucoseVisible || glucoseReadings.isNotEmpty()) {
                 item(key = "glucose") {
                     GlucoseDayCard(
                         readings = glucoseReadings,
                         range = glucoseRange,
                         isToday = isToday,
                         onOpen = { editingGlucose = it },
+                        onAdd = { addingGlucose = true },
                         modifier = itemModifier.animateItem(),
                     )
                 }
@@ -464,22 +518,14 @@ fun HomeScreen(
 
     if (showSheet) {
         ModalBottomSheet(onDismissRequest = { showSheet = false }) {
-            Column(modifier = Modifier.navigationBarsPadding().padding(bottom = Spacing.lg)) {
+            Column(modifier = Modifier.navigationBarsPadding().verticalScroll(rememberScrollState()).padding(bottom = Spacing.lg)) {
                 Text(
                     stringResource(R.string.home_log_meal_title),
                     style = MaterialTheme.typography.titleLarge,
                     modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.sm),
                 )
                 SheetOption(R.drawable.ic_camera, stringResource(R.string.home_take_photo)) {
-                    withAi {
-                        val uri = newCaptureUri(context)
-                        pendingCapture = uri.toString()
-                        try {
-                            camera.launch(uri)
-                        } catch (_: ActivityNotFoundException) {
-                            scope.launch { snackbar.showSnackbar(noCamera) }
-                        }
-                    }
+                    withAi { openCamera() }
                 }
                 SheetOption(R.drawable.ic_image, stringResource(R.string.home_choose_photo)) {
                     withAi { gallery.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
@@ -488,16 +534,44 @@ fun HomeScreen(
                     showSheet = false
                     onAddManually()
                 }
+                SheetOption(R.drawable.ic_activity, stringResource(R.string.home_add_glucose)) {
+                    showSheet = false
+                    addingGlucose = true
+                }
+                if (logAgainMeals.isNotEmpty()) {
+                    Text(
+                        stringResource(R.string.home_log_again),
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.padding(start = Spacing.lg, end = Spacing.lg, top = Spacing.md, bottom = Spacing.xs).semantics { heading() },
+                    )
+                    logAgainMeals.forEach { meal ->
+                        LogAgainRow(meal, onLog = { logAgain(meal) }, onToggleFavorite = { viewModel.toggleFavorite(meal) })
+                    }
+                }
             }
         }
+    }
+
+    if (addingGlucose) {
+        GlucoseEditDialog(
+            reading = null,
+            range = glucoseRange,
+            newReadingTime = remember { viewModel.timeOnShownDay() },
+            onSave = { mmol, relation, time ->
+                if (mmol != null) viewModel.addGlucose(mmol, relation, time)
+                addingGlucose = false
+            },
+            onDelete = {},
+            onDismiss = { addingGlucose = false },
+        )
     }
 
     editingGlucose?.let { reading ->
         GlucoseEditDialog(
             reading = reading,
             range = glucoseRange,
-            onSave = { relation, time ->
-                viewModel.editGlucose(reading.id, relation, time)
+            onSave = { mmol, relation, time ->
+                viewModel.editGlucose(reading.id, relation, time, mmol)
                 editingGlucose = null
             },
             onDelete = {
@@ -577,7 +651,7 @@ private fun SheetOption(icon: Int, label: String, onClick: () -> Unit) {
 
 
 @Composable
-private fun WaterCard(waterMl: Int, isToday: Boolean, onRemove: () -> Unit, onAdd: () -> Unit, modifier: Modifier = Modifier) {
+private fun WaterCard(waterMl: Int, goalMl: Int?, isToday: Boolean, onRemove: () -> Unit, onAdd: () -> Unit, modifier: Modifier = Modifier) {
     val colors = NeutrinoTheme.colors
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -594,11 +668,24 @@ private fun WaterCard(waterMl: Int, isToday: Boolean, onRemove: () -> Unit, onAd
             Column(modifier = Modifier.weight(1f)) {
                 Text(stringResource(R.string.home_water), style = MaterialTheme.typography.titleMedium)
                 Text(
-                    stringResource(if (isToday) R.string.home_water_amount else R.string.home_water_amount_day, formatWater(waterMl)),
+                    if (goalMl != null) {
+                        stringResource(R.string.home_water_of_goal, formatWater(waterMl), formatWater(goalMl))
+                    } else {
+                        stringResource(if (isToday) R.string.home_water_amount else R.string.home_water_amount_day, formatWater(waterMl))
+                    },
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                 )
+                if (goalMl != null) {
+                    LinearProgressIndicator(
+                        progress = { (waterMl.toFloat() / goalMl).coerceIn(0f, 1f) },
+                        color = colors.water,
+                        trackColor = colors.waterContainer,
+                        drawStopIndicator = {},
+                        modifier = Modifier.padding(top = 6.dp).fillMaxWidth().height(6.dp).clip(CircleShape),
+                    )
+                }
             }
             if (waterMl > 0) {
                 IconButton(onClick = onRemove) {
@@ -621,7 +708,7 @@ private fun WaterCard(waterMl: Int, isToday: Boolean, onRemove: () -> Unit, onAd
 }
 
 @Composable
-private fun MealRow(meal: LoggedMeal, onOpen: () -> Unit, onDelete: () -> Unit, modifier: Modifier = Modifier) {
+private fun MealRow(meal: LoggedMeal, glucose: MealGlucose?, onOpen: () -> Unit, onDelete: () -> Unit, modifier: Modifier = Modifier) {
     val colors = NeutrinoTheme.colors
     val time = remember(meal.eatenAt) {
         meal.eatenAt.atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT))
@@ -647,13 +734,14 @@ private fun MealRow(meal: LoggedMeal, onOpen: () -> Unit, onDelete: () -> Unit, 
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm), modifier = Modifier.padding(top = 2.dp)) {
-                    MacroText("C", meal.nutrition.carbsG, colors.carbs)
-                    MacroText("P", meal.nutrition.proteinG, colors.protein)
-                    MacroText("F", meal.nutrition.fatG, colors.fat)
+                    MacroText(stringResource(R.string.macro_letter_carbs), meal.nutrition.carbsG, colors.carbs)
+                    MacroText(stringResource(R.string.macro_letter_protein), meal.nutrition.proteinG, colors.protein)
+                    MacroText(stringResource(R.string.macro_letter_fat), meal.nutrition.fatG, colors.fat)
                     if (!meal.syncedToHealthConnect) {
                         Text(stringResource(R.string.home_not_synced), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
                     }
                 }
+                if (glucose != null) MealGlucoseLine(glucose)
             }
             IconButton(onClick = onDelete) {
                 Icon(
@@ -673,17 +761,17 @@ private fun MacroText(letter: String, grams: Double, color: androidx.compose.ui.
 }
 
 @Composable
-private fun Thumbnail(path: String?, category: FoodCategory?) {
+private fun Thumbnail(path: String?, category: FoodCategory?, size: androidx.compose.ui.unit.Dp = 56.dp) {
     val bitmap by produceState<ImageBitmap?>(null, path) {
         value = path?.let { withContext(Dispatchers.IO) { BitmapFactory.decodeFile(it)?.asImageBitmap() } }
     }
     if (path == null && category != null) {
-        FoodIcon(category, size = 56.dp)
+        FoodIcon(category, size = size)
         return
     }
     Box(
         modifier = Modifier
-            .size(56.dp)
+            .size(size)
             .clip(MaterialTheme.shapes.medium)
             .background(MaterialTheme.colorScheme.surfaceContainerHigh),
         contentAlignment = Alignment.Center,
@@ -793,5 +881,53 @@ private fun MealGroupHeader(type: MealType, kcal: Double, modifier: Modifier = M
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+    }
+}
+
+
+/** "Glucose 5.8 → 9.4 mmol/L" under a meal: the reading before it and about 2 hours after. */
+@Composable
+private fun MealGlucoseLine(glucose: MealGlucose) {
+    val unit = LocalGlucoseUnit.current
+    val text = when {
+        glucose.before != null && glucose.after != null ->
+            stringResource(R.string.home_meal_glucose_both, unit.format(glucose.before.mmolPerL), unit.format(glucose.after.mmolPerL), unit.label)
+        glucose.before != null -> stringResource(R.string.home_meal_glucose_before, unit.format(glucose.before.mmolPerL), unit.label)
+        else -> stringResource(R.string.home_meal_glucose_after, unit.format(glucose.after!!.mmolPerL), unit.label)
+    }
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.padding(top = 2.dp)) {
+        Icon(painterResource(R.drawable.ic_activity), contentDescription = null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(14.dp))
+        Text(text, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/** A starred or recent meal in the log sheet: tap to log it again, star to keep it at the top. */
+@Composable
+private fun LogAgainRow(meal: LoggedMeal, onLog: () -> Unit, onToggleFavorite: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 64.dp)
+            .clickable(role = Role.Button, onClickLabel = stringResource(R.string.home_log_again), onClick = onLog)
+            .padding(start = Spacing.lg, end = Spacing.sm, top = Spacing.xs, bottom = Spacing.xs),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+    ) {
+        Thumbnail(meal.thumbnailPath, meal.category, size = 44.dp)
+        Column(Modifier.weight(1f)) {
+            Text(meal.name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                "${meal.nutrition.calories.roundKcal()} ${stringResource(R.string.macro_energy)} · ${mealTypeLabel(meal.mealType)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        IconButton(onClick = onToggleFavorite) {
+            Icon(
+                painterResource(if (meal.favorite) R.drawable.ic_star_filled else R.drawable.ic_star),
+                contentDescription = stringResource(if (meal.favorite) R.string.home_unstar else R.string.home_star),
+                tint = if (meal.favorite) NeutrinoTheme.colors.carbs else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }

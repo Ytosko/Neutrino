@@ -5,6 +5,11 @@ import dev.ytosko.neutrino.data.glucose.MeterSyncOutcome
 import dev.ytosko.neutrino.data.glucose.MeterNotifications
 import dev.ytosko.neutrino.data.glucose.MeterCompanion
 import dev.ytosko.neutrino.data.glucose.MeterScan
+import dev.ytosko.neutrino.data.reminders.TestReminders
+import dev.ytosko.neutrino.widget.NeutrinoWidget
+import dev.ytosko.neutrino.data.export.DataExport
+import dev.ytosko.neutrino.domain.GlucoseUnit
+import kotlinx.coroutines.flow.MutableStateFlow
 import dev.ytosko.neutrino.data.glucose.MeterWake
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -47,11 +52,17 @@ class NeutrinoApplication : Application() {
     lateinit var container: AppContainer
         private set
 
+    // Notifications and the widget use the app's context: same language and digits as the screens.
+    override fun attachBaseContext(base: android.content.Context) {
+        super.attachBaseContext(dev.ytosko.neutrino.data.settings.AppLanguage.wrap(base))
+    }
+
     override fun onCreate() {
         super.onCreate()
         container = AppContainer(this)
         // Keep the daily backup scheduled once backups are set up (a no-op if already queued).
         appScope.launch {
+            container.chooseGlucoseUnitOnce()
             if (container.backups.state.first().passwordSet) container.backups.schedule()
             if (container.settings.settings.first().remindersEnabled) MealReminders.scheduleAll(this@NeutrinoApplication)
             container.syncHealthConnect()
@@ -105,9 +116,47 @@ class AppContainer(application: Application) {
         json = json,
     )
 
-    val meals = MealRepository(database, healthConnect, photos, foods, onChanged = backups::scheduleSoon)
+    private val scopeForChanges get() = scope
 
-    val glucose = GlucoseRepository(application, database, healthConnect, onChanged = backups::scheduleSoon)
+    /** After meals, water or readings change: back up soon and redraw the home screen widget. */
+    private fun dataChanged() {
+        backups.scheduleSoon()
+        scopeForChanges.launch { NeutrinoWidget.refresh(context) }
+    }
+
+    val exports = DataExport(application, database, settings)
+
+    /**
+     * Picks the glucose unit once and stores it, so it never changes by itself later. Anyone who
+     * already has readings or a meter saw mmol/L before units existed and keeps it; otherwise the
+     * SIM or network country decides (many phones use English (US) outside the US), then the
+     * phone's region.
+     */
+    suspend fun chooseGlucoseUnitOnce() {
+        settings.ensureGlucoseUnit {
+            if (glucose.meters.first().isNotEmpty() || glucose.hasReadings.first()) {
+                GlucoseUnit.MmolL
+            } else {
+                val telephony = context.getSystemService(android.telephony.TelephonyManager::class.java)
+                val country = listOfNotNull(
+                    runCatching { telephony?.simCountryIso }.getOrNull(),
+                    runCatching { telephony?.networkCountryIso }.getOrNull(),
+                ).firstOrNull { it.isNotBlank() }
+                GlucoseUnit.defaultFor(if (country != null) java.util.Locale("", country.uppercase()) else java.util.Locale.getDefault())
+            }
+        }
+    }
+
+    /** A widget or app shortcut asked for something (log a meal, add water); Home handles it. */
+    val launchAction = MutableStateFlow<String?>(null)
+
+    val meals = MealRepository(
+        database, healthConnect, photos, foods,
+        onChanged = ::dataChanged,
+        onMealLogged = { at, type -> scope.launch { TestReminders.onMealLogged(application, at, type) } },
+    )
+
+    val glucose = GlucoseRepository(application, database, healthConnect, onChanged = ::dataChanged)
 
     private val context: Context = application
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)

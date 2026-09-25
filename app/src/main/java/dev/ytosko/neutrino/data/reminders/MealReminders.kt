@@ -48,6 +48,8 @@ enum class MealReminder(val mealType: MealType, val time: LocalTime, @StringRes 
  * fires within a few minutes of its time, then schedules the next day's. A reminder is skipped
  * when that meal is already logged.
  */
+// Notifications are posted only after MealReminders.canNotify() confirmed the permission.
+@android.annotation.SuppressLint("MissingPermission")
 object MealReminders {
 
     private const val CHANNEL = "meal_reminders"
@@ -126,7 +128,10 @@ class MealReminderReceiver : BroadcastReceiver() {
             try {
                 val container = app.appContainer
                 // After a reboot or update, also restart the meter's background wake-ups.
-                if (intent.getStringExtra(MealReminders.EXTRA_REMINDER) == null) runCatching { container.watchMeters() }
+                if (intent.getStringExtra(MealReminders.EXTRA_REMINDER) == null) {
+                    runCatching { container.watchMeters() }
+                    runCatching { WeeklySummary.sync(app) }
+                }
                 val settings = container.settings.settings.first()
                 val enabled = settings.remindersEnabled
                 val reminder = intent.getStringExtra(MealReminders.EXTRA_REMINDER)

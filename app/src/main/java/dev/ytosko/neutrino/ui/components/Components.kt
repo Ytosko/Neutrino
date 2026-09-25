@@ -1,5 +1,10 @@
 package dev.ytosko.neutrino.ui.components
 
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -87,6 +92,9 @@ fun MacroStat(
     label: String,
     color: Color,
     modifier: Modifier = Modifier,
+    /** e.g. "of 150g"; shown with a progress bar when a daily goal is set. */
+    goal: String? = null,
+    progress: Float? = null,
 ) {
     Column(
         modifier = modifier
@@ -94,7 +102,7 @@ fun MacroStat(
             .background(MaterialTheme.colorScheme.surfaceContainerLowest)
             .heightIn(min = 64.dp)
             .padding(vertical = Spacing.sm, horizontal = Spacing.xs)
-            .clearAndSetSemantics { contentDescription = "$label $value" },
+            .clearAndSetSemantics { contentDescription = listOfNotNull(label, value, goal).joinToString(" ") },
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
@@ -110,6 +118,16 @@ fun MacroStat(
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        if (goal != null && progress != null) {
+            Text(goal, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+            LinearProgressIndicator(
+                progress = { progress.coerceIn(0f, 1f) },
+                color = color,
+                trackColor = color.copy(alpha = 0.15f),
+                drawStopIndicator = {},
+                modifier = Modifier.padding(top = 4.dp, start = Spacing.xs, end = Spacing.xs).fillMaxWidth().height(4.dp).clip(CircleShape),
+            )
+        }
     }
 }
 
@@ -118,7 +136,7 @@ fun MacroStat(
  * long ranges fit.
  */
 @Composable
-fun TotalsCard(totals: Nutrition?, modifier: Modifier = Modifier) {
+fun TotalsCard(totals: Nutrition?, modifier: Modifier = Modifier, carbGoalG: Int? = null, kcalGoal: Int? = null) {
     val colors = NeutrinoTheme.colors
     val n = totals ?: Nutrition.ZERO
     Card(
@@ -127,13 +145,22 @@ fun TotalsCard(totals: Nutrition?, modifier: Modifier = Modifier) {
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(Spacing.sm),
+            // Every tile as tall as the tallest (a goal adds a line to some).
+            modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min).padding(Spacing.sm),
             horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
         ) {
-            MacroStat(compactGrams(n.carbsG), stringResource(R.string.macro_carbs), colors.carbs, Modifier.weight(1f))
-            MacroStat(compactGrams(n.proteinG), stringResource(R.string.macro_protein), colors.protein, Modifier.weight(1f))
-            MacroStat(compactGrams(n.fatG), stringResource(R.string.macro_fat), colors.fat, Modifier.weight(1f))
-            MacroStat(compactNumber(n.calories), stringResource(R.string.macro_energy), MaterialTheme.colorScheme.onSurface, Modifier.weight(1f))
+            MacroStat(
+                compactGrams(n.carbsG), stringResource(R.string.macro_carbs), colors.carbs, Modifier.weight(1f).fillMaxHeight(),
+                goal = carbGoalG?.let { stringResource(R.string.goal_of, compactGrams(it.toDouble())) },
+                progress = carbGoalG?.let { (n.carbsG / it).toFloat() },
+            )
+            MacroStat(compactGrams(n.proteinG), stringResource(R.string.macro_protein), colors.protein, Modifier.weight(1f).fillMaxHeight())
+            MacroStat(compactGrams(n.fatG), stringResource(R.string.macro_fat), colors.fat, Modifier.weight(1f).fillMaxHeight())
+            MacroStat(
+                compactNumber(n.calories), stringResource(R.string.macro_energy), MaterialTheme.colorScheme.onSurface, Modifier.weight(1f).fillMaxHeight(),
+                goal = kcalGoal?.let { stringResource(R.string.goal_of, compactNumber(it.toDouble())) },
+                progress = kcalGoal?.let { (n.calories / it).toFloat() },
+            )
         }
     }
 }

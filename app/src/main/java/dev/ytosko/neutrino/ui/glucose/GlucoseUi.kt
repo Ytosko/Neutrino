@@ -8,7 +8,8 @@ import dev.ytosko.neutrino.R
 import dev.ytosko.neutrino.data.glucose.GlucoseEntity
 import dev.ytosko.neutrino.data.glucose.GlucoseRelation
 import dev.ytosko.neutrino.ui.theme.NeutrinoTheme
-import java.util.Locale
+import androidx.compose.runtime.staticCompositionLocalOf
+import dev.ytosko.neutrino.domain.GlucoseUnit
 
 /** Where a value sits against the user's target range. */
 enum class GlucoseBand { Low, InRange, High }
@@ -19,14 +20,24 @@ fun band(mmol: Double, low: Double, high: Double): GlucoseBand = when {
     else -> GlucoseBand.InRange
 }
 
-/** "7.2", or "HI" / "LO" for results beyond the meter's range. */
+/** The unit glucose is shown in; provided at the app root from settings. */
+val LocalGlucoseUnit = staticCompositionLocalOf { GlucoseUnit.MmolL }
+
+/** "7.2" (or "130" in mg/dL), or "HI" / "LO" for results beyond the meter's range. */
+@Composable
 fun GlucoseEntity.valueText(): String = when (rangeFlag) {
     "High" -> "HI"
     "Low" -> "LO"
-    else -> formatMmol(mmolPerL)
+    else -> glucoseText(mmolPerL)
 }
 
-fun formatMmol(value: Double): String = String.format(Locale.US, "%.1f", value)
+/** A value stored in mmol/L, in the user's unit, without the unit. */
+@Composable
+fun glucoseText(mmol: Double): String = LocalGlucoseUnit.current.format(mmol)
+
+/** "mmol/L" or "mg/dL". */
+@Composable
+fun glucoseUnitLabel(): String = LocalGlucoseUnit.current.label
 
 /** Colours are never the only signal: every value is also labelled low / in range / high. */
 @Composable

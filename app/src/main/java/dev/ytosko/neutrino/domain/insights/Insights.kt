@@ -44,7 +44,13 @@ enum class InsightRange(val count: Int) {
 }
 
 /** A logged meal, reduced to what the charts need. */
-data class MealPoint(val date: LocalDate, val type: MealType, val nutrition: Nutrition)
+data class MealPoint(
+    val date: LocalDate,
+    val type: MealType,
+    val nutrition: Nutrition,
+    val name: String = "",
+    val at: java.time.Instant? = null,
+)
 
 data class WaterPoint(val date: LocalDate, val ml: Int)
 

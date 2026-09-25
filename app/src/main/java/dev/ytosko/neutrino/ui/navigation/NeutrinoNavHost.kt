@@ -2,6 +2,8 @@ package dev.ytosko.neutrino.ui.navigation
 
 import dev.ytosko.neutrino.ui.glucose.MeterViewModel
 import dev.ytosko.neutrino.ui.glucose.MeterScreen
+import dev.ytosko.neutrino.ui.settings.GoalsScreen
+import dev.ytosko.neutrino.ui.export.ExportScreen
 import dev.ytosko.neutrino.data.glucose.MeterModel
 import dev.ytosko.neutrino.ui.glucose.PairMeterViewModel
 import dev.ytosko.neutrino.ui.glucose.PairMeterScreen
@@ -80,6 +82,8 @@ sealed interface Route {
     @Serializable data object SettingsMeals : Route
     @Serializable data object SettingsMeter : Route
     @Serializable data object AddMeter : Route
+    @Serializable data object SettingsGoals : Route
+    @Serializable data object SettingsExport : Route
     @Serializable data class PairMeter(val model: String) : Route
     @Serializable data class MeterDetail(val id: String) : Route
     @Serializable data object Restore : Route
@@ -221,6 +225,9 @@ fun NeutrinoNavHost(startDestination: Route, modifier: Modifier = Modifier) {
                 onBack = navController::popBackStack,
                 onOpenAi = { navController.navigate(Route.SettingsAi) },
                 onOpenHealthConnect = { navController.navigate(Route.SettingsHealth) },
+                onOpenGoals = { navController.navigate(Route.SettingsGoals) },
+                onOpenExport = { navController.navigate(Route.SettingsExport) },
+                repository = container.settings,
             )
         }
         composable<Route.SettingsMeter> {
@@ -232,6 +239,12 @@ fun NeutrinoNavHost(startDestination: Route, modifier: Modifier = Modifier) {
                 onAdd = { navController.navigate(Route.AddMeter) },
                 onOpen = { navController.navigate(Route.MeterDetail(it)) },
             )
+        }
+        composable<Route.SettingsExport> {
+            ExportScreen(export = LocalContext.current.appContainer.exports, onBack = navController::popBackStack)
+        }
+        composable<Route.SettingsGoals> {
+            GoalsScreen(settings = LocalContext.current.appContainer.settings, onBack = navController::popBackStack)
         }
         composable<Route.AddMeter> {
             AddMeterScreen(

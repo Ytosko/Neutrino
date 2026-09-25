@@ -4,6 +4,7 @@ import dev.ytosko.neutrino.data.glucose.GlucoseEntity
 import dev.ytosko.neutrino.data.glucose.GlucoseDao
 import android.content.Context
 import androidx.room.AutoMigration
+import androidx.room.ColumnInfo
 import androidx.room.Dao
 import androidx.room.Database
 import androidx.room.Embedded
@@ -47,6 +48,8 @@ data class MealEntity(
     val inputTokens: Int,
     val outputTokens: Int,
     val createdAtEpochMs: Long,
+    /** Starred for "Log again". */
+    @ColumnInfo(defaultValue = "0") val favorite: Boolean = false,
 )
 
 /** One food line of a meal: what, how much, and the nutrition it contributed. */
@@ -135,6 +138,26 @@ interface MealDao {
         GROUP BY i.foodId ORDER BY times DESC, MAX(m.eatenAtEpochMs) DESC LIMIT :limit""",
     )
     fun observeTopFoods(fromMs: Long, toMs: Long, limit: Int): Flow<List<TopFoodRow>>
+
+    /** Latest meals, newest first, for "Log again" (duplicates by name are dropped by the caller). */
+    @Query(
+        """SELECT meals.*, (SELECT category FROM meal_items WHERE mealId = meals.id ORDER BY position LIMIT 1) AS firstCategory
+        FROM meals ORDER BY eatenAtEpochMs DESC LIMIT :limit""",
+    )
+    fun observeRecent(limit: Int): Flow<List<MealWithCategory>>
+
+    @Query(
+        """SELECT meals.*, (SELECT category FROM meal_items WHERE mealId = meals.id ORDER BY position LIMIT 1) AS firstCategory
+        FROM meals WHERE favorite = 1 ORDER BY eatenAtEpochMs DESC""",
+    )
+    fun observeFavorites(): Flow<List<MealWithCategory>>
+
+    @Query("UPDATE meals SET favorite = :favorite WHERE id = :id")
+    suspend fun setFavorite(id: String, favorite: Boolean)
+
+    /** Un-stars every meal with this name, so a favourite can be removed from any copy of it. */
+    @Query("UPDATE meals SET favorite = 0 WHERE name = :name")
+    suspend fun clearFavoriteByName(name: String)
 
     @Query("SELECT COUNT(*) FROM meals WHERE mealType = :mealType AND eatenAtEpochMs >= :fromMs AND eatenAtEpochMs < :toMs")
     suspend fun countOfType(mealType: String, fromMs: Long, toMs: Long): Int
@@ -273,9 +296,9 @@ interface BackupDao {
 
 @Database(
     entities = [MealEntity::class, MealItemEntity::class, FoodEntity::class, WaterEntity::class, GlucoseEntity::class],
-    version = 3,
+    version = 4,
     exportSchema = true,
-    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3)],
+    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3), AutoMigration(from = 3, to = 4)],
 )
 abstract class MealDatabase : RoomDatabase() {
     abstract fun meals(): MealDao

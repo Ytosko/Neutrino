@@ -56,6 +56,7 @@
           <li><a href="#app-data">Data the app handles</a></li>
           <li><a href="#ai">AI providers</a></li>
           <li><a href="#glucose-meter">Glucose meter</a></li>
+          <li><a href="#your-files">Reports, exports and app lock</a></li>
           <li><a href="#health-connect">Health Connect</a></li>
           <li><a href="#google-drive">Google Drive backups</a></li>
           <li><a href="#limited-use">Google API Limited Use</a></li>
@@ -100,6 +101,7 @@
             <tr><td>Names of new foods you add</td><td>To estimate nutrition for foods not in any list</td><td>Sent to the AI provider you selected, using your API key.</td></tr>
             <tr><td>Optional cuisine and notes for the AI</td><td>To help the AI recognise the food you eat</td><td>Stored on your device and sent to the AI provider you selected along with each analysis.</td></tr>
             <tr><td>Blood glucose readings from your Bluetooth meter (value, time, meal mark), and the meter's model, serial number and Bluetooth address</td><td>To record your readings and keep syncing with your meter</td><td>Stored on your device and written to Health Connect. Never sent to Neutrino, AI providers or anyone else.</td></tr>
+            <tr><td>Daily goals, glucose unit, app language and privacy settings</td><td>To show your progress and the app the way you chose</td><td>Stored on your device.</td></tr>
             <tr><td>Meal reminder times</td><td>To remind you to log breakfast, lunch and dinner</td><td>Notifications are scheduled and shown by your device. Nothing is sent anywhere.</td></tr>
           </tbody>
         </table>
@@ -125,9 +127,17 @@
           <li><strong>Permissions:</strong> Neutrino asks for Android's "Nearby devices" permission to find, pair with and connect to your meter, and to notice it in the background after a test. It is declared so that it is never used to work out your location, and Neutrino does not request location access.</li>
           <li><strong>Background syncing:</strong> Android wakes Neutrino when your paired meter is nearby after a test, even if the app is closed. Neutrino connects only to glucose meters, and only to the ones you paired (up to five).</li>
           <li><strong>Meter clock:</strong> to keep reading times correct, Neutrino may set your meter's clock to your phone's time when the meter allows it.</li>
-          <li><strong>Notifications:</strong> the "new readings" notification shows only how many readings were saved, never their values, and is hidden on the lock screen.</li>
+          <li><strong>Notifications:</strong> the "new readings" notification shows only how many readings were saved, never their values, and is hidden on the lock screen. The optional weekly summary is also hidden on the lock screen, and the optional "time to test" reminder contains no values.</li>
+          <li><strong>Home screen widget:</strong> if you add Neutrino's widget, it shows today's totals and your latest glucose reading on your home screen, where anyone who sees your screen can see it. You can hide the reading in Settings.</li>
           <li><strong>Not medical advice:</strong> Neutrino shows readings exactly as your meter measured them. It is not a medical device and gives no diagnosis or treatment advice.</li>
           <li><strong>Stopping:</strong> open the meter in Settings → Glucose meters and choose "Forget meter". Readings already saved stay until you delete them in the app.</li>
+        </ul>
+
+        <h2 id="your-files">Reports, exports and app lock</h2>
+        <ul>
+          <li><strong>Doctor report and data export:</strong> the PDF report and the CSV export are made on your device. Neutrino never uploads them; they only go where you choose to share or save them, and the copy Neutrino made is replaced the next time you export.</li>
+          <li><strong>App lock:</strong> uses your phone's own fingerprint, face or screen lock through Android. Neutrino never receives or stores your fingerprint, face or PIN.</li>
+          <li><strong>Hide in recent apps:</strong> when on, Android blanks Neutrino's preview in the app switcher and blocks screenshots of the app.</li>
         </ul>
 
         <h2 id="health-connect">Health Connect</h2>

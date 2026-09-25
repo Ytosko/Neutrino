@@ -44,6 +44,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
@@ -171,6 +172,7 @@ private class BackupActions(val snackbar: SnackbarHostState, private val start: 
 private fun rememberBackupActions(viewModel: BackupViewModel): BackupActions {
     val snackbar = remember { SnackbarHostState() }
     val context = LocalContext.current
+    val resources = LocalResources.current
 
     // Storage access can change in system settings while this screen is in the background.
     LifecycleResumeEffect(viewModel) {
@@ -191,7 +193,7 @@ private fun rememberBackupActions(viewModel: BackupViewModel): BackupActions {
     LaunchedEffect(viewModel) {
         viewModel.messages.collect { message ->
             snackbar.showSnackbar(
-                context.getString(
+                resources.getString(
                     when (message) {
                         BackupMessage.BackedUp -> R.string.backup_done
                         BackupMessage.BackedUpWithDrive -> R.string.backup_done_drive

@@ -5,12 +5,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.ui.res.pluralStringResource
 import dev.ytosko.neutrino.ui.glucose.relationLabel
-import dev.ytosko.neutrino.ui.glucose.formatMmol
+import dev.ytosko.neutrino.ui.glucose.LocalGlucoseUnit
 import dev.ytosko.neutrino.ui.glucose.bandLabel
 import dev.ytosko.neutrino.ui.glucose.bandColor
 import dev.ytosko.neutrino.ui.glucose.band
 import dev.ytosko.neutrino.ui.glucose.GlucoseBand
 import dev.ytosko.neutrino.domain.insights.GlucoseSummary
+import dev.ytosko.neutrino.domain.insights.MealRise
 import dev.ytosko.neutrino.domain.insights.GlucoseBucket
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -85,6 +86,7 @@ fun HealthContent(viewModel: HealthViewModel, contentPadding: PaddingValues, onO
     val range by viewModel.range.collectAsStateWithLifecycle()
     val summary by viewModel.summary.collectAsStateWithLifecycle()
     val glucose by viewModel.glucoseSummary.collectAsStateWithLifecycle()
+    val mealRises by viewModel.mealRises.collectAsStateWithLifecycle()
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -108,6 +110,8 @@ fun HealthContent(viewModel: HealthViewModel, contentPadding: PaddingValues, onO
         val glucoseData = glucose?.takeIf { it.range == range && !it.isEmpty }
         if (data.isEmpty) {
             if (glucoseData != null) item(key = "glucose-$range") { GlucoseCard(glucoseData, width) }
+        val rises = mealRises?.takeIf { it.first == range }?.second.orEmpty()
+        if (rises.isNotEmpty()) item(key = "meal-glucose-$range") { MealGlucoseCard(rises, width) }
             item(key = "empty") { EmptyRange(width) }
             return@LazyColumn
         }
@@ -368,33 +372,34 @@ private fun WaterCard(data: InsightSummary, modifier: Modifier) {
 private fun GlucoseCard(data: GlucoseSummary, modifier: Modifier) {
     var selected by rememberSaveable(data.range) { mutableStateOf<Int?>(null) }
     val bucket = selected?.let(data.buckets::getOrNull)
-    val unit = stringResource(R.string.glucose_unit)
+    val glucoseUnit = LocalGlucoseUnit.current
+    val unit = glucoseUnit.label
     fun bandOf(value: Double?) = value?.let { band(it, data.low, data.high) } ?: GlucoseBand.InRange
     ChartCard(title = stringResource(R.string.glucose_title), modifier = modifier) {
         if (bucket != null) {
             ReadOut(
                 label = bucketLabel(bucket.toBucket(), data.range),
-                value = bucket.average?.let { "${formatMmol(it)} $unit" } ?: "–",
+                value = bucket.average?.let { "${glucoseUnit.format(it)} $unit" } ?: "–",
                 detail = pluralStringResource(R.plurals.health_glucose_readings, bucket.readings, bucket.readings),
                 valueColor = if (bucket.average != null) bandColor(bandOf(bucket.average)) else MaterialTheme.colorScheme.onSurfaceVariant,
             )
         } else {
             ReadOut(
                 label = stringResource(R.string.health_glucose_average),
-                value = data.average?.let { "${formatMmol(it)} $unit" } ?: "–",
+                value = data.average?.let { "${glucoseUnit.format(it)} $unit" } ?: "–",
                 detail = pluralStringResource(R.plurals.health_glucose_readings, data.readings, data.readings),
                 valueColor = bandColor(bandOf(data.average)),
             )
         }
         BarChart(
-            values = data.buckets.map { it.average ?: 0.0 },
+            values = data.buckets.map { b -> b.average?.let(glucoseUnit::fromMmol) ?: 0.0 },
             color = bandColor(GlucoseBand.InRange),
             selected = selected,
             onSelect = { selected = it },
-            average = data.average,
+            average = data.average?.let(glucoseUnit::fromMmol),
             xLabel = { axisLabel(data.range, data.buckets.map { b -> b.start }, it) },
             height = 140.dp,
-            description = stringResource(R.string.health_glucose_desc, data.average?.let(::formatMmol) ?: "–"),
+            description = stringResource(R.string.health_glucose_desc, data.average?.let(glucoseUnit::format) ?: "–", unit),
         )
 
         Text(
@@ -424,7 +429,7 @@ private fun GlucoseCard(data: GlucoseSummary, modifier: Modifier) {
             }
         }
         Text(
-            stringResource(R.string.health_glucose_target, formatMmol(data.low), formatMmol(data.high)),
+            stringResource(R.string.health_glucose_target, glucoseUnit.format(data.low), glucoseUnit.format(data.high), unit),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -438,7 +443,50 @@ private fun GlucoseCard(data: GlucoseSummary, modifier: Modifier) {
             data.byRelation.forEach { (relation, average) ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(relationLabel(relation), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-                    Text("${formatMmol(average)} $unit", style = MaterialTheme.typography.labelLarge, color = bandColor(bandOf(average)))
+                    Text("${glucoseUnit.format(average)} $unit", style = MaterialTheme.typography.labelLarge, color = bandColor(bandOf(average)))
+                }
+            }
+        }
+    }
+}
+
+/**
+ * How much glucose went up (or down) from before a meal to about 2 hours after, per meal, as the
+ * user's own averages. Plain numbers, no judgement.
+ */
+@Composable
+private fun MealGlucoseCard(rises: List<MealRise>, modifier: Modifier) {
+    val unit = LocalGlucoseUnit.current
+    ChartCard(title = stringResource(R.string.health_meal_glucose_title), modifier = modifier) {
+        Text(
+            stringResource(R.string.health_meal_glucose_body),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        val biggest = rises.maxOf { kotlin.math.abs(it.averageRise) }.takeIf { it > 0 } ?: 1.0
+        rises.forEach { rise ->
+            val up = rise.averageRise >= 0
+            val change = (if (up) "+" else "−") + unit.format(kotlin.math.abs(rise.averageRise))
+            Column(Modifier.fillMaxWidth()) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(rise.name, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                    Text(
+                        "$change ${unit.label}",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = if (up) bandColor(GlucoseBand.High) else bandColor(GlucoseBand.InRange),
+                    )
+                }
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    ShareBar(
+                        fraction = (kotlin.math.abs(rise.averageRise) / biggest).toFloat(),
+                        color = if (up) bandColor(GlucoseBand.High) else bandColor(GlucoseBand.InRange),
+                        modifier = Modifier.weight(1f),
+                    )
+                    Text(
+                        pluralStringResource(R.plurals.health_meal_glucose_times, rise.times, rise.times),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
         }

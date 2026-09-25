@@ -10,6 +10,9 @@ import dev.ytosko.neutrino.data.meal.DaySummary
 import dev.ytosko.neutrino.data.glucose.GlucoseEntity
 import dev.ytosko.neutrino.data.glucose.GlucoseRelation
 import dev.ytosko.neutrino.data.glucose.GlucoseRepository
+import dev.ytosko.neutrino.data.meal.LoggedMeal
+import dev.ytosko.neutrino.domain.insights.MealGlucose
+import dev.ytosko.neutrino.domain.insights.TimedReading
 import dev.ytosko.neutrino.data.meal.MealRepository
 import dev.ytosko.neutrino.data.settings.SettingsRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -51,17 +54,56 @@ class HomeViewModel(
         .map { list -> list.sortedBy { it.measuredAtEpochMs } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    /** The glucose card shows once a meter is paired, or on any day that has readings. */
-    val meterPaired: StateFlow<Boolean> = glucose.meters
-        .map { it.isNotEmpty() }
+    /** The glucose card shows once a meter is paired or any reading exists (e.g. typed in by hand). */
+    val glucoseVisible: StateFlow<Boolean> = combine(glucose.meters, glucose.hasReadings) { meters, any -> meters.isNotEmpty() || any }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    /** Glucose before and about 2 hours after each meal on the shown day, by meal id. */
+    val mealGlucose: StateFlow<Map<String, MealGlucose>> = _date
+        .flatMapLatest { date ->
+            // A late dinner's "after" reading can fall on the next day.
+            combine(meals.observeDay(date, zone), glucose.observeBetween(date, date.plusDays(1), zone)) { day, readings ->
+                val timed = readings.map { TimedReading(Instant.ofEpochMilli(it.measuredAtEpochMs), it.mmolPerL) }.sortedBy { it.at }
+                day.meals.associate { it.id to MealGlucose.match(it.eatenAt, timed) }.filterValues { !it.isEmpty }
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+
+    val goals: StateFlow<DailyGoals> = settings.settings
+        .map { DailyGoals(it.carbGoalG, it.kcalGoal, it.waterGoalMl) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DailyGoals())
+
+    /** Starred and recent meals for one-tap logging. */
+    val logAgain: StateFlow<List<LoggedMeal>> = meals.observeLogAgain()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Logs a copy of [meal] now (or at this time of day on a past day). Returns the new meal's id for Undo. */
+    suspend fun logAgain(meal: LoggedMeal, mealWindows: MealWindows): String? {
+        val at = timeOnShownDay()
+        val type = mealWindows.mealAt(at, zone)
+        return meals.logAgain(meal.id, at, zone, type)?.id
+    }
+
+    fun toggleFavorite(meal: LoggedMeal) {
+        viewModelScope.launch { meals.setFavorite(meal.id, !meal.favorite) }
+    }
+
+    /** Now on today, or the current time of day on a past day. */
+    fun timeOnShownDay(): Instant {
+        val shown = _date.value
+        return if (shown == today.value) Instant.now() else shown.atTime(LocalTime.now(zone)).atZone(zone).toInstant()
+    }
+
+    fun addGlucose(mmolPerL: Double, relation: GlucoseRelation, time: Instant) {
+        viewModelScope.launch { glucose.addManual(mmolPerL, time, relation, zone) }
+    }
 
     val glucoseRange: StateFlow<ClosedFloatingPointRange<Double>> = settings.settings
         .map { it.glucoseLow..it.glucoseHigh }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 4.0..10.0)
 
-    fun editGlucose(id: String, relation: GlucoseRelation, time: Instant) {
-        viewModelScope.launch { glucose.edit(id, relation, time) }
+    fun editGlucose(id: String, relation: GlucoseRelation, time: Instant, mmolPerL: Double? = null) {
+        viewModelScope.launch { glucose.edit(id, relation, time, mmolPerL) }
     }
 
     /** Deletes right away and returns what Undo needs. */
@@ -134,3 +176,6 @@ class HomeViewModel(
         const val MAX_WATER_ML = 10_000
     }
 }
+
+/** Optional daily targets; null means no goal. */
+data class DailyGoals(val carbsG: Int? = null, val kcal: Int? = null, val waterMl: Int? = null)

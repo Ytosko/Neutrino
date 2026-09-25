@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import java.io.IOException
+import dev.ytosko.neutrino.domain.GlucoseUnit
 
 private val Context.settingsStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 
@@ -50,6 +51,23 @@ data class AppSettings(
     /** Blood glucose target range in mmol/L (used for colours and "time in range"). */
     val glucoseLow: Double = 4.0,
     val glucoseHigh: Double = 10.0,
+    /** How glucose is shown; readings are always stored in mmol/L. */
+    val glucoseUnit: GlucoseUnit = GlucoseUnit.defaultFor(),
+    /** Optional daily goals; null means no goal. */
+    val carbGoalG: Int? = null,
+    val kcalGoal: Int? = null,
+    val waterGoalMl: Int? = null,
+    /** Remind to test glucose some time after a meal (only useful with a meter). */
+    val afterMealReminder: Boolean = false,
+    val afterMealMinutes: Int = 120,
+    /** Ask for fingerprint / screen lock when opening Neutrino. */
+    val appLock: Boolean = false,
+    /** Blank Neutrino's preview in the recent-apps switcher and block screenshots. */
+    val hideInRecents: Boolean = false,
+    /** A Sunday evening summary notification of the week. */
+    val weeklySummary: Boolean = false,
+    /** Show the latest glucose reading on the home screen widget. */
+    val widgetShowsGlucose: Boolean = true,
 ) {
     val promptHints: PromptHints get() = PromptHints(cuisine, aiNotes.takeIf { it.isNotBlank() })
     val aiReady: Boolean
@@ -81,6 +99,16 @@ class SettingsRepository(context: Context, private val cipher: SecretCipher) {
         val dinnerReminder = intPreferencesKey("reminder_dinner_min")
         val glucoseLow = androidx.datastore.preferences.core.doublePreferencesKey("glucose_low")
         val glucoseHigh = androidx.datastore.preferences.core.doublePreferencesKey("glucose_high")
+        val glucoseUnit = stringPreferencesKey("glucose_unit")
+        val carbGoal = intPreferencesKey("goal_carbs_g")
+        val kcalGoal = intPreferencesKey("goal_kcal")
+        val waterGoal = intPreferencesKey("goal_water_ml")
+        val afterMealReminder = booleanPreferencesKey("after_meal_reminder")
+        val afterMealMinutes = intPreferencesKey("after_meal_minutes")
+        val appLock = booleanPreferencesKey("app_lock")
+        val hideInRecents = booleanPreferencesKey("hide_in_recents")
+        val weeklySummary = booleanPreferencesKey("weekly_summary")
+        val widgetGlucose = booleanPreferencesKey("widget_glucose")
         fun model(provider: AiProvider) = stringPreferencesKey("ai_model_${provider.id}")
         fun apiKey(provider: AiProvider) = stringPreferencesKey("ai_key_${provider.id}")
     }
@@ -114,6 +142,16 @@ class SettingsRepository(context: Context, private val cipher: SecretCipher) {
             dinnerReminder = p[Keys.dinnerReminder]?.toTime() ?: LocalTime.of(18, 0),
             glucoseLow = p[Keys.glucoseLow] ?: 4.0,
             glucoseHigh = p[Keys.glucoseHigh] ?: 10.0,
+            glucoseUnit = GlucoseUnit.fromId(p[Keys.glucoseUnit]) ?: GlucoseUnit.defaultFor(),
+            carbGoalG = p[Keys.carbGoal],
+            kcalGoal = p[Keys.kcalGoal],
+            waterGoalMl = p[Keys.waterGoal],
+            afterMealReminder = p[Keys.afterMealReminder] ?: false,
+            afterMealMinutes = p[Keys.afterMealMinutes] ?: 120,
+            appLock = p[Keys.appLock] ?: false,
+            hideInRecents = p[Keys.hideInRecents] ?: false,
+            weeklySummary = p[Keys.weeklySummary] ?: false,
+            widgetShowsGlucose = p[Keys.widgetGlucose] ?: true,
         )
     }
 
@@ -203,6 +241,52 @@ class SettingsRepository(context: Context, private val cipher: SecretCipher) {
             it[Keys.glucoseHigh] = high
         }
         return true
+    }
+
+    /** Stores [pick]'s unit if none was chosen yet. */
+    suspend fun ensureGlucoseUnit(pick: suspend () -> GlucoseUnit) {
+        if (preferences.first()[Keys.glucoseUnit] != null) return
+        val unit = pick()
+        store.edit { if (it[Keys.glucoseUnit] == null) it[Keys.glucoseUnit] = unit.name }
+    }
+
+    suspend fun setGlucoseUnit(unit: GlucoseUnit) {
+        store.edit { it[Keys.glucoseUnit] = unit.name }
+    }
+
+    /** Daily goals; null clears a goal. Out-of-range values are ignored. */
+    suspend fun setGoals(carbsG: Int?, kcal: Int?, waterMl: Int?) {
+        store.edit { p ->
+            fun put(key: androidx.datastore.preferences.core.Preferences.Key<Int>, value: Int?, range: IntRange) {
+                if (value == null) p.remove(key) else if (value in range) p[key] = value
+            }
+            put(Keys.carbGoal, carbsG, 10..1_000)
+            put(Keys.kcalGoal, kcal, 500..10_000)
+            put(Keys.waterGoal, waterMl, 250..10_000)
+        }
+    }
+
+    suspend fun setAfterMealReminder(enabled: Boolean, minutes: Int = 120) {
+        store.edit {
+            it[Keys.afterMealReminder] = enabled
+            it[Keys.afterMealMinutes] = minutes.coerceIn(30, 240)
+        }
+    }
+
+    suspend fun setAppLock(enabled: Boolean) {
+        store.edit { it[Keys.appLock] = enabled }
+    }
+
+    suspend fun setHideInRecents(enabled: Boolean) {
+        store.edit { it[Keys.hideInRecents] = enabled }
+    }
+
+    suspend fun setWeeklySummary(enabled: Boolean) {
+        store.edit { it[Keys.weeklySummary] = enabled }
+    }
+
+    suspend fun setWidgetShowsGlucose(enabled: Boolean) {
+        store.edit { it[Keys.widgetGlucose] = enabled }
     }
 
     suspend fun setRemindersEnabled(enabled: Boolean) {

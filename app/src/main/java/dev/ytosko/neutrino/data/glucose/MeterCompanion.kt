@@ -18,6 +18,7 @@ import android.content.Intent
 import android.content.IntentSender
 import android.os.Build
 import android.os.ParcelUuid
+import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import dev.ytosko.neutrino.MainActivity
@@ -136,13 +137,16 @@ object MeterCompanion {
  * Android binds this when the paired meter appears nearby (it turns Bluetooth on after a test) and
  * unbinds when it's gone. Neutrino syncs straight away.
  */
+@RequiresApi(Build.VERSION_CODES.S) // Android only binds it on 12+, where companion presence exists.
 class MeterPresenceService : CompanionDeviceService() {
 
+    @RequiresApi(36)
     override fun onDevicePresenceEvent(event: DevicePresenceEvent) {
         if (event.event == DevicePresenceEvent.EVENT_BLE_APPEARED) appeared(MeterWake(associationId = event.associationId))
     }
 
     @Deprecated("Android 13-15")
+    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     override fun onDeviceAppeared(associationInfo: AssociationInfo) =
         appeared(MeterWake(address = associationInfo.deviceMacAddress?.toString(), associationId = associationInfo.id))
 
@@ -154,6 +158,8 @@ class MeterPresenceService : CompanionDeviceService() {
 }
 
 /** "New glucose reading" notifications. The value is hidden on the lock screen. */
+// Notifications are posted only after MealReminders.canNotify() confirmed the permission.
+@android.annotation.SuppressLint("MissingPermission")
 object MeterNotifications {
     private const val CHANNEL = "glucose_readings"
     private const val ID = 300

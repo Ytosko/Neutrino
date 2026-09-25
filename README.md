@@ -50,6 +50,13 @@ based on your local time, so they show up in Google Health, Fitbit and any other
 - **Glucose meter:** pair a Bluetooth blood glucose meter (Bluetooth SIG Glucose Profile, e.g. CONTOUR PLUS ELITE);
   readings sync in the background after each test, in mmol/L, with meal marks, a target range, time in range, and the
   meter's clock kept correct
+- **Glucose extras:** readings typed in by hand, mg/dL or mmol/L, glucose before and 2 h after each meal, optional
+  "time to test" reminder
+- **Log again:** starred and recent meals in one tap; **daily goals** for carbs, calories and water
+- **Widget and shortcuts:** today's totals, one-tap water, a camera button and the latest glucose on the home screen
+- **Reports:** a PDF report for your doctor and a full CSV export, made on the phone
+- **Privacy:** optional app lock (fingerprint / screen lock) and hiding from recent apps
+- **Languages:** English and Bangla (বাংলা)
 - **Health Connect:** writes `NutritionRecord`, `HydrationRecord` and `BloodGlucoseRecord` (never reads)
 - **Backups:** encrypted, automatic on the phone (survives uninstall), optional Google Drive, restore on reinstall
 
