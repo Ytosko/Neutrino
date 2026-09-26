@@ -1,5 +1,6 @@
 package dev.ytosko.neutrino.ui.home
 
+import androidx.compose.material3.rememberModalBottomSheetState
 import dev.ytosko.neutrino.ui.medicine.dosesTitle
 import dev.ytosko.neutrino.ui.medicine.DosesDayCard
 import dev.ytosko.neutrino.ui.medicine.DoseSheet
@@ -650,6 +651,8 @@ fun HomeScreen(
     if (showSheet) {
         ModalBottomSheet(
             onDismissRequest = { showSheet = false },
+            // Opens all the way, so every tile (and the space under the last) shows without dragging.
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
             shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
             containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
         ) {

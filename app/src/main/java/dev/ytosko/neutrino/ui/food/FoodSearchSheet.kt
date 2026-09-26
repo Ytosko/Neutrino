@@ -1,5 +1,6 @@
 package dev.ytosko.neutrino.ui.food
 
+import dev.ytosko.neutrino.ui.glucose.FoodRiseLine
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -165,6 +166,7 @@ private fun FoodRow(food: Food, onPick: (Food) -> Unit) {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            FoodRiseLine(food.id)
         }
     }
 }

@@ -4,6 +4,20 @@ Every release has a section here, headed `## [x.y.z] - YYYY-MM-DD` with an optio
 
 ## [Unreleased]
 
+### Medicines and insulin
+- **Your medicine log (off until you turn it on):** Settings → "I take medicine" and/or "I use insulin". Add each one once: start typing and pick from MedEx's list of medicines in Bangladesh, which fills in the strength, form and group (e.g. Napa → Paracetamol). You can also type your own.
+- **Log a dose in one tap:** "Log a dose" in the log sheet, with your usual dose filled in; each day shows its doses, and you can change or delete them with undo.
+- **Reminders:** pick Morning, Afternoon, Evening or Night (or any time) for each medicine. The notification has a "Taken" button, is skipped if you've already logged that dose, and only says "Medicine reminder" on the lock screen.
+- **Health page and reports:** how often you took each medicine in the chosen period, insulin units per day as a chart, and every dose in the doctor PDF and the spreadsheet export. Neutrino only records what you take; it never suggests a dose.
+
+### Glucose
+- **Import from other glucose apps:** turn it on in Settings to bring in readings that CGM apps such as xDrip+ or Juggluco save to Health Connect. Neutrino then reads blood glucose only, keeps the readings on your phone, and never writes them back.
+- **What each food does to you:** once a food has been in 3 or more meals with a reading before and about 2 hours after, food search and the meal screen show your usual change after it, e.g. "+2.8 mmol/L after, on average (5×)". The Health page's "Foods and glucose" card lists the biggest rises and, with many foods, the smallest changes. Your own numbers only, no advice.
+
+### Food
+- **A much bigger South Asian food list:** about 750 foods, up from about 200: everyday dishes of Bangladesh, India, Pakistan, Sri Lanka and Nepal, with local portions (plate, bowl, piece) and the spellings people really type, including Bangla (পরোটা, ইলিশ, রসগোল্লা).
+- Search in Bangla now works properly, and a food's everyday name comes first (e.g. "dal" finds dal before dal puri).
+
 ### Wear OS
 - **Neutrino on your watch:** a tile with today's carbs, protein, fat and kcal rings, water with a one-tap + 250 ml, and your latest glucose reading coloured by your target range; watch face complications for latest glucose and today's carbs; and a small watch app with the same. The phone sends only today's summary, and only to your own paired watch. Works with the GitHub version; install the watch APK from the release with `adb` ([how](docs/WEAR.md)).
 
@@ -16,6 +30,7 @@ Every release has a section here, headed `## [x.y.z] - YYYY-MM-DD` with an optio
 - The widget moves on to the new day at midnight on its own.
 
 ### Accessibility and polish
+- The log sheet opens all the way, so every option shows without dragging.
 - TalkBack now reads the "Log a meal" button.
 - Page headers are solid when you scroll, so text no longer shows faintly through them.
 

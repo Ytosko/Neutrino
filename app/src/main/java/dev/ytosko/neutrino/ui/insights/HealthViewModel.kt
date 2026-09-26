@@ -1,5 +1,6 @@
 package dev.ytosko.neutrino.ui.insights
 
+import dev.ytosko.neutrino.domain.insights.FoodGlucoseInsights
 import dev.ytosko.neutrino.domain.insights.DosePoint
 import dev.ytosko.neutrino.domain.insights.DoseSummary
 import dev.ytosko.neutrino.domain.insights.DoseInsights
@@ -124,17 +125,16 @@ class HealthViewModel(
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    /** Meals in the period with a glucose reading before and ~2 h after, biggest average rise first. */
+    /** Foods in the period whose meals had a reading before and ~2 h after, biggest average rise first. */
     val mealRises: StateFlow<Pair<Period, List<MealRise>>?> = _period
         .flatMapLatest { period ->
             combine(
-                meals.observeRange(period.start, period.end.minusDays(1), zone),
+                meals.observeMealFoods(period.start, period.end.minusDays(1), zone),
                 // One extra day, for "after" readings of late dinners.
                 glucose.observeBetween(period.start, period.end, zone),
-            ) { data, readings ->
+            ) { mealFoods, readings ->
                 val timed = readings.map { TimedReading(Instant.ofEpochMilli(it.measuredAtEpochMs), it.mmolPerL) }
-                val eaten = data.meals.mapNotNull { m -> m.at?.let { m.name to it } }
-                period to MealGlucoseInsights.biggestRises(eaten, timed)
+                period to FoodGlucoseInsights.rises(mealFoods, timed, minTimes = 1).map { MealRise(it.name, it.averageRise, it.times) }
             }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)

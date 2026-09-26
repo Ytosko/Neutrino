@@ -38,6 +38,8 @@ data class GlucoseEntity(
     val edited: Boolean = false,
     val syncedToHealthConnect: Boolean = false,
     val createdAtEpochMs: Long = 0,
+    /** Package of the app it was imported from through Health Connect (e.g. a CGM app); null for Neutrino's own. */
+    @androidx.room.ColumnInfo(defaultValue = "NULL") val importedFrom: String? = null,
 )
 
 /** How a reading relates to eating. "General" is what unmarked meter readings get. */

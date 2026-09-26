@@ -76,6 +76,10 @@ data class AppSettings(
     val takesMedicine: Boolean = false,
     /** Turns on the insulin log. */
     val usesInsulin: Boolean = false,
+    /** Import blood glucose other apps (e.g. CGM apps) save to Health Connect. Needs its read permission. */
+    val glucoseImport: Boolean = false,
+    /** Readings up to this time were already imported. */
+    val glucoseImportedUntil: Long = 0,
 ) {
     val medicinesOn: Boolean get() = takesMedicine || usesInsulin
 
@@ -122,6 +126,8 @@ class SettingsRepository(context: Context, private val cipher: SecretCipher) {
         val weeklySummary = booleanPreferencesKey("weekly_summary")
         val takesMedicine = booleanPreferencesKey("takes_medicine")
         val usesInsulin = booleanPreferencesKey("uses_insulin")
+        val glucoseImport = booleanPreferencesKey("glucose_import")
+        val glucoseImportedUntil = androidx.datastore.preferences.core.longPreferencesKey("glucose_imported_until")
         val widgetGlucose = booleanPreferencesKey("widget_glucose")
         val mealTipDone = booleanPreferencesKey("meal_tip_done")
         fun model(provider: AiProvider) = stringPreferencesKey("ai_model_${provider.id}")
@@ -170,6 +176,8 @@ class SettingsRepository(context: Context, private val cipher: SecretCipher) {
             weeklySummary = p[Keys.weeklySummary] ?: false,
             takesMedicine = p[Keys.takesMedicine] ?: false,
             usesInsulin = p[Keys.usesInsulin] ?: false,
+            glucoseImport = p[Keys.glucoseImport] ?: false,
+            glucoseImportedUntil = p[Keys.glucoseImportedUntil] ?: 0,
             widgetShowsGlucose = p[Keys.widgetGlucose] ?: true,
             mealTipDone = p[Keys.mealTipDone] ?: false,
         )
@@ -313,6 +321,14 @@ class SettingsRepository(context: Context, private val cipher: SecretCipher) {
 
     suspend fun setUsesInsulin(enabled: Boolean) {
         store.edit { it[Keys.usesInsulin] = enabled }
+    }
+
+    suspend fun setGlucoseImport(enabled: Boolean) {
+        store.edit { it[Keys.glucoseImport] = enabled }
+    }
+
+    suspend fun setGlucoseImportedUntil(epochMs: Long) {
+        store.edit { it[Keys.glucoseImportedUntil] = epochMs }
     }
 
     suspend fun setMealTipDone() {

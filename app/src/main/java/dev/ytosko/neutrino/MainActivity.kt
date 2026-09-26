@@ -1,5 +1,6 @@
 package dev.ytosko.neutrino
 
+import dev.ytosko.neutrino.ui.glucose.LocalFoodRises
 import android.content.Intent
 import android.os.Bundle
 import dev.ytosko.neutrino.widget.LaunchAction
@@ -64,6 +65,8 @@ class MainActivity : FragmentActivity() {
         // Send anything saved while Health Connect wasn't connected (e.g. permission just granted in its app).
         lifecycleScope.launch {
             appContainer.syncHealthConnect()
+            // Glucose from CGM apps, if the user turned import on.
+            runCatching { appContainer.importGlucose() }
             // Bluetooth may have been off; restart the background meter scan.
             appContainer.watchMeters()
         }
@@ -126,7 +129,11 @@ class MainActivity : FragmentActivity() {
                 val settings by appContainer.settings.settings.collectAsStateWithLifecycle(initialValue = null)
                 val start by startDestination.collectAsStateWithLifecycle()
                 val isLocked by locked.collectAsStateWithLifecycle()
-                CompositionLocalProvider(LocalGlucoseUnit provides (settings?.glucoseUnit ?: GlucoseUnit.defaultFor())) {
+                val foodRises by appContainer.usualFoodRises.collectAsStateWithLifecycle(initialValue = emptyMap())
+                CompositionLocalProvider(
+                    LocalGlucoseUnit provides (settings?.glucoseUnit ?: GlucoseUnit.defaultFor()),
+                    LocalFoodRises provides foodRises,
+                ) {
                     Box(Modifier.fillMaxSize()) {
                         // Kept composed underneath so nothing is lost while locked, but hidden from screen readers.
                         Box(if (isLocked) Modifier.fillMaxSize().clearAndSetSemantics { } else Modifier.fillMaxSize()) {

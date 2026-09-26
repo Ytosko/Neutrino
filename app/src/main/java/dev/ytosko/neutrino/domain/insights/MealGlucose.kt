@@ -61,3 +61,32 @@ object MealGlucoseInsights {
             .take(limit)
     }
 }
+
+/** How glucose tends to move after meals that include one food: its average change over [times] meals. */
+data class FoodRise(val key: String, val name: String, val averageRise: Double, val times: Int)
+
+/** A meal reduced to when it was eaten and its foods as (key, name). */
+data class MealFoods(val at: Instant, val foods: List<Pair<String, String>>)
+
+object FoodGlucoseInsights {
+    /** Below this many meals a food's "usual" change would mostly be noise. */
+    const val MIN_TIMES = 3
+
+    /**
+     * For every meal with a reading before and about 2 hours after, its change counts for each food
+     * in it (a meal of rice and dal counts for both). Foods seen at least [minTimes] times, biggest
+     * average rise first. The user's own numbers only; no judgement.
+     */
+    fun rises(meals: List<MealFoods>, readings: List<TimedReading>, minTimes: Int = MIN_TIMES): List<FoodRise> {
+        val sorted = readings.sortedBy { it.at }
+        return meals
+            .flatMap { meal ->
+                val rise = MealGlucose.match(meal.at, sorted).rise ?: return@flatMap emptyList()
+                meal.foods.distinctBy { it.first }.map { (key, name) -> Triple(key, name, rise) }
+            }
+            .groupBy { it.first }
+            .map { (key, rows) -> FoodRise(key, rows.last().second, rows.map { it.third }.average(), rows.size) }
+            .filter { it.times >= minTimes }
+            .sortedByDescending { it.averageRise }
+    }
+}

@@ -682,31 +682,34 @@ private fun MealGlucoseCard(rises: List<MealRise>, modifier: Modifier) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         val biggest = rises.maxOf { kotlin.math.abs(it.averageRise) }.takeIf { it > 0 } ?: 1.0
-        rises.forEach { rise ->
-            val up = rise.averageRise >= 0
-            val change = (if (up) "+" else "−") + unit.format(kotlin.math.abs(rise.averageRise))
-            Column(Modifier.fillMaxWidth()) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(rise.name, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                    Text(
-                        "$change ${unit.label}",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = if (up) bandColor(GlucoseBand.High) else bandColor(GlucoseBand.InRange),
-                    )
-                }
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    ShareBar(
-                        fraction = (kotlin.math.abs(rise.averageRise) / biggest).toFloat(),
-                        color = if (up) bandColor(GlucoseBand.High) else bandColor(GlucoseBand.InRange),
-                        modifier = Modifier.weight(1f),
-                    )
-                    Text(
-                        pluralStringResource(R.plurals.health_meal_glucose_times, rise.times, rise.times),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
+        // The biggest rises, then (with many foods) the smallest changes too.
+        val top = if (rises.size > 8) rises.take(5) else rises
+        val smallest = if (rises.size > 8) rises.takeLast(3) else emptyList()
+        top.forEach { rise -> RiseRow(rise, biggest, unit) }
+        if (smallest.isNotEmpty()) {
+            Text(stringResource(R.string.health_food_glucose_smallest), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = Spacing.xs))
+            smallest.forEach { rise -> RiseRow(rise, biggest, unit) }
+        }
+    }
+}
+
+@Composable
+private fun RiseRow(rise: MealRise, biggest: Double, unit: dev.ytosko.neutrino.domain.GlucoseUnit) {
+    val up = rise.averageRise >= 0
+    val change = (if (up) "+" else "−") + unit.format(kotlin.math.abs(rise.averageRise))
+    val color = if (up) bandColor(GlucoseBand.High) else bandColor(GlucoseBand.InRange)
+    Column(Modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(rise.name, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            Text("$change ${unit.label}", style = MaterialTheme.typography.labelLarge, color = color)
+        }
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+            ShareBar(fraction = (kotlin.math.abs(rise.averageRise) / biggest).toFloat(), color = color, modifier = Modifier.weight(1f))
+            Text(
+                pluralStringResource(R.plurals.health_meal_glucose_times, rise.times, rise.times),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

@@ -46,7 +46,7 @@ class SouthAsianCatalogTest {
         assertTrue("পরোটা".normalizedForSearch().isNotEmpty())
         // Precomposed য় and য + nukta are the same letter.
         assertEquals("য়".normalizedForSearch(), "য়".normalizedForSearch())
-        assertEquals(85, FoodRanking.matchScore("পরোটা", "Paratha", listOf("porota", "পরোটা")))
+        assertEquals(95, FoodRanking.matchScore("পরোটা", "Paratha", listOf("porota", "পরোটা")))
         // A Bangla query must not match everything (it used to normalise to an empty string).
         assertEquals(0, FoodRanking.matchScore("ভাত", "Paratha", listOf("porota", "পরোটা")))
         // Latin accents are still ignored.

@@ -15,7 +15,7 @@ data class FoodUsage(
 object FoodRanking {
 
     /**
-     * Text relevance: 0 = no match. Name prefix beats word prefix beats alias beats substring,
+     * Text relevance: 0 = no match. An exact name or alias beats a name prefix, which beats word prefixes and substrings,
      * and every query word must match somewhere.
      */
     fun matchScore(query: String, name: String, aliases: List<String> = emptyList()): Int {
@@ -27,8 +27,9 @@ object FoodRanking {
         if (q.split(' ').any { word -> word !in haystack }) return 0
         return when {
             n == q -> 100
+            // "dal" is masoor dal's everyday name; it should beat "Dal puri" starting with it.
+            a.any { it == q } -> 95
             n.startsWith(q) -> 90
-            a.any { it == q } -> 85
             n.split(' ').any { it.startsWith(q) } -> 75
             a.any { it.startsWith(q) } -> 70
             a.any { alias -> alias.split(' ').any { it.startsWith(q) } } -> 60

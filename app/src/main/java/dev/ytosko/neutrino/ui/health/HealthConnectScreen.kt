@@ -106,7 +106,7 @@ fun HealthConnectScreen(
             }
         },
     ) {
-        WritesCard(state.allowed.takeIf { state.availability == HealthConnectAvailability.Available })
+        WritesCard(state.allowed.takeIf { state.availability == HealthConnectAvailability.Available }, readsGlucose = state.readsGlucose)
         Column(modifier = Modifier.padding(top = Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
             when {
                 state.granted -> StatusRow(
@@ -136,7 +136,7 @@ fun HealthConnectScreen(
 
 /** What Neutrino writes, each with whether it's allowed ([allowed] is null until known). */
 @Composable
-private fun WritesCard(allowed: Set<HealthKind>?) {
+private fun WritesCard(allowed: Set<HealthKind>?, readsGlucose: Boolean) {
     val colors = NeutrinoTheme.colors
     Card(
         shape = MaterialTheme.shapes.large,
@@ -151,7 +151,12 @@ private fun WritesCard(allowed: Set<HealthKind>?) {
             WriteRow(R.drawable.ic_activity, colors.glucoseContainer, colors.glucose, stringResource(R.string.hc_writes_glucose), allowed?.contains(HealthKind.Glucose))
             Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs), verticalAlignment = Alignment.CenterVertically) {
                 Icon(painterResource(R.drawable.ic_shield_check), contentDescription = null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(18.dp))
-                Text(stringResource(R.string.hc_reads_nothing), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.tertiary)
+                Text(
+                    stringResource(if (readsGlucose) R.string.hc_reads_glucose_only else R.string.hc_reads_nothing),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.tertiary,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
             }
         }
     }

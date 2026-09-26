@@ -17,6 +17,8 @@ data class HealthConnectUiState(
     val allowed: Set<HealthKind> = emptySet(),
     /** The user dismissed or denied the permission sheet at least once. */
     val denied: Boolean = false,
+    /** Allowed to read blood glucose (only asked for when glucose import is turned on). */
+    val readsGlucose: Boolean = false,
 ) {
     val granted: Boolean get() = allowed.size == HealthKind.entries.size
     val missing: List<HealthKind> get() = HealthKind.entries.filter { it !in allowed }
@@ -26,6 +28,8 @@ class HealthConnectViewModel(
     private val manager: HealthConnectManager,
     /** Runs once access is granted, to send anything saved while disconnected. */
     private val onConnected: suspend () -> Unit = {},
+    /** Brings in glucose from other apps right away, once import is on. */
+    private val onGlucoseImport: suspend () -> Unit = {},
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(HealthConnectUiState())
@@ -42,9 +46,25 @@ class HealthConnectViewModel(
         viewModelScope.launch {
             val availability = manager.availability()
             val allowed = if (availability == HealthConnectAvailability.Available) manager.grantedKinds() else emptySet()
-            _state.update { it.copy(availability = availability, allowed = allowed) }
+            val reads = availability == HealthConnectAvailability.Available && manager.canReadGlucose()
+            _state.update { it.copy(availability = availability, allowed = allowed, readsGlucose = reads) }
             // Sends anything saved while a kind was off, e.g. glucose readings once glucose is allowed.
             if (allowed.isNotEmpty()) onConnected()
+        }
+    }
+
+    val glucoseReadPermission: String get() = manager.glucoseReadPermission
+
+    /** After asking to read glucose: turn import on (via [enable]) only if Health Connect allowed it. */
+    @Suppress("UNUSED_PARAMETER")
+    fun onGlucoseReadResult(granted: Set<String>, enable: suspend () -> Unit) {
+        viewModelScope.launch {
+            val reads = manager.canReadGlucose()
+            _state.update { it.copy(readsGlucose = reads) }
+            if (reads) {
+                enable()
+                onGlucoseImport()
+            }
         }
     }
 

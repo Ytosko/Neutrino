@@ -196,6 +196,14 @@ fun kindIcon(kind: MedicineKind): Int = if (kind == MedicineKind.Insulin) R.draw
 
 private val shortTime: DateTimeFormatter = DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)
 
+/** Reminder shortcuts: morning, afternoon, evening and night at everyday times. */
+private val REMINDER_PRESETS = listOf(
+    R.string.medicine_time_morning to LocalTime.of(8, 0),
+    R.string.medicine_time_afternoon to LocalTime.of(14, 0),
+    R.string.medicine_time_evening to LocalTime.of(20, 0),
+    R.string.medicine_time_night to LocalTime.of(22, 0),
+)
+
 /** Settings → My medicines: the list, grouped into insulin and medicines, with + to add. */
 @Composable
 fun MedicinesScreen(viewModel: MedicinesViewModel, onBack: () -> Unit) {
@@ -480,12 +488,21 @@ private fun MedicineEditorSheet(viewModel: MedicinesViewModel, existing: Medicin
             }
             Text(stringResource(R.string.medicine_reminders), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = Spacing.xs))
             Text(stringResource(R.string.medicine_reminders_body), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            // One tap for the usual times of day; any other time with the picker.
             FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.xs), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                times.forEach { time ->
+                REMINDER_PRESETS.forEach { (label, time) ->
+                    val on = time in times
+                    FilterChip(
+                        selected = on,
+                        onClick = { times = if (on) times - time else (times + time).sorted() },
+                        label = { Text("${stringResource(label)} · ${time.format(shortTime)}") },
+                    )
+                }
+                times.filter { t -> REMINDER_PRESETS.none { it.second == t } }.forEach { time ->
                     val label = time.format(shortTime)
                     val removeLabel = stringResource(R.string.medicine_remove_time, label)
                     InputChip(
-                        selected = false,
+                        selected = true,
                         onClick = { times = times - time },
                         label = { Text(label) },
                         trailingIcon = { Icon(painterResource(R.drawable.ic_x), contentDescription = removeLabel, modifier = Modifier.size(16.dp)) },
@@ -494,7 +511,7 @@ private fun MedicineEditorSheet(viewModel: MedicinesViewModel, existing: Medicin
                 TextButton(onClick = { addingTime = true }) {
                     Icon(painterResource(R.drawable.ic_plus), contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.size(6.dp))
-                    Text(stringResource(R.string.medicine_add_time))
+                    Text(stringResource(R.string.medicine_time_other))
                 }
             }
             Button(
@@ -526,7 +543,7 @@ private fun MedicineEditorSheet(viewModel: MedicinesViewModel, existing: Medicin
         }
         // Inside the sheet, so they open on top of it.
         if (addingTime) {
-            TimeDialog(LocalTime.of(8, 0), onDismiss = { addingTime = false }) { time ->
+            TimeDialog(LocalTime.of(12, 0), onDismiss = { addingTime = false }) { time ->
                 if (time !in times) times = (times + time).sorted()
                 addingTime = false
             }

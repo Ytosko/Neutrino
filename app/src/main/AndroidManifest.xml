@@ -4,10 +4,12 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
 
-    <!-- Health Connect: write-only. Neutrino never reads health data. -->
+    <!-- Health Connect: writes meals, water and glucose. Reads nothing, unless the user turns on
+         glucose import (Settings): then blood glucose only, from other apps such as CGM apps. -->
     <uses-permission android:name="android.permission.health.WRITE_NUTRITION" />
     <uses-permission android:name="android.permission.health.WRITE_HYDRATION" />
     <uses-permission android:name="android.permission.health.WRITE_BLOOD_GLUCOSE" />
+    <uses-permission android:name="android.permission.health.READ_BLOOD_GLUCOSE" />
 
     <!--
       Blood glucose meter over Bluetooth LE. Pairing goes through Android's companion device picker,

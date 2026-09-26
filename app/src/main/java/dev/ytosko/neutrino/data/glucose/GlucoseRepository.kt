@@ -239,6 +239,31 @@ class GlucoseRepository(
     /** Meals go to Health Connect but glucose isn't allowed, so readings stay on the phone. */
     suspend fun healthConnectLeavesOutGlucose(): Boolean = runCatching { healthConnect.glucoseLeftOut() }.getOrDefault(false)
 
+    /**
+     * Brings in blood glucose that other apps (e.g. a CGM app) saved to Health Connect since [since].
+     * Only with the user's read permission; nothing is written back. Returns how many were new.
+     */
+    suspend fun importFromOtherApps(since: Instant, until: Instant = Instant.now()): Int {
+        val records = runCatching { healthConnect.readOtherAppsGlucose(since, until) }.getOrDefault(emptyList())
+        val now = System.currentTimeMillis()
+        var added = 0
+        records.forEach { r ->
+            val entity = GlucoseEntity(
+                id = "hc-${r.id}",
+                mmolPerL = r.mmolPerL,
+                measuredAtEpochMs = r.time.toEpochMilli(),
+                zoneId = r.zone?.id ?: ZoneId.systemDefault().id,
+                relation = r.relation.name,
+                syncedToHealthConnect = true,
+                createdAtEpochMs = now,
+                importedFrom = r.sourcePackage,
+            )
+            if (db.glucose().insert(entity) != -1L) added++
+        }
+        if (added > 0) onChanged()
+        return added
+    }
+
     /** Sends readings that haven't reached Health Connect yet. Returns how many were sent. */
     suspend fun syncWithHealthConnect(): Int = hcLock.withLock {
         if (!runCatching { healthConnect.hasGlucosePermission() }.getOrDefault(false)) return 0
@@ -246,6 +271,11 @@ class GlucoseRepository(
     }
 
     private suspend fun pushToHealthConnect(reading: GlucoseEntity): Boolean {
+        // Imported readings are already in Health Connect under the app that made them.
+        if (reading.isImported) {
+            db.glucose().markSynced(reading.id)
+            return true
+        }
         val source = reading.meterSerial?.let { serial -> meters.first().firstOrNull { it.serial == serial } }
         val ok = runCatching {
             healthConnect.writeGlucose(
@@ -396,8 +426,11 @@ class GlucoseRepository(
     }
 }
 
-/** Typed in by hand rather than downloaded from a meter. */
-val GlucoseEntity.isManual: Boolean get() = meterSequence == null && meterSerial == null
+/** Typed in by hand rather than downloaded from a meter or imported from another app. */
+val GlucoseEntity.isManual: Boolean get() = meterSequence == null && meterSerial == null && importedFrom == null
+
+/** Brought in from another app (e.g. a CGM app) through Health Connect. */
+val GlucoseEntity.isImported: Boolean get() = importedFrom != null
 
 val GlucoseEntity.relationEnum: GlucoseRelation
     get() = runCatching { GlucoseRelation.valueOf(relation) }.getOrDefault(GlucoseRelation.General)

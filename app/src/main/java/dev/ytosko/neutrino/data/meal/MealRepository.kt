@@ -1,5 +1,7 @@
 package dev.ytosko.neutrino.data.meal
 
+import kotlinx.coroutines.flow.map
+import dev.ytosko.neutrino.domain.insights.MealFoods
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withContext
@@ -144,6 +146,17 @@ class MealRepository(
         val to = date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
         return db.meals().countOfType(type.name, from, to) > 0
     }
+
+    /** Meals from [from] to [toInclusive] with the foods in each, for glucose-by-food insights. */
+    fun observeMealFoods(from: LocalDate, toInclusive: LocalDate, zone: ZoneId): Flow<List<MealFoods>> =
+        db.meals().observeMealFoods(
+            from.atStartOfDay(zone).toInstant().toEpochMilli(),
+            toInclusive.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli(),
+        ).map { rows ->
+            rows.groupBy { it.mealId }.values.map { foods ->
+                MealFoods(Instant.ofEpochMilli(foods.first().eatenAtEpochMs), foods.map { it.foodId to it.name })
+            }
+        }
 
     /** Everything logged from [from] to [toInclusive], for the Health page charts. */
     fun observeRange(from: LocalDate, toInclusive: LocalDate, zone: ZoneId): Flow<RangeData> {

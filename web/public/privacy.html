@@ -44,7 +44,7 @@
     <div class="legal-hero">
       <span class="kicker">Legal</span>
       <h1>Privacy Policy</h1>
-      <p class="meta">Effective 25 September 2026 · Last updated 25 September 2026</p>
+      <p class="meta">Effective 25 September 2026 · Last updated 26 September 2026</p>
     </div>
 
     <div class="legal-layout">
@@ -56,6 +56,9 @@
           <li><a href="#app-data">Data the app handles</a></li>
           <li><a href="#ai">AI providers</a></li>
           <li><a href="#glucose-meter">Glucose meter</a></li>
+          <li><a href="#glucose-import">Glucose from other apps</a></li>
+          <li><a href="#medicines">Medicines and insulin</a></li>
+          <li><a href="#watch">Wear OS watch</a></li>
           <li><a href="#your-files">Reports, exports and app lock</a></li>
           <li><a href="#health-connect">Health Connect</a></li>
           <li><a href="#google-drive">Google Drive backups</a></li>
@@ -101,6 +104,9 @@
             <tr><td>Names of new foods you add</td><td>To estimate nutrition for foods not in any list</td><td>Sent to the AI provider you selected, using your API key.</td></tr>
             <tr><td>Optional cuisine and notes for the AI</td><td>To help the AI recognise the food you eat</td><td>Stored on your device and sent to the AI provider you selected along with each analysis.</td></tr>
             <tr><td>Blood glucose readings from your Bluetooth meter (value, time, meal mark), and the meter's model, serial number and Bluetooth address</td><td>To record your readings and keep syncing with your meter</td><td>Stored on your device and written to Health Connect. Never sent to Neutrino, AI providers or anyone else.</td></tr>
+            <tr><td>Blood glucose readings other apps saved to Health Connect (only if you turn on glucose import)</td><td>To show readings from a continuous glucose monitor (CGM) app next to your meals</td><td>Read from Health Connect and stored on your device. Not written back, and never sent anywhere else.</td></tr>
+            <tr><td>Medicines and insulin you add (name, group, strength, form, usual dose, reminder times) and the doses you log (only if you turn this on)</td><td>To keep your own record of what you take, and remind you</td><td>Stored on your device and in your encrypted backups. Health Connect has no place for them, so they are not written there. Never sent anywhere else.</td></tr>
+            <tr><td>Medicine name search text (only while adding a medicine, after you type 3+ letters)</td><td>To suggest medicine names</td><td>Sent to MedEx (medex.com.bd). No other data is sent with it.</td></tr>
             <tr><td>Daily goals, glucose unit, app language and privacy settings</td><td>To show your progress and the app the way you chose</td><td>Stored on your device.</td></tr>
             <tr><td>Meal reminder times</td><td>To remind you to log breakfast, lunch and dinner</td><td>Notifications are scheduled and shown by your device. Nothing is sent anywhere.</td></tr>
           </tbody>
@@ -140,20 +146,31 @@
           <li><strong>Hide in recent apps:</strong> when on, Android blanks Neutrino's preview in the app switcher and blocks screenshots of the app.</li>
         </ul>
 
+        <h2 id="glucose-import">Blood glucose from other apps (optional)</h2>
+        <p>If you turn on <strong>Import from other glucose apps</strong> in Settings, Neutrino asks Health Connect for permission to <strong>read blood glucose</strong>, and nothing else. It then brings in readings that other apps (for example continuous glucose monitor apps such as xDrip+ or Juggluco) saved to Health Connect, whenever you open Neutrino. Readings are kept on your device so they can appear in your charts and next to your meals. They are not written back to Health Connect and are never sent anywhere else. Turn the setting off, or remove the permission in Health Connect, to stop.</p>
+
+        <h2 id="medicines">Medicines and insulin (optional)</h2>
+        <p>If you turn on <strong>I take medicine</strong> or <strong>I use insulin</strong> in Settings, you can keep a list of what you take, log doses and get reminders at times you choose. This stays on your device and in your encrypted backups; reminders are scheduled by your device. On the lock screen a reminder only says "Medicine reminder". Neutrino only records what you enter; it never suggests or calculates a dose.</p>
+        <p>While you add a medicine, Neutrino can suggest names from <a href="https://medex.com.bd" rel="noopener">MedEx</a>, a Bangladeshi medicine index: after you type three or more letters, that text is sent to MedEx, and when you pick a suggestion, its MedEx page is fetched to fill in the medicine's group (generic name). Nothing else is sent. MedEx's own terms and privacy policy apply to those requests. You can always type a name yourself instead.</p>
+
+        <h2 id="watch">Wear OS watch (optional)</h2>
+        <p>If you install the Neutrino watch app, the phone app sends today's totals, water and latest glucose reading to <strong>your own paired watch</strong> through Google Play services' Wearable Data Layer, and the watch can ask the phone to add a glass of water. This data only travels between your phone and your watch.</p>
+
         <h2 id="health-connect">Health Connect</h2>
         <p>With your permission, Neutrino writes data to <a href="https://developer.android.com/health-and-fitness/guides/health-connect" rel="noopener">Health Connect</a>, Android's on-device health data store. Neutrino requests only these permissions:</p>
         <ul>
           <li><strong>Write nutrition</strong>: to save the meals you approve (food name, carbohydrates, protein, fat, energy and related nutrients, meal type and time).</li>
           <li><strong>Write hydration</strong>: to save water intake you log.</li>
-          <li><strong>Write blood glucose</strong> (only if you pair a glucose meter): to save your meter's readings, with the time and meal mark.</li>
+          <li><strong>Write blood glucose</strong>: to save your meter's readings and readings you type in, with the time and meal mark.</li>
+          <li><strong>Read blood glucose</strong> (only if you turn on glucose import): to bring in readings other apps saved, as described above.</li>
         </ul>
-        <p>Neutrino does not read any health data from Health Connect, such as heart rate, sleep, activity or other apps' blood glucose readings. If a future version asks for additional access, for example to read back nutrition records it previously wrote so it can restore your history, the app will ask for your permission first and this policy will be updated beforehand.</p>
+        <p>Apart from blood glucose when you turn on import, Neutrino does not read any health data from Health Connect, such as heart rate, sleep or activity. If a future version asks for additional access, for example to read back nutrition records it previously wrote so it can restore your history, the app will ask for your permission first and this policy will be updated beforehand.</p>
         <p>Data obtained through Health Connect is used only to provide Neutrino's features to you. It is not used for advertising, not sold, not shared with third parties, and not used to determine credit-worthiness or for lending purposes. You can review or revoke Neutrino's permissions and delete its data at any time in Health Connect settings.</p>
 
         <h2 id="google-drive">Google Drive backups (optional)</h2>
         <p>If you choose to connect your Google account, Neutrino requests the <code>https://www.googleapis.com/auth/drive.appdata</code> scope. This allows the app to read and write <strong>only its own private application data folder</strong> in your Google Drive. That folder is hidden from your Drive file list. Neutrino <strong>cannot see, open, change or delete any of your other Drive files</strong>.</p>
         <ul>
-          <li><strong>What is stored:</strong> one backup file containing your settings (including your AI API key), meal history with small meal photos, water log, blood glucose readings and personal food list. The same encrypted file is also kept in a hidden folder on your device.</li>
+          <li><strong>What is stored:</strong> one backup file containing your settings (including your AI API key), meal history with small meal photos, water log, blood glucose readings, medicines and doses (if you log them) and personal food list. The same encrypted file is also kept in a hidden folder on your device.</li>
           <li><strong>Encryption:</strong> backups are encrypted on your device with a password you set before they are uploaded. Neutrino's maintainers have no access to your Drive, your backup files or your password.</li>
           <li><strong>When:</strong> on the schedule you choose (daily, weekly or monthly) or when you tap “Back up now”. Each upload replaces the previous one.</li>
           <li><strong>Your Google account email</strong> is shown in the app so you know which account holds your backup. It is not sent anywhere else.</li>

@@ -117,6 +117,10 @@ fun SettingsScreen(
     var lockUnavailable by remember { mutableStateOf(false) }
     // Reminders and the weekly summary need notifications (Android 13+ asks once).
     val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+    // Glucose import: Health Connect asks the user to allow reading blood glucose.
+    val glucoseReadLauncher = rememberLauncherForActivityResult(healthViewModel.permissionContract()) { granted ->
+        healthViewModel.onGlucoseReadResult(granted) { repository.setGlucoseImport(true) }
+    }
     fun askNotificationsIfNeeded() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !MealReminders.canNotify(context)) {
             notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -198,6 +202,31 @@ fun SettingsScreen(
                 title = stringResource(R.string.settings_glucose_unit),
                 value = appSettings.glucoseUnit.label,
                 onClick = { choosingUnit = true },
+            )
+            RowDivider()
+            SwitchRow(
+                icon = R.drawable.ic_heart_pulse,
+                tint = c.rose,
+                title = stringResource(R.string.settings_glucose_import),
+                subtitle = stringResource(
+                    if (appSettings.glucoseImport && health.availability != null && !health.readsGlucose) {
+                        R.string.settings_glucose_import_needs_permission
+                    } else {
+                        R.string.settings_glucose_import_body
+                    },
+                ),
+                checked = appSettings.glucoseImport && (health.availability == null || health.readsGlucose),
+                onChange = { on ->
+                    if (on) {
+                        if (health.availability == dev.ytosko.neutrino.data.health.HealthConnectAvailability.Available) {
+                            glucoseReadLauncher.launch(setOf(healthViewModel.glucoseReadPermission))
+                        } else {
+                            onOpenHealthConnect()
+                        }
+                    } else {
+                        scope.launch { repository.setGlucoseImport(false) }
+                    }
+                },
             )
             RowDivider()
             SwitchRow(

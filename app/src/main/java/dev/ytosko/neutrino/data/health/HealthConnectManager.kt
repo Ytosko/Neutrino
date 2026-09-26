@@ -27,9 +27,20 @@ enum class HealthConnectAvailability { Available, NotInstalled, UpdateRequired, 
 /** What Neutrino can write to Health Connect; each is allowed (or not) separately. */
 enum class HealthKind { Nutrition, Hydration, Glucose }
 
+/** A blood glucose record another app saved to Health Connect. */
+data class ImportedGlucose(
+    val id: String,
+    val time: Instant,
+    val zone: ZoneId?,
+    val mmolPerL: Double,
+    val relation: dev.ytosko.neutrino.data.glucose.GlucoseRelation,
+    val sourcePackage: String,
+)
+
 /**
- * Health Connect access. Neutrino only ever asks to WRITE nutrition, hydration and blood glucose;
- * it reads no health data (see the privacy policy).
+ * Health Connect access. Neutrino asks to WRITE nutrition, hydration and blood glucose. It reads
+ * nothing, unless the user turns on glucose import: then it asks to READ blood glucose only, and
+ * only ever keeps readings other apps made (see the privacy policy).
  */
 class HealthConnectManager(private val context: Context) {
 
@@ -48,6 +59,48 @@ class HealthConnectManager(private val context: Context) {
     val glucosePermission: String = permissionFor(HealthKind.Glucose)
 
     suspend fun hasGlucosePermission(): Boolean = glucosePermission in grantedPermissions()
+
+    /** Only asked for when the user turns on "Import from other glucose apps". */
+    val glucoseReadPermission: String = HealthPermission.getReadPermission(BloodGlucoseRecord::class)
+
+    suspend fun canReadGlucose(): Boolean = glucoseReadPermission in grantedPermissions()
+
+    /** Blood glucose other apps saved between [since] and [until]; empty without the read permission. */
+    suspend fun readOtherAppsGlucose(since: Instant, until: Instant): List<ImportedGlucose> {
+        val client = client ?: return emptyList()
+        if (!canReadGlucose()) return emptyList()
+        val out = mutableListOf<ImportedGlucose>()
+        var page: String? = null
+        do {
+            val response = client.readRecords(
+                androidx.health.connect.client.request.ReadRecordsRequest(
+                    recordType = BloodGlucoseRecord::class,
+                    timeRangeFilter = androidx.health.connect.client.time.TimeRangeFilter.between(since, until),
+                    pageSize = 1000,
+                    pageToken = page,
+                ),
+            )
+            response.records
+                .filter { it.metadata.dataOrigin.packageName != context.packageName }
+                .mapTo(out) {
+                    ImportedGlucose(
+                        id = it.metadata.id,
+                        time = it.time,
+                        zone = it.zoneOffset,
+                        mmolPerL = it.level.inMillimolesPerLiter,
+                        relation = when (it.relationToMeal) {
+                            BloodGlucoseRecord.RELATION_TO_MEAL_FASTING -> dev.ytosko.neutrino.data.glucose.GlucoseRelation.Fasting
+                            BloodGlucoseRecord.RELATION_TO_MEAL_BEFORE_MEAL -> dev.ytosko.neutrino.data.glucose.GlucoseRelation.BeforeMeal
+                            BloodGlucoseRecord.RELATION_TO_MEAL_AFTER_MEAL -> dev.ytosko.neutrino.data.glucose.GlucoseRelation.AfterMeal
+                            else -> dev.ytosko.neutrino.data.glucose.GlucoseRelation.General
+                        },
+                        sourcePackage = it.metadata.dataOrigin.packageName,
+                    )
+                }
+            page = response.pageToken
+        } while (!page.isNullOrEmpty())
+        return out
+    }
 
     /** Which kinds are allowed right now; empty when Health Connect isn't available. */
     suspend fun grantedKinds(): Set<HealthKind> {

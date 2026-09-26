@@ -1,5 +1,6 @@
 package dev.ytosko.neutrino.ui.review
 
+import dev.ytosko.neutrino.ui.glucose.FoodRiseLine
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import dev.ytosko.neutrino.ui.components.AlertStyle
@@ -527,6 +528,7 @@ private fun ItemCard(item: ReviewItem, onClick: () -> Unit, modifier: Modifier) 
                     MacroLetter("P", n.proteinG, colors.protein)
                     MacroLetter("F", n.fatG, colors.fat)
                 }
+                FoodRiseLine(item.food.id)
             }
             Column(horizontalAlignment = Alignment.End) {
                 Text("${n.calories.roundKcal()}", style = MaterialTheme.typography.titleMedium)

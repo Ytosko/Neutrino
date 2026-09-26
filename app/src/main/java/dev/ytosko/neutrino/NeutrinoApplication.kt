@@ -1,5 +1,8 @@
 package dev.ytosko.neutrino
 
+import java.time.ZoneId
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
 import dev.ytosko.neutrino.data.reminders.DoseReminders
 import dev.ytosko.neutrino.data.medicine.MedexClient
 import dev.ytosko.neutrino.data.medicine.MedicineRepository
@@ -70,6 +73,7 @@ class NeutrinoApplication : Application() {
             if (container.settings.settings.first().remindersEnabled) MealReminders.scheduleAll(this@NeutrinoApplication)
             runCatching { DoseReminders.sync(this@NeutrinoApplication) }
             container.syncHealthConnect()
+            runCatching { container.importGlucose() }
             // Keep watching for the meter (e.g. after an app update).
             container.watchMeters()
         }
@@ -169,10 +173,45 @@ class AppContainer(application: Application) {
 
     val glucose = GlucoseRepository(application, database, healthConnect, onChanged = ::dataChanged)
 
+    /**
+     * Each food's usual glucose change after meals with it, over the last 180 days, for foods
+     * eaten at least 3 times with a reading before and after. Keyed by food id.
+     */
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    val usualFoodRises: kotlinx.coroutines.flow.Flow<Map<String, dev.ytosko.neutrino.domain.insights.FoodRise>> =
+        kotlinx.coroutines.flow.flowOf(Unit).flatMapLatest {
+            val zone = ZoneId.systemDefault()
+            val today = java.time.LocalDate.now(zone)
+            val from = today.minusDays(179)
+            combine(meals.observeMealFoods(from, today, zone), glucose.observeBetween(from, today.plusDays(1), zone)) { mealFoods, readings ->
+                dev.ytosko.neutrino.domain.insights.FoodGlucoseInsights.rises(
+                    mealFoods,
+                    readings.map { dev.ytosko.neutrino.domain.insights.TimedReading(java.time.Instant.ofEpochMilli(it.measuredAtEpochMs), it.mmolPerL) },
+                ).associateBy { it.key }
+            }
+        }
+
     private val context: Context = application
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val meterSyncRunning: MutableSet<String> = ConcurrentHashMap.newKeySet()
     private val lastMeterSuccess = ConcurrentHashMap<String, Long>()
+
+    /**
+     * Brings in glucose from other apps if the user turned import on: since the last import (with an
+     * hour's overlap for late arrivals), or the last 30 days the first time.
+     */
+    suspend fun importGlucose() {
+        val s = settings.settings.first()
+        if (!s.glucoseImport) return
+        val now = java.time.Instant.now()
+        val since = if (s.glucoseImportedUntil > 0) {
+            java.time.Instant.ofEpochMilli(s.glucoseImportedUntil).minusSeconds(3_600)
+        } else {
+            now.minus(java.time.Duration.ofDays(30))
+        }
+        glucose.importFromOtherApps(since, now)
+        if (runCatching { healthConnect.canReadGlucose() }.getOrDefault(false)) settings.setGlucoseImportedUntil(now.toEpochMilli())
+    }
 
     /** Makes Health Connect match Neutrino: meals, water and glucose readings. */
     suspend fun syncHealthConnect() {

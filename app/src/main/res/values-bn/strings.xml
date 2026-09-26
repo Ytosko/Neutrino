@@ -435,6 +435,10 @@
     <string name="weekly_glucose">গ্লুকোজ: %1$d%% সীমার মধ্যে (%2$dটি রিডিং)</string>
     <string name="settings_glucose_unit">গ্লুকোজের একক</string>
     <string name="settings_glucose_unit_body">শুধু রিডিং দেখানোর ধরন বদলায়। সেভ করা রিডিং একদম একই থাকে।</string>
+    <string name="settings_glucose_import">অন্য গ্লুকোজ অ্যাপ থেকে আনুন</string>
+    <string name="settings_glucose_import_body">xDrip+ বা Juggluco-র মতো CGM অ্যাপ যে রিডিং Health Connect-এ সেভ করে, Neutrino খুললেই তা আনা হয়। কিছু অফিশিয়াল সেন্সর অ্যাপ সেখানে সেভ করে না। তখন Neutrino শুধু রক্তের গ্লুকোজ পড়ে।</string>
+    <string name="settings_glucose_import_needs_permission">Health Connect গ্লুকোজ পড়ার অনুমতি দিচ্ছে না। আবার অনুমতি দিতে ট্যাপ করুন।</string>
+    <string name="hc_reads_glucose_only">আপনি আনা চালু করেছেন বলে Neutrino অন্য অ্যাপ থেকে শুধু রক্তের গ্লুকোজ পড়ে।</string>
     <string name="settings_test_reminder">খাবারের পর টেস্টের কথা মনে করান</string>
     <string name="settings_test_reminder_body">খাবারের প্রায় 2 ঘণ্টা পরে, আগেই টেস্ট করে থাকলে আসবে না</string>
     <string name="settings_widget_glucose">উইজেটে গ্লুকোজ</string>
@@ -606,9 +610,15 @@
     <string name="dose_unit_label_units">ইউনিট</string>
     <string name="dose_unit_label_puff">পাফ</string>
     <string name="dose_unit_label_drop">ফোঁটা</string>
+    <string name="health_food_glucose_smallest">সবচেয়ে কম বদল</string>
+    <string name="food_usual_rise">আপনার গ্লুকোজ: পরে গড়ে %1$s %2$s (%3$d×)</string>
+    <string name="medicine_time_morning">সকাল</string>
+    <string name="medicine_time_afternoon">দুপুর</string>
+    <string name="medicine_time_evening">সন্ধ্যা</string>
+    <string name="medicine_time_night">রাত</string>
+    <string name="medicine_time_other">অন্য সময়</string>
     <string name="medicine_reminders">রিমাইন্ডার</string>
     <string name="medicine_reminders_body">প্রতিদিন এই সময়ে একটি নোটিফিকেশন, আগেই লগ করে থাকলে বাদ যাবে।</string>
-    <string name="medicine_add_time">সময় যোগ করুন</string>
     <string name="medicine_remove_time">%1$s সরান</string>
     <string name="medicine_save">সেভ করুন</string>
     <string name="medicine_remove">সরান</string>
@@ -690,7 +700,7 @@
     <string name="health_gmi_note">এটি আপনার মিটারের রিডিং থেকে একটি অনুমান, ল্যাবের ফলাফল নয়। আঙুলের রিডিং নির্দিষ্ট সময়ে নেওয়া হয়, তাই এটি ল্যাবের A1c থেকে আলাদা হতে পারে।</string>
     <string name="report_gmi_note">আনুমানিক A1c (GMI) এই রিপোর্টের আঙুলের রিডিং থেকে হিসাব করা; এটি ল্যাবের A1c নয়।</string>
     <string name="health_meal_glucose_title">খাবার ও গ্লুকোজ</string>
-    <string name="health_meal_glucose_body">প্রতিটি খাবারের আগে থেকে প্রায় 2 ঘণ্টা পর পর্যন্ত আপনার গ্লুকোজ গড়ে কতটা বদলেছে। শুধু আপনার নিজের রিডিং থেকে।</string>
+    <string name="health_meal_glucose_body">খাওয়ার আগে থেকে প্রায় 2 ঘণ্টা পর পর্যন্ত আপনার গ্লুকোজ গড়ে কতটা বদলেছে, প্রতিটি খাবার যে যে বেলায় ছিল তার হিসাবে। একাধিক খাবারের বেলা প্রতিটির জন্যই গোনা হয়। শুধু আপনার নিজের রিডিং।</string>
     <plurals name="health_meal_glucose_times">
         <item quantity="one">%1$d বার</item>
         <item quantity="other">%1$d বার</item>

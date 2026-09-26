@@ -1,5 +1,7 @@
 package dev.ytosko.neutrino.ui.glucose
 
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.unit.dp
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
@@ -22,6 +24,35 @@ fun band(mmol: Double, low: Double, high: Double): GlucoseBand = when {
 
 /** The unit glucose is shown in; provided at the app root from settings. */
 val LocalGlucoseUnit = staticCompositionLocalOf { GlucoseUnit.MmolL }
+
+/** Each food's usual glucose change (food id → rise), for foods with enough before/after readings. */
+val LocalFoodRises = androidx.compose.runtime.compositionLocalOf<Map<String, dev.ytosko.neutrino.domain.insights.FoodRise>> { emptyMap() }
+
+/** "Your glucose: +2.8 mmol/L after, on average (5×)", or nothing without enough readings. */
+@androidx.compose.runtime.Composable
+fun FoodRiseLine(foodId: String, modifier: androidx.compose.ui.Modifier = androidx.compose.ui.Modifier) {
+    val rise = LocalFoodRises.current[foodId] ?: return
+    val unit = LocalGlucoseUnit.current
+    val change = (if (rise.averageRise >= 0) "+" else "−") + unit.format(kotlin.math.abs(rise.averageRise))
+    androidx.compose.foundation.layout.Row(
+        modifier = modifier,
+        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp),
+    ) {
+        androidx.compose.material3.Icon(
+            androidx.compose.ui.res.painterResource(R.drawable.ic_activity),
+            contentDescription = null,
+            tint = dev.ytosko.neutrino.ui.theme.NeutrinoTheme.colors.glucose,
+            modifier = androidx.compose.ui.Modifier.size(12.dp),
+        )
+        androidx.compose.material3.Text(
+            androidx.compose.ui.res.stringResource(R.string.food_usual_rise, change, unit.label, rise.times),
+            style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
+            color = dev.ytosko.neutrino.ui.theme.NeutrinoTheme.colors.glucose,
+            maxLines = 1,
+        )
+    }
+}
 
 /** "7.2" (or "130" in mg/dL), or "HI" / "LO" for results beyond the meter's range. */
 @Composable

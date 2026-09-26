@@ -55,6 +55,9 @@ data class MealEntity(
     @ColumnInfo(defaultValue = "0") val favorite: Boolean = false,
 )
 
+/** A food in a meal, with the meal's time; for glucose-by-food insights. */
+data class MealFoodRow(val mealId: String, val eatenAtEpochMs: Long, val foodId: String, val name: String)
+
 /** One food line of a meal: what, how much, and the nutrition it contributed. */
 @Serializable
 @Entity(
@@ -133,6 +136,13 @@ interface MealDao {
         FROM meals WHERE eatenAtEpochMs >= :fromMs AND eatenAtEpochMs < :toMs ORDER BY eatenAtEpochMs""",
     )
     fun observeBetween(fromMs: Long, toMs: Long): Flow<List<MealWithCategory>>
+
+    /** Each food of each meal in the window, with when the meal was eaten. */
+    @Query(
+        """SELECT m.id AS mealId, m.eatenAtEpochMs AS eatenAtEpochMs, i.foodId AS foodId, i.name AS name FROM meal_items i
+        JOIN meals m ON m.id = i.mealId WHERE m.eatenAtEpochMs >= :fromMs AND m.eatenAtEpochMs < :toMs""",
+    )
+    fun observeMealFoods(fromMs: Long, toMs: Long): Flow<List<MealFoodRow>>
 
     @Query(
         """SELECT i.name AS name, i.category AS category, COUNT(*) AS times FROM meal_items i
@@ -282,11 +292,11 @@ interface BackupDao {
         MealEntity::class, MealItemEntity::class, FoodEntity::class, WaterEntity::class, GlucoseEntity::class,
         MedicineEntity::class, DoseEntity::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3), AutoMigration(from = 3, to = 4),
-        AutoMigration(from = 4, to = 5),
+        AutoMigration(from = 4, to = 5), AutoMigration(from = 5, to = 6),
     ],
 )
 abstract class MealDatabase : RoomDatabase() {
