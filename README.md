@@ -70,6 +70,8 @@ based on your local time, so they show up in Google Health, Fitbit and any other
 ├── app/                    # Android app (Kotlin + Jetpack Compose)
 ├── glucose-ble/            # Bluetooth Glucose Profile protocol, meter sync and a simulated meter (unit-tested)
 ├── metersim/               # Test-only app that turns a second phone/emulator into a virtual glucose meter
+├── wear/                   # Wear OS companion: tile, complications and app (GitHub build only)
+├── wear-protocol/          # What the phone and watch send each other (unit-tested)
 ├── docs/                   # Developer docs (signing, OAuth setup)
 ├── logos/                  # Brand assets (SVG + PNG variants)
 ├── web/                    # Website: landing page, privacy policy, terms
@@ -105,7 +107,8 @@ Or without Docker: `python -m http.server 8080 --directory web/public` (clean UR
 ## Android app
 
 Kotlin, Jetpack Compose and Material 3. Minimum Android 9 (API 28), targets Android 16 (API 36).
-No DI framework, no analytics. Google Play services is used only for optional Drive backup.
+No DI framework, no analytics. Google Play services is used only for optional Drive backup and the
+Wear OS companion.
 
 Two flavours: **full** (the GitHub release, with Google Drive backup) and **libre** (no Google
 libraries at all, for F-Droid; backups are the encrypted file only).
@@ -117,6 +120,7 @@ libraries at all, for F-Droid; backups are the encrypted file only).
 ```
 
 Open the repository root in Android Studio to run it on a device or emulator.
+Wear OS watch app (tile, complications, +250 ml water) and how to install it without Google Play: [docs/WEAR.md](docs/WEAR.md).
 Release signing and Google OAuth setup: [docs/SIGNING.md](docs/SIGNING.md). Publishing releases:
 [docs/RELEASING.md](docs/RELEASING.md) (push a `v1.2.3` tag; GitHub Actions tests, signs and publishes).
 

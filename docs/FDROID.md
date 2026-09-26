@@ -16,6 +16,12 @@ simply don't offer Drive.
 ./gradlew :app:dependencies --configuration libreReleaseRuntimeClasspath | grep -i gms   # prints nothing
 ```
 
+The F-Droid build leaves out the Wear OS app (`wear/`): it needs Google Play services' Wearable
+Data Layer, and the `libre` phone app has no watch support. `settings.gradle.kts` only includes the
+`:wear` module when the `wear/` folder exists, so the F-Droid recipe removes it before building
+(`rm: [wear]`, see below). `wear-protocol/` stays: it's plain Kotlin with no Google libraries, and
+the `libre` flavour doesn't use it.
+
 ## Store listing
 
 F-Droid reads the listing from `fastlane/metadata/android/en-US/`: `title.txt`,
@@ -54,6 +60,8 @@ Builds:
     versionCode: 10005
     commit: v1.0.5
     subdir: app
+    rm:
+      - wear
     gradle:
       - libre
     gradleprops:

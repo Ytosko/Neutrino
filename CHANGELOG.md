@@ -4,6 +4,9 @@ Every release has a section here, headed `## [x.y.z] - YYYY-MM-DD` with an optio
 
 ## [Unreleased]
 
+### Wear OS
+- **Neutrino on your watch:** a tile with today's carbs, protein, fat and kcal rings, water with a one-tap + 250 ml, and your latest glucose reading coloured by your target range; watch face complications for latest glucose and today's carbs; and a small watch app with the same. The phone sends only today's summary, and only to your own paired watch. Works with the GitHub version; install the watch APK from the release with `adb` ([how](docs/WEAR.md)).
+
 ### Glucose
 - **Estimated A1c (GMI):** the Health page shows an estimated A1c from your last 90 days of readings, as a percentage and in mmol/mol, once you have readings on at least 14 days. It's clearly marked as an estimate from finger-prick readings, not a lab result. Doctor reports include it too when the report covers 14 days or more.
 - **Latest glucose widget:** a small 2×1 home screen widget with just your latest reading and its time, coloured by your target range.

@@ -24,3 +24,7 @@ rootProject.name = "Neutrino"
 include(":app")
 include(":glucose-ble")
 include(":metersim")
+include(":wear-protocol")
+// The Wear OS app. F-Droid deletes this folder before building (it uses Google Play services), so
+// only include it when it is there.
+if (file("wear").isDirectory) include(":wear")

@@ -45,16 +45,18 @@ jobs:
           } > keystore.properties
 
       - name: Test and build
-        run: ./gradlew --no-daemon -PversionName=${{ steps.version.outputs.name }} :app:testFullDebugUnitTest :glucose-ble:testDebugUnitTest :app:assembleFullRelease
+        run: ./gradlew --no-daemon -PversionName=${{ steps.version.outputs.name }} :app:testFullDebugUnitTest :glucose-ble:testDebugUnitTest :wear-protocol:testDebugUnitTest :app:assembleFullRelease :wear:assembleRelease
 
       - name: Check the signing certificate
         # Only builds signed with the registered key can use Google Drive backup, so refuse anything else.
+        # The watch app needs the same key too, or Wear OS won't connect it to the phone app.
         run: |
-          APK=app/build/outputs/apk/full/release/app-full-release.apk
           APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
-          "$APKSIGNER" verify --print-certs "$APK" | tee certs.txt
-          grep -qi "SHA-1 digest: a552b9634ff966585a64280484cb904038565c72" certs.txt \
-            || { echo "::error::APK is not signed with the Neutrino release key"; exit 1; }
+          for APK in app/build/outputs/apk/full/release/app-full-release.apk wear/build/outputs/apk/release/wear-release.apk; do
+            "$APKSIGNER" verify --print-certs "$APK" | tee certs.txt
+            grep -qi "SHA-1 digest: a552b9634ff966585a64280484cb904038565c72" certs.txt \
+              || { echo "::error::$APK is not signed with the Neutrino release key"; exit 1; }
+          done
 
       - name: Publish
         env:
@@ -69,14 +71,19 @@ jobs:
           APK="neutrino-${NAME:-$VERSION}.apk"
           cp app/build/outputs/apk/full/release/app-full-release.apk "$APK"
           sha256sum "$APK" > "$APK.sha256"
+          WEAR_APK="neutrino-wear-${NAME:-$VERSION}.apk"
+          cp wear/build/outputs/apk/release/wear-release.apk "$WEAR_APK"
+          sha256sum "$WEAR_APK" > "$WEAR_APK.sha256"
 
           awk -v h="$HEADING" '$0 == h { on = 1; next } on && /^## \[/ { exit } on { print }' CHANGELOG.md > notes.md
           {
             echo
             echo "### Checksum"
             echo "SHA-256 \`$(cut -d' ' -f1 "$APK.sha256")\`"
+            echo
+            echo "Wear OS app \`$WEAR_APK\` ([how to install](https://github.com/$GITHUB_REPOSITORY/blob/main/docs/WEAR.md)): SHA-256 \`$(cut -d' ' -f1 "$WEAR_APK.sha256")\`"
           } >> notes.md
-          gh release create "$GITHUB_REF_NAME" "$APK" "$APK.sha256" \
+          gh release create "$GITHUB_REF_NAME" "$APK" "$APK.sha256" "$WEAR_APK" "$WEAR_APK.sha256" \
             --title "${NAME:-Neutrino $VERSION}" --notes-file notes.md
 
       - name: Remove signing key
