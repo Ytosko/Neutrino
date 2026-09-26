@@ -2,7 +2,9 @@
 
 Every release has a section here, headed `## [x.y.z] - YYYY-MM-DD` with an optional ` · Release name`. The release workflow publishes the section as the GitHub release notes (and the name as its title), and refuses to release a version that has none.
 
-## [Unreleased]
+## [1.0.6] - 2026-09-26 · v1.5-NeutrinoBuddy
+
+Medicines and insulin, glucose from CGM apps, what each food does to your glucose, a much bigger South Asian food list, and Neutrino on your watch.
 
 ### Medicines and insulin
 - **Your medicine log (off until you turn it on):** Settings → "I take medicine" and/or "I use insulin". Add each one once: start typing and pick from MedEx's list of medicines in Bangladesh, which fills in the strength, form and group (e.g. Napa → Paracetamol). You can also type your own.

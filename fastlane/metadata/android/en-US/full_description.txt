@@ -11,12 +11,14 @@
 <p><b>Features</b></p>
 <ul>
 <li>Photo to foods: the AI lists each food with its portion; you adjust before saving</li>
-<li>Food search: your foods, about 200 built-in foods, Open Food Facts for packaged products, or AI</li>
+<li>Food search: your foods, about 750 built-in foods with a big South Asian list (in English and Bangla), Open Food Facts for packaged products, or AI</li>
 <li>Everyday units: plate, bowl, piece, cup, glass as well as g, ml and more</li>
 <li>Health page: day, week, month or year, goal lines, and an estimated A1c (GMI)</li>
 <li>Daily goals for carbs, protein, fat, calories and water; water logging</li>
 <li>Bluetooth glucose meters (Bluetooth Glucose Profile, e.g. CONTOUR PLUS ELITE), or readings typed in, in mmol/L or mg/dL</li>
-<li>Glucose before and 2 hours after each meal, time in range, test reminders</li>
+<li>Glucose before and 2 hours after each meal, your usual change after each food, time in range, test reminders</li>
+<li>Optional import of readings that CGM apps (e.g. xDrip+, Juggluco) save to Health Connect</li>
+<li>Optional medicine and insulin log with reminders (records only, never dose advice)</li>
 <li>PDF report for your doctor and a full CSV export, made on the phone</li>
 <li>Home screen widgets, app lock, encrypted backup file</li>
 <li>English and Bangla</li>
@@ -24,4 +26,4 @@
 
 <p>This version has no Google libraries: Google Drive backup is only in the GitHub version. Use the encrypted backup file instead.</p>
 
-<p><b>Network services:</b> photos and food descriptions are sent to the AI provider you choose (Google Gemini or OpenAI), with your own key, when you ask for an estimate.</p>
+<p><b>Network services:</b> photos and food descriptions are sent to the AI provider you choose (Google Gemini or OpenAI), with your own key, when you ask for an estimate. Packaged-food searches go to Open Food Facts, and while you add a medicine, what you type can be looked up on MedEx (medex.com.bd).</p>

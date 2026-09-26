@@ -39,6 +39,7 @@ Inclusion is requested with a merge request to
 
 ```yaml
 Categories:
+  - Health Manager
   - Sports & Health
 License: GPL-3.0-only
 AuthorName: Ytosko
@@ -50,27 +51,27 @@ Changelog: https://github.com/Ytosko/Neutrino/blob/main/CHANGELOG.md
 AutoName: Neutrino
 AntiFeatures:
   NonFreeNet:
-    en-US: Meal photos and descriptions are sent to the AI provider you choose (Google Gemini or OpenAI), with your own API key.
+    en-US: Meal photos are sent to the AI provider you choose (Google Gemini or OpenAI), with your own API key. Medicine names you type can be looked up on MedEx.
 
 RepoType: git
 Repo: https://github.com/Ytosko/Neutrino.git
 
 Builds:
-  - versionName: 1.0.5
-    versionCode: 10005
-    commit: v1.0.5
+  - versionName: 1.0.6
+    versionCode: 10006
+    commit: v1.0.6
     subdir: app
     rm:
       - wear
     gradle:
       - libre
     gradleprops:
-      - versionName=1.0.5
+      - versionName=1.0.6
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags ^v[0-9.]+$
-CurrentVersion: 1.0.5
-CurrentVersionCode: 10005
+CurrentVersion: 1.0.6
+CurrentVersionCode: 10006
 ```
 
 Notes for the review:

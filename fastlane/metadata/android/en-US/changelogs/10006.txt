@@ -1,0 +1,1 @@
+Medicine and insulin log with reminders (turn it on in Settings), import from CGM apps through Health Connect, your usual glucose change after each food, about 750 built-in foods with a big South Asian list, estimated A1c (GMI), a latest-glucose widget, and over-goal badges on the widget rings.

@@ -38,7 +38,7 @@ based on your local time, so they show up in Google Health, Fitbit and any other
 ## Features
 
 - **Photo → foods:** the AI lists each food with its portion; you review and adjust before saving
-- **Food search:** your foods first, ~200 built-in foods (USDA + Bangladeshi dishes), Open Food Facts for packaged
+- **Food search:** your foods first, ~750 built-in foods (USDA plus a big South Asian list, searchable in Bangla), Open Food Facts for packaged
   products, or AI for anything new
 - **Everyday units:** plate, bowl, piece, cup, glass, can as well as g, kg, ml, L
 - **Your AI:** Gemini or OpenAI with your own key; pick any vision model your key can use
@@ -51,8 +51,10 @@ based on your local time, so they show up in Google Health, Fitbit and any other
 - **Glucose meter:** pair a Bluetooth blood glucose meter (Bluetooth SIG Glucose Profile, e.g. CONTOUR PLUS ELITE);
   readings sync in the background after each test, in mmol/L, with meal marks, a target range, time in range, and the
   meter's clock kept correct
-- **Glucose extras:** readings typed in by hand, mg/dL or mmol/L, glucose before and 2 h after each meal, optional
-  "time to test" reminder
+- **Glucose extras:** readings typed in by hand, mg/dL or mmol/L, glucose before and 2 h after each meal, your usual
+  change after each food, optional "time to test" reminder, and optional import from CGM apps through Health Connect
+- **Medicines and insulin (optional):** your list with MedEx name suggestions, one-tap dose logging, reminders with a
+  "Taken" button, and doses in reports; records only, never dose advice
 - **Log again:** press and hold a meal to log it again, today or on its own day; **daily goals** for carbs, protein,
   fat, calories and water
 - **Widgets and shortcuts:** today's macro rings, one-tap water, a camera button and the latest glucose; plus a small
@@ -60,7 +62,8 @@ based on your local time, so they show up in Google Health, Fitbit and any other
 - **Reports:** a PDF report for your doctor and a full CSV export, made on the phone
 - **Privacy:** optional app lock (fingerprint / screen lock) and hiding from recent apps
 - **Languages:** English and Bangla (বাংলা)
-- **Health Connect:** writes `NutritionRecord`, `HydrationRecord` and `BloodGlucoseRecord` (never reads)
+- **Health Connect:** writes `NutritionRecord`, `HydrationRecord` and `BloodGlucoseRecord`; reads nothing, except other
+  apps' `BloodGlucoseRecord` if you turn on glucose import
 - **Backups:** encrypted, automatic on the phone (survives uninstall), optional Google Drive, restore on reinstall
 
 ## Repository layout
