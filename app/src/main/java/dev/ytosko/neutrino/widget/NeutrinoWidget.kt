@@ -59,6 +59,7 @@ import androidx.glance.text.TextStyle
 import dev.ytosko.neutrino.MainActivity
 import dev.ytosko.neutrino.R
 import dev.ytosko.neutrino.appContainer
+import dev.ytosko.neutrino.wear.WearBridge
 import dev.ytosko.neutrino.domain.insights.compactGrams
 import dev.ytosko.neutrino.domain.insights.compactNumber
 import dev.ytosko.neutrino.domain.insights.formatWater
@@ -337,6 +338,8 @@ class NeutrinoWidget : GlanceAppWidget() {
         suspend fun refresh(context: Context) {
             runCatching { NeutrinoWidget().updateAll(context) }
             runCatching { GlucoseWidget().updateAll(context) }
+            // And the watch, if there is one (GitHub build only; does nothing in the F-Droid build).
+            runCatching { WearBridge.publish(context) }
         }
     }
 }

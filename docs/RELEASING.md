@@ -45,6 +45,8 @@ Paste the result as the value of `NEUTRINO_KEYSTORE_BASE64`.
 4. The **Release** workflow tests, builds with `versionName` 1.0.0 (`versionCode` 10000), checks the
    APK is signed with the registered key (SHA-1 `A5:52:B9:…:5C:72`, see [SIGNING.md](SIGNING.md)),
    and publishes `neutrino-<release name>.apk` (e.g. `neutrino-v1.4-NeutrinoBuddy.apk`) with its SHA-256 checksum, using the CHANGELOG section as the notes.
+   The Wear OS app is built, checked and published alongside it as `neutrino-wear-<release name>.apk`
+   (same key, same version code; see [WEAR.md](WEAR.md)).
 
 5. For F-Droid, add `fastlane/metadata/android/en-US/changelogs/<versionCode>.txt` with a short
    version of the notes (see [FDROID.md](FDROID.md)).
@@ -57,3 +59,5 @@ over the previous one.
 Neutrino isn't on Google Play. Users download the APK from Releases and allow installing from their
 browser or file manager when Android asks. Updates install the same way, over the existing app,
 keeping all data.
+
+The watch app is installed with `adb` from a computer: [WEAR.md](WEAR.md).

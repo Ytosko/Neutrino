@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name" translatable="false">Neutrino</string>
+
+    <!-- Same wording as the phone app. -->
+    <string name="home_title">Today</string>
+    <string name="macro_carbs">Carbs</string>
+    <string name="macro_protein">Protein</string>
+    <string name="macro_fat">Fat</string>
+    <string name="macro_energy">kcal</string>
+    <string name="home_water">Water</string>
+    <string name="home_add_glass">+ 250 ml</string>
+    <string name="widget_of_goal">%1$s of %2$s</string>
+    <string name="glucose_title">Blood glucose</string>
+    <string name="glucose_low">Low</string>
+    <string name="glucose_in_range">In range</string>
+    <string name="glucose_high">High</string>
+    <string name="glucose_widget_none">No readings yet</string>
+
+    <!-- Watch only. -->
+    <string name="wear_open_phone">Open Neutrino on your phone</string>
+    <string name="wear_sent_to_phone">Added on your phone</string>
+    <string name="wear_phone_unreachable">Can\'t reach your phone</string>
+    <string name="wear_add_water_description">Add 250 ml of water</string>
+    <string name="wear_tile_description">Today\'s carbs, protein, fat, kcal, water and latest glucose</string>
+    <string name="wear_complication_carbs">Carbs today</string>
+</resources>

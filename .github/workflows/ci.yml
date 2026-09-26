@@ -27,14 +27,19 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
 
       - name: Unit tests
-        run: ./gradlew --no-daemon :glucose-ble:testDebugUnitTest :app:testFullDebugUnitTest
+        run: ./gradlew --no-daemon :glucose-ble:testDebugUnitTest :wear-protocol:testDebugUnitTest :app:testFullDebugUnitTest
 
       - name: Build both flavours, debug and release (unsigned), and lint them
         run: ./gradlew --no-daemon assembleDebug :app:assembleRelease :app:lintFullDebug :app:lintLibreDebug
+
+      - name: Build the Wear OS app, debug and release (unsigned), and lint it
+        run: ./gradlew --no-daemon :wear:assembleDebug :wear:assembleRelease :wear:lintDebug
 
       - name: Upload test reports
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: test-reports
-          path: app/build/reports/tests/
+          path: |
+            app/build/reports/tests/
+            wear-protocol/build/reports/tests/

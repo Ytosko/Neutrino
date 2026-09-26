@@ -115,6 +115,9 @@ dependencies {
     implementation(libs.androidx.glance.appwidget)
     implementation(libs.androidx.glance.material3)
     "fullImplementation"(libs.play.services.auth)
+    // Wear OS companion: today's snapshot to the user's own watch over the Wearable Data Layer.
+    "fullImplementation"(libs.play.services.wearable)
+    "fullImplementation"(project(":wear-protocol"))
     implementation(libs.androidx.health.connect)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.okhttp)

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- ফোন অ্যাপের মতো একই শব্দ। -->
+    <string name="home_title">আজ</string>
+    <string name="macro_carbs">কার্বস</string>
+    <string name="macro_protein">প্রোটিন</string>
+    <string name="macro_fat">ফ্যাট</string>
+    <string name="macro_energy">kcal</string>
+    <string name="home_water">পানি</string>
+    <string name="home_add_glass">+ 250 ml</string>
+    <string name="widget_of_goal">%2$s এর %1$s</string>
+    <string name="glucose_title">রক্তের গ্লুকোজ</string>
+    <string name="glucose_low">কম</string>
+    <string name="glucose_in_range">সীমার মধ্যে</string>
+    <string name="glucose_high">বেশি</string>
+    <string name="glucose_widget_none">এখনো কোনো রিডিং নেই</string>
+
+    <!-- শুধু ঘড়ির জন্য। -->
+    <string name="wear_open_phone">আপনার ফোনে Neutrino খুলুন</string>
+    <string name="wear_sent_to_phone">আপনার ফোনে যোগ হয়েছে</string>
+    <string name="wear_phone_unreachable">ফোনের সাথে যোগাযোগ করা যাচ্ছে না</string>
+    <string name="wear_add_water_description">250 ml পানি যোগ করুন</string>
+    <string name="wear_tile_description">আজকের কার্বস, প্রোটিন, ফ্যাট, kcal, পানি ও সর্বশেষ গ্লুকোজ</string>
+    <string name="wear_complication_carbs">আজকের কার্বস</string>
+</resources>
