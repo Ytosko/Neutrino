@@ -117,10 +117,20 @@ data class Food(
             ?: Portion(100.0, FoodUnit.Gram)
 }
 
-/** Lowercase, accent-free, single-spaced text for matching ("Rôti / Chapati" → "roti chapati"). */
+// Bengali and Devanagari (U+0900–U+09FF) are kept, vowel signs included: in those scripts the marks
+// are part of the spelling (পরোটা ≠ পরটা), unlike Latin accents.
+private val latinMarks = Regex("[\\p{M}&&[^\\u0900-\\u09FF]]+")
+private val joiners = Regex("[\\u200C\\u200D]")
+private val nonWord = Regex("[^a-z0-9\\u0900-\\u0963\\u0966-\\u09FF]+")
+
+/**
+ * Lowercase, accent-free, single-spaced text for matching ("Rôti / Chapati" → "roti chapati").
+ * Bangla (and Hindi) script survives, in NFD so precomposed and decomposed spellings (য় / য়) agree.
+ */
 fun String.normalizedForSearch(): String =
     Normalizer.normalize(this, Normalizer.Form.NFD)
-        .replace(Regex("\\p{M}+"), "")
+        .replace(latinMarks, "")
+        .replace(joiners, "")
         .lowercase()
-        .replace(Regex("[^a-z0-9]+"), " ")
+        .replace(nonWord, " ")
         .trim()

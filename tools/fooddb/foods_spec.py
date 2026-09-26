@@ -9,14 +9,23 @@ Two kinds of entries:
 
 Units map a unit name to grams for ONE unit (e.g. plate=250 means 1 plate = 250 g).
 `ml` is density in g/ml for foods that can be measured by volume (enables ml / L); their units are then given in ml.
-Aliases are extra search terms (Bangla romanisations, common names).
+Aliases are extra search terms (Bangla romanisations, Bangla script, Hindi/Urdu names).
+
+The bulk of the South Asian list lives in foods_southasia.py (appended at the end of this file),
+which also adds Bangla-script aliases to the entries below. Sources ("s" in foods.json):
+  usda  - linked to a USDA FDC id (values from usda_cache.json)
+  fct   - single ingredient, per 100 g from public food composition tables (USDA FDC, Bangladesh
+          FCT 2013, Indian FCT 2017), rounded; no FDC link
+  local - recipe estimate for a mixed dish (standard home/restaurant recipe, computed per 100 g)
+Region tags (bd, in, pk, lk, np, sa = shared South Asian) are only used by the build checks:
+bd and sa dishes must carry a Bangla-script alias.
 """
 
-def USDA(name, cat, fdc, units, aliases=(), default=None, ml=None):
-    return dict(src="usda", name=name, cat=cat, fdc=fdc, units=units, aliases=list(aliases), default=default, ml=ml)
+def USDA(name, cat, fdc, units, aliases=(), default=None, ml=None, region=None):
+    return dict(src="usda", name=name, cat=cat, fdc=fdc, units=units, aliases=list(aliases), default=default, ml=ml, region=region)
 
-def LOCAL(name, cat, kcal, p, c, f, units, aliases=(), default=None, ml=None):
-    return dict(src="local", name=name, cat=cat, kcal=kcal, p=p, c=c, f=f, units=units, aliases=list(aliases), default=default, ml=ml)
+def LOCAL(name, cat, kcal, p, c, f, units, aliases=(), default=None, ml=None, region="bd"):
+    return dict(src="local", name=name, cat=cat, kcal=kcal, p=p, c=c, f=f, units=units, aliases=list(aliases), default=default, ml=ml, region=region)
 
 FOODS = [
     # ---- Rice & grains ------------------------------------------------------------------
@@ -244,3 +253,10 @@ FOODS = [
     LOCAL("Lassi, sweet", "drink", 90, 3, 14, 2.5, {"glass": 250}, ["lassi", "matha"], ("glass", 1), ml=1.04),
     LOCAL("Sugarcane juice", "drink", 70, 0.2, 18, 0, {"glass": 250}, ["akher rosh", "sugarcane"], ("glass", 1), ml=1.05),
 ]
+
+# ---- South Asian expansion ---------------------------------------------------------------------
+from foods_southasia import EXTRA_ALIASES, SOUTH_ASIAN  # noqa: E402
+
+for _f in FOODS:
+    _f["aliases"] += [a for a in EXTRA_ALIASES.get(_f["name"], []) if a not in _f["aliases"]]
+FOODS += SOUTH_ASIAN
