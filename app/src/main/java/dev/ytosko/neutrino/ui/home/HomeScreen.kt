@@ -203,6 +203,7 @@ fun HomeScreen(
     onAddManually: () -> Unit,
     onOpenMeal: (id: String) -> Unit,
     onOpenGlucoseDay: (LocalDate) -> Unit,
+    onOpenHealthConnect: () -> Unit,
     savedResult: Boolean?,
     onSavedResultShown: () -> Unit,
     modifier: Modifier = Modifier,
@@ -213,6 +214,7 @@ fun HomeScreen(
     val isToday by viewModel.isToday.collectAsStateWithLifecycle()
     val mealWindows by viewModel.mealWindows.collectAsStateWithLifecycle()
     val glucoseReadings by viewModel.glucoseReadings.collectAsStateWithLifecycle()
+    val glucoseLeftOut by viewModel.glucoseLeftOut.collectAsStateWithLifecycle()
     val glucoseVisible by viewModel.glucoseVisible.collectAsStateWithLifecycle()
     val glucoseRange by viewModel.glucoseRange.collectAsStateWithLifecycle()
     val mealGlucose by viewModel.mealGlucose.collectAsStateWithLifecycle()
@@ -598,6 +600,7 @@ fun HomeScreen(
                         onSeeAll = { onOpenGlucoseDay(shownDate) },
                         onLongPress = { reading, bounds -> contextReading = reading to bounds },
                         hiddenId = contextReading?.first?.id,
+                        onAllowHealthConnect = if (glucoseLeftOut) onOpenHealthConnect else null,
                         modifier = itemModifier.animateItem(),
                     )
                 }

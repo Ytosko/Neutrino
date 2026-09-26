@@ -283,7 +283,7 @@ class MealRepository(
      * Returns how many changes were sent.
      */
     suspend fun syncWithHealthConnect(): Int = syncMutex.withLock {
-        if (!runCatching { healthConnect.hasAllPermissions() }.getOrDefault(false)) return 0
+        if (!runCatching { healthConnect.hasMealPermissions() }.getOrDefault(false)) return 0
         var sent = runCatching { healthConnect.retryPendingDeletes() }.getOrDefault(0)
         db.meals().unsynced().forEach { meal ->
             val ok = runCatching {

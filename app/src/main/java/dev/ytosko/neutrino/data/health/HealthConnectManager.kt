@@ -24,21 +24,42 @@ import java.time.ZoneId
 
 enum class HealthConnectAvailability { Available, NotInstalled, UpdateRequired, NotSupported }
 
+/** What Neutrino can write to Health Connect; each is allowed (or not) separately. */
+enum class HealthKind { Nutrition, Hydration, Glucose }
+
 /**
- * Health Connect access. Neutrino only ever asks to WRITE nutrition and hydration;
+ * Health Connect access. Neutrino only ever asks to WRITE nutrition, hydration and blood glucose;
  * it reads no health data (see the privacy policy).
  */
 class HealthConnectManager(private val context: Context) {
 
-    val permissions: Set<String> = setOf(
-        HealthPermission.getWritePermission(NutritionRecord::class),
-        HealthPermission.getWritePermission(HydrationRecord::class),
-    )
+    fun permissionFor(kind: HealthKind): String = when (kind) {
+        HealthKind.Nutrition -> HealthPermission.getWritePermission(NutritionRecord::class)
+        HealthKind.Hydration -> HealthPermission.getWritePermission(HydrationRecord::class)
+        HealthKind.Glucose -> HealthPermission.getWritePermission(BloodGlucoseRecord::class)
+    }
 
-    /** Asked for only when a glucose meter is set up. Write-only, like the others. */
-    val glucosePermission: String = HealthPermission.getWritePermission(BloodGlucoseRecord::class)
+    /** Everything Neutrino asks for when connecting: meals, water and glucose. */
+    val permissions: Set<String> = HealthKind.entries.mapTo(LinkedHashSet(), ::permissionFor)
+
+    /** What meals and water need. */
+    private val mealPermissions: Set<String> = setOf(permissionFor(HealthKind.Nutrition), permissionFor(HealthKind.Hydration))
+
+    val glucosePermission: String = permissionFor(HealthKind.Glucose)
 
     suspend fun hasGlucosePermission(): Boolean = glucosePermission in grantedPermissions()
+
+    /** Which kinds are allowed right now; empty when Health Connect isn't available. */
+    suspend fun grantedKinds(): Set<HealthKind> {
+        val granted = grantedPermissions()
+        return HealthKind.entries.filterTo(LinkedHashSet()) { permissionFor(it) in granted }
+    }
+
+    /** Meals and water are going to Health Connect but glucose readings aren't allowed to. */
+    suspend fun glucoseLeftOut(): Boolean {
+        val kinds = grantedKinds()
+        return HealthKind.Glucose !in kinds && (HealthKind.Nutrition in kinds || HealthKind.Hydration in kinds)
+    }
 
     /**
      * Writes one blood glucose reading (capillary blood, from a finger-prick meter). Writing the same
@@ -91,7 +112,7 @@ class HealthConnectManager(private val context: Context) {
     private val client: HealthConnectClient?
         get() = if (availability() == HealthConnectAvailability.Available) HealthConnectClient.getOrCreate(context) else null
 
-    suspend fun hasAllPermissions(): Boolean = grantedPermissions().containsAll(permissions)
+    suspend fun hasMealPermissions(): Boolean = grantedPermissions().containsAll(mealPermissions)
 
     private suspend fun grantedPermissions(): Set<String> =
         client?.permissionController?.getGrantedPermissions() ?: emptySet()
@@ -173,7 +194,7 @@ class HealthConnectManager(private val context: Context) {
 
     /** Retries deletes that failed while Health Connect was unavailable. Returns how many went through. */
     suspend fun retryPendingDeletes(): Int {
-        if (!hasAllPermissions()) return 0
+        if (!hasMealPermissions()) return 0
         var done = 0
         pending.all().forEach { key ->
             val ok = when {

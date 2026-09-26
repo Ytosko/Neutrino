@@ -2,6 +2,20 @@
 
 Every release has a section here, headed `## [x.y.z] - YYYY-MM-DD` with an optional ` · Release name`. The release workflow publishes the section as the GitHub release notes (and the name as its title), and refuses to release a version that has none.
 
+## [1.0.5] - 2026-09-26 · v1.4-NeutrinoBuddy
+
+Health Connect now covers your glucose readings too, and pages scroll all the way to the bottom.
+
+### Health Connect
+- **Blood glucose is part of the connection:** the Health Connect page lists nutrition, hydration and blood glucose, each marked Allowed or Not allowed. It's checked every time you open the page, so turning something off in Health Connect shows up straight away.
+- **Allow only what's missing:** one button asks Health Connect for just what isn't allowed yet ("Allow blood glucose" or "Allow the rest"). New users are asked for all three when they connect.
+- **Settings tells you what's off:** the Health Connect row says "Connected: nutrition, water and glucose", or which ones aren't allowed.
+- **A note on the glucose card:** if your meals go to Health Connect but your glucose readings don't, the card says so, with a button to allow it. Readings saved in the meantime are sent once you do.
+
+### Fixes
+- Settings and other pages no longer stop above an empty strip at the bottom; they scroll all the way under the gesture bar.
+- Release downloads are now named after the release, e.g. neutrino-v1.4-NeutrinoBuddy.apk.
+
 ## [1.0.4] - 2026-09-26 · v1.3-NeutrinoBuddy
 
 A fresh new look, a Health page by day, week, month and year, a home screen widget, faster logging, your glucose next to your meals, reports for your doctor, and Neutrino in Bangla.

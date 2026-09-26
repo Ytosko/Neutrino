@@ -1,5 +1,6 @@
 package dev.ytosko.neutrino.ui.settings
 
+import dev.ytosko.neutrino.data.health.HealthKind
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.graphics.Color
@@ -136,9 +137,23 @@ fun SettingsScreen(
                 icon = R.drawable.ic_heart_pulse,
                 tint = c.coral,
                 title = stringResource(R.string.settings_section_health),
-                value = stringResource(
-                    if (health.granted) R.string.settings_hc_status_connected else R.string.settings_hc_status_disconnected,
-                ),
+                value = when {
+                    health.granted -> stringResource(R.string.settings_hc_status_connected)
+                    health.allowed.isEmpty() -> stringResource(R.string.settings_hc_status_disconnected)
+                    else -> stringResource(
+                        R.string.settings_hc_status_missing,
+                        health.missing.map {
+                            stringResource(
+                                when (it) {
+                                    HealthKind.Nutrition -> R.string.hc_kind_nutrition
+                                    HealthKind.Hydration -> R.string.hc_kind_water
+                                    HealthKind.Glucose -> R.string.hc_kind_glucose
+                                },
+                            )
+                        }.joinToString(", "),
+                    )
+                },
+                valueColor = if (health.allowed.isNotEmpty() && !health.granted) MaterialTheme.colorScheme.error else null,
                 onClick = onOpenHealthConnect,
             )
         }
@@ -420,6 +435,7 @@ private fun SettingRow(
     title: String,
     value: String?,
     external: Boolean = false,
+    valueColor: Color? = null,
     onClick: () -> Unit,
 ) {
     Row(
@@ -435,7 +451,7 @@ private fun SettingRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.titleSmall)
             if (value != null) {
-                Text(value, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(value, style = MaterialTheme.typography.bodySmall, color = valueColor ?: MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         Icon(

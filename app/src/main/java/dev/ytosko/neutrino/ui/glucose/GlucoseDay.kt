@@ -95,6 +95,8 @@ fun GlucoseDayCard(
     onLongPress: (GlucoseEntity, Rect) -> Unit = { _, _ -> },
     /** The reading lifted by the menu, hidden in the list meanwhile. */
     hiddenId: String? = null,
+    /** Set when readings aren't allowed into Health Connect: shows a note that opens its page. */
+    onAllowHealthConnect: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     Card(
@@ -156,6 +158,28 @@ fun GlucoseDayCard(
             }
         } else if (readings.isNotEmpty()) {
             Spacer(Modifier.size(Spacing.xs))
+        }
+        if (onAllowHealthConnect != null) {
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(start = Spacing.md, end = Spacing.xs),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+            ) {
+                Icon(
+                    painterResource(R.drawable.ic_alert),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(18.dp),
+                )
+                Text(
+                    stringResource(R.string.glucose_hc_off),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f),
+                )
+                TextButton(onClick = onAllowHealthConnect) { Text(stringResource(R.string.meter_hc_allow)) }
+            }
         }
     }
 }

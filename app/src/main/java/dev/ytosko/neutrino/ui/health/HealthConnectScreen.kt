@@ -1,5 +1,7 @@
 package dev.ytosko.neutrino.ui.health
 
+import androidx.compose.ui.graphics.Color
+import dev.ytosko.neutrino.data.health.HealthKind
 import android.content.ActivityNotFoundException
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.layout.Arrangement
@@ -71,9 +73,19 @@ fun HealthConnectScreen(
                 ) { Text(stringResource(R.string.action_continue)) }
 
                 state.availability == HealthConnectAvailability.Available -> Button(
-                    onClick = { permissionLauncher.launch(viewModel.permissions) },
+                    onClick = { permissionLauncher.launch(viewModel.missingPermissions) },
                     modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
-                ) { Text(stringResource(R.string.hc_connect)) }
+                ) {
+                    Text(
+                        stringResource(
+                            when {
+                                state.allowed.isEmpty() -> R.string.hc_connect
+                                state.missing == listOf(HealthKind.Glucose) -> R.string.hc_allow_glucose
+                                else -> R.string.hc_allow_rest
+                            },
+                        ),
+                    )
+                }
 
                 state.availability == HealthConnectAvailability.NotInstalled ||
                     state.availability == HealthConnectAvailability.UpdateRequired -> Button(
@@ -94,7 +106,7 @@ fun HealthConnectScreen(
             }
         },
     ) {
-        WritesCard()
+        WritesCard(state.allowed.takeIf { state.availability == HealthConnectAvailability.Available })
         Column(modifier = Modifier.padding(top = Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
             when {
                 state.granted -> StatusRow(
@@ -103,6 +115,8 @@ fun HealthConnectScreen(
                     body = stringResource(R.string.hc_connected_body),
                     positive = true,
                 )
+                state.allowed.isNotEmpty() && !state.denied ->
+                    StatusRow(R.drawable.ic_alert, null, stringResource(R.string.hc_partial), positive = false)
                 state.denied -> {
                     StatusRow(icon = R.drawable.ic_alert, title = null, body = stringResource(R.string.hc_denied), positive = false)
                     OutlinedButton(onClick = { launch(viewModel.settingsIntent()) }, modifier = Modifier.heightIn(min = 48.dp)) {
@@ -120,8 +134,9 @@ fun HealthConnectScreen(
     }
 }
 
+/** What Neutrino writes, each with whether it's allowed ([allowed] is null until known). */
 @Composable
-private fun WritesCard() {
+private fun WritesCard(allowed: Set<HealthKind>?) {
     val colors = NeutrinoTheme.colors
     Card(
         shape = MaterialTheme.shapes.large,
@@ -131,18 +146,35 @@ private fun WritesCard() {
     ) {
         Column(modifier = Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
             Text(stringResource(R.string.hc_writes_title), style = MaterialTheme.typography.titleMedium)
-            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md), verticalAlignment = Alignment.CenterVertically) {
-                IconBadge(R.drawable.ic_utensils, container = colors.carbsContainer, content = colors.carbs, size = 40.dp)
-                Text(stringResource(R.string.hc_writes_nutrition), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md), verticalAlignment = Alignment.CenterVertically) {
-                IconBadge(R.drawable.ic_droplet, container = colors.waterContainer, content = colors.water, size = 40.dp)
-                Text(stringResource(R.string.hc_writes_hydration), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-            }
+            WriteRow(R.drawable.ic_utensils, colors.carbsContainer, colors.carbs, stringResource(R.string.hc_writes_nutrition), allowed?.contains(HealthKind.Nutrition))
+            WriteRow(R.drawable.ic_droplet, colors.waterContainer, colors.water, stringResource(R.string.hc_writes_hydration), allowed?.contains(HealthKind.Hydration))
+            WriteRow(R.drawable.ic_activity, colors.glucoseContainer, colors.glucose, stringResource(R.string.hc_writes_glucose), allowed?.contains(HealthKind.Glucose))
             Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs), verticalAlignment = Alignment.CenterVertically) {
                 Icon(painterResource(R.drawable.ic_shield_check), contentDescription = null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(18.dp))
                 Text(stringResource(R.string.hc_reads_nothing), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.tertiary)
             }
+        }
+    }
+}
+
+@Composable
+private fun WriteRow(icon: Int, container: Color, content: Color, text: String, allowed: Boolean?) {
+    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md), verticalAlignment = Alignment.CenterVertically) {
+        IconBadge(icon, container = container, content = content, size = 40.dp)
+        Text(text, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+        when (allowed) {
+            true -> Icon(
+                painterResource(R.drawable.ic_check),
+                contentDescription = stringResource(R.string.hc_allowed),
+                tint = MaterialTheme.colorScheme.tertiary,
+                modifier = Modifier.size(20.dp),
+            )
+            false -> Text(
+                stringResource(R.string.hc_not_allowed),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.error,
+            )
+            null -> Unit
         }
     }
 }

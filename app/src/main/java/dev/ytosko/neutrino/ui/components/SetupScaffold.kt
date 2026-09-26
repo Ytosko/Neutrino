@@ -1,5 +1,10 @@
 package dev.ytosko.neutrino.ui.components
 
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.ui.text.lerp
 import androidx.compose.ui.platform.LocalDensity
@@ -49,7 +54,8 @@ fun SetupScaffold(
     modifier: Modifier = Modifier,
     step: Pair<Int, Int>? = null,
     subtitle: String? = null,
-    bottomBar: @Composable ColumnScope.() -> Unit = {},
+    /** Buttons pinned to the bottom; null (most settings pages) means no bar at all. */
+    bottomBar: (@Composable ColumnScope.() -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {},
     content: @Composable ColumnScope.() -> Unit,
 ) {
@@ -60,6 +66,9 @@ fun SetupScaffold(
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,
+        // The page scrolls under the gesture bar instead of stopping above an empty strip;
+        // the list's own bottom padding keeps its last row clear of it.
+        contentWindowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal),
         topBar = {
             // Back, title and actions share one row, with no empty bar above the title.
             Surface(color = MaterialTheme.colorScheme.background.copy(alpha = 1f - 0.08f * collapse)) {
@@ -91,7 +100,7 @@ fun SetupScaffold(
             }
         },
         bottomBar = {
-            Surface(color = MaterialTheme.colorScheme.background) {
+            if (bottomBar != null) Surface(color = MaterialTheme.colorScheme.background) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -115,6 +124,13 @@ fun SetupScaffold(
                 modifier = Modifier
                     .widthIn(max = 560.dp)
                     .fillMaxWidth()
+                    .then(
+                        if (bottomBar == null) {
+                            Modifier.windowInsetsPadding(WindowInsets.navigationBars.union(WindowInsets.ime).only(WindowInsetsSides.Bottom))
+                        } else {
+                            Modifier
+                        },
+                    )
                     .padding(start = Spacing.gutter, end = Spacing.gutter, top = Spacing.xs, bottom = Spacing.lg),
             ) {
                 if (step != null) {

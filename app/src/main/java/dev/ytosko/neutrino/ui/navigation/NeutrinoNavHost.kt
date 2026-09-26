@@ -177,6 +177,7 @@ fun NeutrinoNavHost(startDestination: Route, modifier: Modifier = Modifier) {
                 onAddManually = { navController.navigate(Route.Review(logEpochDay = homeViewModel.pastDayEpoch())) },
                 onOpenMeal = { id -> navController.navigate(Route.Review(editMealId = id)) },
                 onOpenGlucoseDay = { date -> navController.navigate(Route.GlucoseDay(date.toEpochDay())) },
+                onOpenHealthConnect = { navController.navigate(Route.SettingsHealth) },
                 savedResult = savedResult,
                 onSavedResultShown = { entry.savedStateHandle[KEY_SAVED_RESULT] = null },
             )

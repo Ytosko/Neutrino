@@ -236,6 +236,9 @@ class GlucoseRepository(
         onChanged()
     }
 
+    /** Meals go to Health Connect but glucose isn't allowed, so readings stay on the phone. */
+    suspend fun healthConnectLeavesOutGlucose(): Boolean = runCatching { healthConnect.glucoseLeftOut() }.getOrDefault(false)
+
     /** Sends readings that haven't reached Health Connect yet. Returns how many were sent. */
     suspend fun syncWithHealthConnect(): Int = hcLock.withLock {
         if (!runCatching { healthConnect.hasGlucosePermission() }.getOrDefault(false)) return 0

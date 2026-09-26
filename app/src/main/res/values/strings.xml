@@ -162,14 +162,25 @@
 
     <!-- Health Connect -->
     <string name="hc_title">Connect Health Connect</string>
-    <string name="hc_body">Neutrino saves the meals and water you log to Health Connect, so they appear in Google Health, Fitbit and other apps you allow.</string>
+    <string name="hc_body">Neutrino saves the meals, water and glucose readings you log to Health Connect, so they appear in Google Health, Fitbit and other apps you allow.</string>
     <string name="hc_writes_title">Neutrino will only write</string>
     <string name="hc_writes_nutrition">Nutrition: carbs, protein, fat and calories for each meal</string>
     <string name="hc_writes_hydration">Hydration: water you log</string>
+    <string name="hc_writes_glucose">Blood glucose: readings from your meter or typed in</string>
+    <string name="hc_allowed">Allowed</string>
+    <string name="hc_not_allowed">Not allowed</string>
+    <string name="hc_allow_glucose">Allow blood glucose</string>
+    <string name="hc_allow_rest">Allow the rest</string>
+    <string name="hc_partial">Anything marked Not allowed stays on this phone only until you allow it.</string>
+    <string name="hc_kind_nutrition">nutrition</string>
+    <string name="hc_kind_water">water</string>
+    <string name="hc_kind_glucose">glucose</string>
+    <string name="settings_hc_status_missing">Not allowed: %1$s</string>
+    <string name="glucose_hc_off">Readings aren\'t going to Health Connect</string>
     <string name="hc_reads_nothing">Neutrino never reads your health data.</string>
     <string name="hc_connect">Connect Health Connect</string>
     <string name="hc_connected">Connected</string>
-    <string name="hc_connected_body">Neutrino can save meals and water to Health Connect.</string>
+    <string name="hc_connected_body">Neutrino can save meals, water and glucose readings to Health Connect.</string>
     <string name="hc_install">Install Health Connect</string>
     <string name="hc_update">Update Health Connect</string>
     <string name="hc_not_installed">Health Connect isn\'t installed on this phone. It\'s free from Google Play.</string>
@@ -220,7 +231,7 @@
     <string name="settings_ai_provider">AI provider</string>
     <string name="settings_ai_not_set">Not set up</string>
     <string name="settings_section_health">Health Connect</string>
-    <string name="settings_hc_status_connected">Connected: writes nutrition and water</string>
+    <string name="settings_hc_status_connected">Connected: nutrition, water and glucose</string>
     <string name="settings_hc_status_disconnected">Not connected</string>
     <string name="settings_section_about">About</string>
     <string name="settings_privacy">Privacy Policy</string>

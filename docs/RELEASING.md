@@ -44,7 +44,7 @@ Paste the result as the value of `NEUTRINO_KEYSTORE_BASE64`.
 
 4. The **Release** workflow tests, builds with `versionName` 1.0.0 (`versionCode` 10000), checks the
    APK is signed with the registered key (SHA-1 `A5:52:B9:…:5C:72`, see [SIGNING.md](SIGNING.md)),
-   and publishes `neutrino-1.0.0.apk` with its SHA-256 checksum, using the CHANGELOG section as the notes.
+   and publishes `neutrino-<release name>.apk` (e.g. `neutrino-v1.4-NeutrinoBuddy.apk`) with its SHA-256 checksum, using the CHANGELOG section as the notes.
 
 Version codes come from the tag (`major × 10000 + minor × 100 + patch`), so each release installs
 over the previous one.

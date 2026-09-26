@@ -136,8 +136,14 @@ class HomeViewModel(
         .map { it.aiReady }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
 
+    private val _glucoseLeftOut = MutableStateFlow(false)
+
+    /** Meals go to Health Connect but glucose readings aren't allowed to; the glucose card says so. */
+    val glucoseLeftOut: StateFlow<Boolean> = _glucoseLeftOut
+
     /** Call on resume: if today was on screen, it rolls over at midnight; a past day stays put. */
     fun refreshDate() {
+        viewModelScope.launch { _glucoseLeftOut.value = glucose.healthConnectLeavesOutGlucose() }
         val now = LocalDate.now(zone)
         if (_date.value == today.value) _date.value = now
         today.value = now

@@ -61,21 +61,22 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.version.outputs.name }}
         run: |
-          cp app/build/outputs/apk/release/app-release.apk "neutrino-$VERSION.apk"
-          sha256sum "neutrino-$VERSION.apk" > "neutrino-$VERSION.apk.sha256"
-
           # Release notes come from this version's CHANGELOG.md section; no section, no release.
           HEADING=$(grep -m1 -F "## [$VERSION]" CHANGELOG.md || true)
           if [ -z "$HEADING" ]; then echo "::error::CHANGELOG.md has no section for $VERSION"; exit 1; fi
+          # "## [1.2.3] - 2026-01-01 · v1.4-NeutrinoBuddy" -> title and file name "v1.4-NeutrinoBuddy".
+          NAME=$(echo "$HEADING" | sed -n 's/.*· *//p')
+          APK="neutrino-${NAME:-$VERSION}.apk"
+          cp app/build/outputs/apk/release/app-release.apk "$APK"
+          sha256sum "$APK" > "$APK.sha256"
+
           awk -v h="$HEADING" '$0 == h { on = 1; next } on && /^## \[/ { exit } on { print }' CHANGELOG.md > notes.md
           {
             echo
             echo "### Checksum"
-            echo "SHA-256 \`$(cut -d' ' -f1 "neutrino-$VERSION.apk.sha256")\`"
+            echo "SHA-256 \`$(cut -d' ' -f1 "$APK.sha256")\`"
           } >> notes.md
-          # "## [1.2.3] - 2026-01-01 · Name" -> title "Name", otherwise "Neutrino 1.2.3".
-          NAME=$(echo "$HEADING" | sed -n 's/.*· *//p')
-          gh release create "$GITHUB_REF_NAME" "neutrino-$VERSION.apk" "neutrino-$VERSION.apk.sha256" \
+          gh release create "$GITHUB_REF_NAME" "$APK" "$APK.sha256" \
             --title "${NAME:-Neutrino $VERSION}" --notes-file notes.md
 
       - name: Remove signing key
