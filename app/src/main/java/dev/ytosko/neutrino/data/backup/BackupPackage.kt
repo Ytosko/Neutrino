@@ -1,5 +1,7 @@
 package dev.ytosko.neutrino.data.backup
 
+import dev.ytosko.neutrino.data.medicine.DoseEntity
+import dev.ytosko.neutrino.data.medicine.MedicineEntity
 import dev.ytosko.neutrino.data.glucose.GlucoseEntity
 import dev.ytosko.neutrino.data.meal.FoodEntity
 import dev.ytosko.neutrino.data.meal.MealEntity
@@ -21,6 +23,8 @@ data class BackupData(
     val foods: List<FoodEntity> = emptyList(),
     val water: List<WaterEntity> = emptyList(),
     val glucose: List<GlucoseEntity> = emptyList(),
+    val medicines: List<MedicineEntity> = emptyList(),
+    val doses: List<DoseEntity> = emptyList(),
 )
 
 @Serializable

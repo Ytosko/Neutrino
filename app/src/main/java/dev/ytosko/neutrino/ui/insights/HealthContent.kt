@@ -1,5 +1,10 @@
 package dev.ytosko.neutrino.ui.insights
 
+import androidx.compose.runtime.remember
+import dev.ytosko.neutrino.ui.medicine.kindIcon
+import dev.ytosko.neutrino.ui.medicine.kindTint
+import dev.ytosko.neutrino.ui.medicine.dosesTitle
+import dev.ytosko.neutrino.domain.insights.DoseSummary
 import dev.ytosko.neutrino.domain.insights.Gmi
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -105,6 +110,8 @@ fun HealthContent(viewModel: HealthViewModel, contentPadding: PaddingValues, onO
     val glucose by viewModel.glucoseSummary.collectAsStateWithLifecycle()
     val mealRises by viewModel.mealRises.collectAsStateWithLifecycle()
     val gmi by viewModel.gmi.collectAsStateWithLifecycle()
+    val doseSummary by viewModel.doseSummary.collectAsStateWithLifecycle()
+    val medicineSettings by viewModel.medicineSettings.collectAsStateWithLifecycle()
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -138,11 +145,14 @@ fun HealthContent(viewModel: HealthViewModel, contentPadding: PaddingValues, onO
         item(key = "totals") { TotalsCard(data.totals, width) }
 
         val glucoseData = glucose?.takeIf { it.period == period && !it.isEmpty }
+        val doseData = doseSummary?.takeIf { it.period == period && !it.isEmpty }
+        val doseTitle = medicineSettings?.let(::dosesTitle) ?: R.string.doses_title_medicine
         val rises = mealRises?.takeIf { it.first == period }?.second.orEmpty()
         if (data.isEmpty) {
             if (glucoseData != null) item(key = "glucose-$key") { GlucoseCard(glucoseData, chart, width) }
             gmi?.let { item(key = "gmi") { GmiCard(it, width) } }
             if (rises.isNotEmpty()) item(key = "meal-glucose-$key") { MealGlucoseCard(rises, width) }
+            doseData?.let { item(key = "doses-$key") { DosesCard(it, doseTitle, chart, width) } }
             item(key = "empty") { EmptyRange(width) }
             return@LazyColumn
         }
@@ -150,6 +160,7 @@ fun HealthContent(viewModel: HealthViewModel, contentPadding: PaddingValues, onO
         if (glucoseData != null) item(key = "glucose-$key") { GlucoseCard(glucoseData, chart, width) }
         gmi?.let { item(key = "gmi") { GmiCard(it, width) } }
         if (rises.isNotEmpty()) item(key = "meal-glucose-$key") { MealGlucoseCard(rises, width) }
+        doseData?.let { item(key = "doses-$key") { DosesCard(it, doseTitle, chart, width) } }
         item(key = "macros-$key") { MacroTrendCard(data, chart, width) }
         item(key = "split-$key") { MacroSplitCard(data, width) }
         item(key = "meals-$key") { CarbsByMealCard(data, width) }
@@ -559,6 +570,68 @@ private fun GlucoseCard(data: GlucoseSummary, chart: ChartContext, modifier: Mod
                 }
             }
         }
+    }
+}
+
+/**
+ * Medicines and insulin in the period: insulin units per bar (when there's insulin), then each
+ * medicine with how often it was taken. Records only; no advice.
+ */
+@Composable
+private fun DosesCard(data: DoseSummary, title: Int, chart: ChartContext, modifier: Modifier) {
+    var selected by rememberSaveable(data.period) { mutableStateOf<Int?>(null) }
+    val insulinColor = NeutrinoTheme.colors.cyan.content
+    fun units(value: Double) = if (value % 1.0 == 0.0) value.toLong().toString() else String.format(java.util.Locale.US, "%.1f", value)
+    ChartCard(title = stringResource(title), modifier = modifier) {
+        if (data.hasInsulin) {
+            val slots = remember(data.period) { data.period.slots() }
+            val headline = if (data.range == InsightRange.Day) data.insulinTotal else data.insulinPerDay
+            val index = selected
+            if (index != null && index in data.insulinBuckets.indices) {
+                ReadOut(
+                    label = bucketLabel(slots[index], data.range),
+                    value = "${units(data.insulinBuckets[index])} u",
+                    valueColor = insulinColor,
+                )
+            } else {
+                ReadOut(
+                    label = stringResource(if (data.range == InsightRange.Day) R.string.health_insulin_block else R.string.health_insulin_per_day),
+                    value = "${units(headline)} u",
+                    detail = stringResource(R.string.health_insulin_total, units(data.insulinTotal)),
+                    valueColor = insulinColor,
+                )
+            }
+            BarChart(
+                values = data.insulinBuckets,
+                color = insulinColor,
+                selected = selected,
+                onSelect = { selected = it },
+                average = data.insulinPerDay.takeIf { it > 0 && chart.daily },
+                highlight = chart.highlight,
+                xLabel = { axisLabel(chart, slots, it) },
+                height = 140.dp,
+                description = stringResource(R.string.health_insulin_desc, units(data.insulinPerDay)),
+                bubble = { i -> "${units(data.insulinBuckets[i])} u" },
+            )
+        }
+        data.uses.forEach { use ->
+            val kind = if (use.insulin) dev.ytosko.neutrino.data.medicine.MedicineKind.Insulin else dev.ytosko.neutrino.data.medicine.MedicineKind.Medicine
+            val tint = kindTint(kind)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                IconBadge(kindIcon(kind), container = tint.container, content = tint.content, size = 36.dp)
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(use.name, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    val times = pluralStringResource(R.plurals.health_dose_times, use.times, use.times)
+                    val amount = if (use.insulin) stringResource(R.string.health_insulin_total, units(use.total)) else times
+                    Text(
+                        if (data.range == InsightRange.Day) amount else stringResource(R.string.health_dose_days, amount, use.days, data.totalDays),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+        Text(stringResource(R.string.medicine_not_advice), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

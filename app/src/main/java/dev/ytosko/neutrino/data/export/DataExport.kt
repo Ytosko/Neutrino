@@ -1,5 +1,9 @@
 package dev.ytosko.neutrino.data.export
 
+import dev.ytosko.neutrino.data.reminders.doseText
+import dev.ytosko.neutrino.data.medicine.DoseUnit
+import dev.ytosko.neutrino.data.medicine.MedicineKind
+import dev.ytosko.neutrino.domain.report.ReportDose
 import android.content.Context
 import android.graphics.Color
 import android.graphics.Paint
@@ -59,7 +63,10 @@ class DataExport(
             .map { Instant.ofEpochMilli(it.loggedAtEpochMs) to it.amountMl }
         val readings = db.glucose().all().filter { it.measuredAtEpochMs in fromMs until toMs }
             .map { ReportReading(Instant.ofEpochMilli(it.measuredAtEpochMs), it.mmolPerL, it.relationEnum, !it.isManual) }
-        ReportBuilder.build(from, to, zone, meals, water, readings, s.glucoseLow, s.glucoseHigh)
+        val doses = if (!s.medicinesOn) emptyList() else db.medicines().dosesBetween(fromMs, toMs).map {
+            ReportDose(Instant.ofEpochMilli(it.takenAtEpochMs), it.medicineName, it.amount, it.unit, it.kindEnum == MedicineKind.Insulin)
+        }
+        ReportBuilder.build(from, to, zone, meals, water, readings, s.glucoseLow, s.glucoseHigh, doses)
     }
 
     /** Writes the report as a PDF in the app's cache and returns a shareable content:// URI. */
@@ -126,6 +133,25 @@ class DataExport(
                     )
                 },
             )
+            val medicines = db.medicines().allMedicines()
+            val doses = db.medicines().allDoses()
+            if (medicines.isNotEmpty() || doses.isNotEmpty()) {
+                entry(
+                    "medicines.csv",
+                    listOf("id", "name", "group", "strength", "form", "kind", "insulin_type", "usual_dose", "unit", "reminders", "removed"),
+                    medicines.sortedBy { it.name.lowercase() }.map {
+                        listOf(it.id, it.name, it.generic, it.strength, it.form, it.kind, it.insulinType, it.usualDose?.let(::r1), it.doseUnit, it.reminderTimes, it.archived)
+                    },
+                )
+                entry(
+                    "doses.csv",
+                    listOf("id", "date", "time", "time_zone", "medicine_id", "medicine", "kind", "amount", "unit"),
+                    doses.sortedBy { it.takenAtEpochMs }.map {
+                        val t = at(it.takenAtEpochMs, it.zoneId)
+                        listOf(it.id, t.format(date), t.format(time), it.zoneId, it.medicineId, it.medicineName, it.kind, r1(it.amount), it.unit)
+                    },
+                )
+            }
             entry(
                 "my_foods.csv",
                 listOf("name", "category", "kcal_per_100g", "carbs_per_100g", "protein_per_100g", "fat_per_100g", "times_eaten", "source"),
@@ -207,6 +233,7 @@ private class PdfReport(
         report.food?.let { food(it) }
         if (report.days.isNotEmpty()) dailyTable()
         if (report.readings.isNotEmpty()) readingsTable()
+        if (report.doses.isNotEmpty()) dosesTable()
         finishPage()
         doc.writeTo(out)
         doc.close()
@@ -430,6 +457,20 @@ private class PdfReport(
                 )
             },
         )
+    }
+
+    private fun dosesTable() {
+        section(s(R.string.report_doses))
+        table(
+            listOf(s(R.string.report_col_date), s(R.string.report_col_time), s(R.string.report_dose_medicine), s(R.string.report_dose_amount)),
+            listOf(100f, 70f, 200f, 110f),
+            report.doses.map { d ->
+                val t = d.at.atZone(zone)
+                val unit = runCatching { DoseUnit.valueOf(d.unit) }.getOrDefault(DoseUnit.Tablet)
+                listOf(t.toLocalDate().format(shortDate), t.format(timeFormat), d.name, doseText(context, d.amount, unit))
+            },
+        )
+        paragraph(s(R.string.medicine_not_advice), paint(9f, muted))
     }
 
     private fun readingsTable() {

@@ -1,5 +1,8 @@
 package dev.ytosko.neutrino
 
+import dev.ytosko.neutrino.data.reminders.DoseReminders
+import dev.ytosko.neutrino.data.medicine.MedexClient
+import dev.ytosko.neutrino.data.medicine.MedicineRepository
 import kotlinx.coroutines.delay
 import dev.ytosko.neutrino.data.glucose.MeterSyncOutcome
 import dev.ytosko.neutrino.data.glucose.MeterNotifications
@@ -65,6 +68,7 @@ class NeutrinoApplication : Application() {
             container.chooseGlucoseUnitOnce()
             if (container.backups.state.first().passwordSet) container.backups.schedule()
             if (container.settings.settings.first().remindersEnabled) MealReminders.scheduleAll(this@NeutrinoApplication)
+            runCatching { DoseReminders.sync(this@NeutrinoApplication) }
             container.syncHealthConnect()
             // Keep watching for the meter (e.g. after an app update).
             container.watchMeters()
@@ -103,6 +107,13 @@ class AppContainer(application: Application) {
         http = http,
         json = json,
         userAgent = "Neutrino/${BuildConfig.VERSION_NAME} (Android; privacy@ytosko.dev)",
+    )
+
+    val medicines = MedicineRepository(
+        dao = database.medicines(),
+        medex = MedexClient(http, userAgent = "Neutrino/${BuildConfig.VERSION_NAME} (Android; personal medicine list)"),
+        onChanged = { dataChanged() },
+        onScheduleChanged = { scope.launch { DoseReminders.sync(context) } },
     )
 
     val backups = BackupRepository(

@@ -72,7 +72,13 @@ data class AppSettings(
     val widgetShowsGlucose: Boolean = true,
     /** The "press and hold a meal" tip was seen (dismissed or used). */
     val mealTipDone: Boolean = false,
+    /** Turns on the medicine log (tablets, syrups…). Off: medicines are hidden everywhere. */
+    val takesMedicine: Boolean = false,
+    /** Turns on the insulin log. */
+    val usesInsulin: Boolean = false,
 ) {
+    val medicinesOn: Boolean get() = takesMedicine || usesInsulin
+
     val promptHints: PromptHints get() = PromptHints(cuisine, aiNotes.takeIf { it.isNotBlank() })
     val aiReady: Boolean
         get() = activeProvider != null && activeProvider in providersWithKey && models[activeProvider] != null
@@ -114,6 +120,8 @@ class SettingsRepository(context: Context, private val cipher: SecretCipher) {
         val appLock = booleanPreferencesKey("app_lock")
         val hideInRecents = booleanPreferencesKey("hide_in_recents")
         val weeklySummary = booleanPreferencesKey("weekly_summary")
+        val takesMedicine = booleanPreferencesKey("takes_medicine")
+        val usesInsulin = booleanPreferencesKey("uses_insulin")
         val widgetGlucose = booleanPreferencesKey("widget_glucose")
         val mealTipDone = booleanPreferencesKey("meal_tip_done")
         fun model(provider: AiProvider) = stringPreferencesKey("ai_model_${provider.id}")
@@ -160,6 +168,8 @@ class SettingsRepository(context: Context, private val cipher: SecretCipher) {
             appLock = p[Keys.appLock] ?: false,
             hideInRecents = p[Keys.hideInRecents] ?: false,
             weeklySummary = p[Keys.weeklySummary] ?: false,
+            takesMedicine = p[Keys.takesMedicine] ?: false,
+            usesInsulin = p[Keys.usesInsulin] ?: false,
             widgetShowsGlucose = p[Keys.widgetGlucose] ?: true,
             mealTipDone = p[Keys.mealTipDone] ?: false,
         )
@@ -295,6 +305,14 @@ class SettingsRepository(context: Context, private val cipher: SecretCipher) {
 
     suspend fun setWeeklySummary(enabled: Boolean) {
         store.edit { it[Keys.weeklySummary] = enabled }
+    }
+
+    suspend fun setTakesMedicine(enabled: Boolean) {
+        store.edit { it[Keys.takesMedicine] = enabled }
+    }
+
+    suspend fun setUsesInsulin(enabled: Boolean) {
+        store.edit { it[Keys.usesInsulin] = enabled }
     }
 
     suspend fun setMealTipDone() {

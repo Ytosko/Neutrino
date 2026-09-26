@@ -1,5 +1,9 @@
 package dev.ytosko.neutrino.ui.home
 
+import dev.ytosko.neutrino.data.medicine.MedicineKind
+import dev.ytosko.neutrino.data.medicine.DoseEntity
+import dev.ytosko.neutrino.data.medicine.MedicineEntity
+import dev.ytosko.neutrino.data.medicine.MedicineRepository
 import java.time.LocalTime
 import java.time.Instant
 import dev.ytosko.neutrino.domain.MealWindows
@@ -33,6 +37,7 @@ class HomeViewModel(
     private val meals: MealRepository,
     private val settings: SettingsRepository,
     private val glucose: GlucoseRepository,
+    private val medicines: MedicineRepository,
     private val zone: ZoneId = ZoneId.systemDefault(),
 ) : ViewModel() {
 
@@ -53,6 +58,44 @@ class HomeViewModel(
         .flatMapLatest { glucose.observeBetween(it, it, zone) }
         .map { list -> list.sortedBy { it.measuredAtEpochMs } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Doses on the shown day, oldest first; empty unless a medicine switch is on. */
+    val doses: StateFlow<List<DoseEntity>> = _date
+        .flatMapLatest { medicines.observeDoses(it, it, zone) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Medicines of the kinds turned on in Settings. */
+    val medicineList: StateFlow<List<MedicineEntity>> = combine(medicines.medicines, settings.settings) { list, s ->
+        list.filter { (it.kindEnum == MedicineKind.Medicine && s.takesMedicine) || (it.kindEnum == MedicineKind.Insulin && s.usesInsulin) }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val appSettings: StateFlow<dev.ytosko.neutrino.data.settings.AppSettings?> = settings.settings
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    fun logDose(medicine: MedicineEntity, amount: Double, at: java.time.Instant) {
+        viewModelScope.launch { medicines.logDose(medicine, amount, at, zone) }
+    }
+
+    fun editDose(dose: DoseEntity, medicine: MedicineEntity?, amount: Double, at: java.time.Instant) {
+        viewModelScope.launch {
+            medicines.editDose(
+                dose.copy(
+                    medicineId = medicine?.id ?: dose.medicineId,
+                    medicineName = medicine?.displayName ?: dose.medicineName,
+                    kind = medicine?.kind ?: dose.kind,
+                    unit = medicine?.doseUnit ?: dose.unit,
+                    amount = amount,
+                    takenAtEpochMs = at.toEpochMilli(),
+                ),
+            )
+        }
+    }
+
+    suspend fun deleteDose(id: String): DoseEntity? = medicines.deleteDose(id)
+
+    fun undoDoseDelete(dose: DoseEntity) {
+        viewModelScope.launch { medicines.restoreDose(dose) }
+    }
 
     /** The glucose card shows once a meter is paired or any reading exists (e.g. typed in by hand). */
     val glucoseVisible: StateFlow<Boolean> = combine(glucose.meters, glucose.hasReadings) { meters, any -> meters.isNotEmpty() || any }

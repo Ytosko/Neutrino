@@ -1,5 +1,8 @@
 package dev.ytosko.neutrino.ui.settings
 
+import dev.ytosko.neutrino.data.reminders.DoseReminders
+import dev.ytosko.neutrino.data.medicine.MedicineKind
+import dev.ytosko.neutrino.data.medicine.MedicineEntity
 import dev.ytosko.neutrino.data.health.HealthKind
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -88,12 +91,15 @@ fun SettingsScreen(
     onOpenHealthConnect: () -> Unit,
     onOpenGoals: () -> Unit,
     onOpenExport: () -> Unit,
+    onOpenMedicines: () -> Unit,
+    medicines: Flow<List<MedicineEntity>>,
     repository: SettingsRepository,
 ) {
     val appSettings by settings.collectAsStateWithLifecycle(initialValue = AppSettings())
     val c = NeutrinoTheme.colors
     val backupState by backup.collectAsStateWithLifecycle(initialValue = null)
     val pairedMeters by meters.collectAsStateWithLifecycle(initialValue = emptyList())
+    val medicineList by medicines.collectAsStateWithLifecycle(initialValue = emptyList())
     val health by healthViewModel.state.collectAsStateWithLifecycle()
     val uriHandler = LocalUriHandler.current
     LifecycleResumeEffect(Unit) {
@@ -217,6 +223,41 @@ fun SettingsScreen(
                 checked = appSettings.widgetShowsGlucose,
                 onChange = { on -> scope.launch { repository.setWidgetShowsGlucose(on); NeutrinoWidget.refresh(context) } },
             )
+        }
+        Section(stringResource(R.string.settings_section_medicine)) {
+            SwitchRow(
+                icon = R.drawable.ic_pill,
+                tint = c.violet,
+                title = stringResource(R.string.settings_takes_medicine),
+                subtitle = stringResource(R.string.settings_takes_medicine_body),
+                checked = appSettings.takesMedicine,
+                onChange = { on -> scope.launch { repository.setTakesMedicine(on); DoseReminders.sync(context) } },
+            )
+            RowDivider()
+            SwitchRow(
+                icon = R.drawable.ic_syringe,
+                tint = c.cyan,
+                title = stringResource(R.string.settings_uses_insulin),
+                subtitle = stringResource(R.string.settings_uses_insulin_body),
+                checked = appSettings.usesInsulin,
+                onChange = { on -> scope.launch { repository.setUsesInsulin(on); DoseReminders.sync(context) } },
+            )
+            if (appSettings.medicinesOn) {
+                RowDivider()
+                val shown = medicineList.count {
+                    (it.kindEnum == MedicineKind.Medicine && appSettings.takesMedicine) || (it.kindEnum == MedicineKind.Insulin && appSettings.usesInsulin)
+                }
+                SettingRow(
+                    icon = R.drawable.ic_bell,
+                    tint = c.violet,
+                    title = stringResource(R.string.settings_my_medicines),
+                    value = if (shown == 0) stringResource(R.string.settings_medicines_none) else pluralStringResource(R.plurals.settings_medicines_count, shown, shown),
+                    onClick = {
+                        askNotificationsIfNeeded()
+                        onOpenMedicines()
+                    },
+                )
+            }
         }
         Section(stringResource(R.string.settings_section_goals)) {
             SettingRow(

@@ -1,5 +1,7 @@
 package dev.ytosko.neutrino.ui.navigation
 
+import dev.ytosko.neutrino.ui.medicine.MedicinesViewModel
+import dev.ytosko.neutrino.ui.medicine.MedicinesScreen
 import dev.ytosko.neutrino.ui.glucose.MeterViewModel
 import dev.ytosko.neutrino.ui.glucose.MeterScreen
 import dev.ytosko.neutrino.ui.settings.GoalsScreen
@@ -91,6 +93,7 @@ sealed interface Route {
     @Serializable data class MeterDetail(val id: String) : Route
     @Serializable data object Restore : Route
     @Serializable data object RestoreHealth : Route
+    @Serializable data object Medicines : Route
 }
 
 private const val KEY_SAVED_RESULT = "meal_saved_synced"
@@ -160,10 +163,10 @@ fun NeutrinoNavHost(startDestination: Route, modifier: Modifier = Modifier) {
         }
         composable<Route.Home> { entry ->
             val container = LocalContext.current.appContainer
-            val homeViewModel: HomeViewModel = viewModel { HomeViewModel(container.meals, container.settings, container.glucose) }
+            val homeViewModel: HomeViewModel = viewModel { HomeViewModel(container.meals, container.settings, container.glucose, container.medicines) }
             val savedResult by entry.savedStateHandle.getStateFlow<Boolean?>(KEY_SAVED_RESULT, null).collectAsStateWithLifecycle()
             val backup by container.backups.state.collectAsStateWithLifecycle(initialValue = null)
-            val healthViewModel: HealthViewModel = viewModel { HealthViewModel(container.meals, container.glucose, container.settings) }
+            val healthViewModel: HealthViewModel = viewModel { HealthViewModel(container.meals, container.glucose, container.settings, container.medicines) }
             HomeScreen(
                 viewModel = homeViewModel,
                 healthViewModel = healthViewModel,
@@ -178,6 +181,7 @@ fun NeutrinoNavHost(startDestination: Route, modifier: Modifier = Modifier) {
                 onOpenMeal = { id -> navController.navigate(Route.Review(editMealId = id)) },
                 onOpenGlucoseDay = { date -> navController.navigate(Route.GlucoseDay(date.toEpochDay())) },
                 onOpenHealthConnect = { navController.navigate(Route.SettingsHealth) },
+                onOpenMedicines = { navController.navigate(Route.Medicines) },
                 savedResult = savedResult,
                 onSavedResultShown = { entry.savedStateHandle[KEY_SAVED_RESULT] = null },
             )
@@ -233,8 +237,15 @@ fun NeutrinoNavHost(startDestination: Route, modifier: Modifier = Modifier) {
                 onOpenHealthConnect = { navController.navigate(Route.SettingsHealth) },
                 onOpenGoals = { navController.navigate(Route.SettingsGoals) },
                 onOpenExport = { navController.navigate(Route.SettingsExport) },
+                onOpenMedicines = { navController.navigate(Route.Medicines) },
+                medicines = container.medicines.medicines,
                 repository = container.settings,
             )
+        }
+        composable<Route.Medicines> {
+            val container = LocalContext.current.appContainer
+            val medicinesViewModel: MedicinesViewModel = viewModel { MedicinesViewModel(container.medicines, container.settings) }
+            MedicinesScreen(viewModel = medicinesViewModel, onBack = navController::popBackStack)
         }
         composable<Route.SettingsMeter> {
             val container = LocalContext.current.appContainer

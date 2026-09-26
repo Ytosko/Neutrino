@@ -199,7 +199,11 @@ class BackupRepository(
         val key = requireNotNull(backupKey()) { "Backup key unavailable" }
         val dao = db.backup()
         val meals = dao.meals()
-        val data = BackupData(settings.snapshot(), meals, dao.items(), dao.foods(), dao.water(), db.glucose().all())
+        val data = BackupData(
+            settings.snapshot(), meals, dao.items(), dao.foods(), dao.water(), db.glucose().all(),
+            medicines = db.medicines().allMedicines(),
+            doses = db.medicines().allDoses(),
+        )
         val photos = meals.mapNotNull { meal ->
             meal.thumbnailPath?.let(::File)?.takeIf { it.isFile }?.let { meal.id to it.readBytes() }
         }.toMap()
@@ -308,8 +312,16 @@ class BackupRepository(
             db.backup().replaceAll(meals, data.items, data.foods, data.water)
             db.glucose().clear()
             db.glucose().insertAll(data.glucose)
+            db.medicines().clearDoses()
+            db.medicines().clearMedicines()
+            db.medicines().insertMedicines(data.medicines)
+            db.medicines().insertDoses(data.doses)
         }
         settings.restore(data.settings)
+        // The switches aren't in backups; turn on whatever the restored medicines need.
+        val kinds = data.medicines.filterNot { it.archived }.mapTo(HashSet()) { it.kind }
+        if (dev.ytosko.neutrino.data.medicine.MedicineKind.Medicine.name in kinds) settings.setTakesMedicine(true)
+        if (dev.ytosko.neutrino.data.medicine.MedicineKind.Insulin.name in kinds) settings.setUsesInsulin(true)
         saveKey(key, header.wrappedKey)
 
         when (source) {

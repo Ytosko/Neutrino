@@ -1,5 +1,8 @@
 package dev.ytosko.neutrino.data.meal
 
+import dev.ytosko.neutrino.data.medicine.MedicineDao
+import dev.ytosko.neutrino.data.medicine.DoseEntity
+import dev.ytosko.neutrino.data.medicine.MedicineEntity
 import dev.ytosko.neutrino.data.glucose.GlucoseEntity
 import dev.ytosko.neutrino.data.glucose.GlucoseDao
 import android.content.Context
@@ -275,10 +278,16 @@ interface BackupDao {
 }
 
 @Database(
-    entities = [MealEntity::class, MealItemEntity::class, FoodEntity::class, WaterEntity::class, GlucoseEntity::class],
-    version = 4,
+    entities = [
+        MealEntity::class, MealItemEntity::class, FoodEntity::class, WaterEntity::class, GlucoseEntity::class,
+        MedicineEntity::class, DoseEntity::class,
+    ],
+    version = 5,
     exportSchema = true,
-    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3), AutoMigration(from = 3, to = 4)],
+    autoMigrations = [
+        AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3), AutoMigration(from = 3, to = 4),
+        AutoMigration(from = 4, to = 5),
+    ],
 )
 abstract class MealDatabase : RoomDatabase() {
     abstract fun meals(): MealDao
@@ -286,6 +295,7 @@ abstract class MealDatabase : RoomDatabase() {
     abstract fun water(): WaterDao
     abstract fun backup(): BackupDao
     abstract fun glucose(): GlucoseDao
+    abstract fun medicines(): MedicineDao
 
     companion object {
         const val NAME = "neutrino.db"

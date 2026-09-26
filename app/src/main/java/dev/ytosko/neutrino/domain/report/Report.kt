@@ -47,6 +47,9 @@ data class FoodStats(
     val waterPerDay: Int?,
 )
 
+/** A medicine or insulin dose in a report; [unit] is a DoseUnit name. */
+data class ReportDose(val at: Instant, val name: String, val amount: Double, val unit: String, val insulin: Boolean)
+
 /** Everything in a doctor report for [from]..[to] (inclusive). */
 data class Report(
     val from: LocalDate,
@@ -59,8 +62,10 @@ data class Report(
     val days: List<ReportDay>,
     /** Newest first. */
     val readings: List<ReportReading>,
+    /** Newest first; empty unless medicines are turned on. */
+    val doses: List<ReportDose> = emptyList(),
 ) {
-    val isEmpty: Boolean get() = glucose == null && food == null
+    val isEmpty: Boolean get() = glucose == null && food == null && doses.isEmpty()
 }
 
 object ReportBuilder {
@@ -74,6 +79,7 @@ object ReportBuilder {
         readings: List<ReportReading>,
         low: Double,
         high: Double,
+        doses: List<ReportDose> = emptyList(),
     ): Report {
         fun day(at: Instant) = at.atZone(zone).toLocalDate()
         fun inPeriod(at: Instant) = day(at).let { !it.isBefore(from) && !it.isAfter(to) }
@@ -129,6 +135,6 @@ object ReportBuilder {
                 glucoseMax = dr.maxOrNull(),
             )
         }
-        return Report(from, to, low, high, glucose, food, days, r)
+        return Report(from, to, low, high, glucose, food, days, r, doses.filter { inPeriod(it.at) }.sortedByDescending { it.at })
     }
 }

@@ -127,6 +127,9 @@
             android:exported="false" />
 
         <receiver
+            android:name=".data.reminders.DoseReminderReceiver"
+            android:exported="false" />
+        <receiver
             android:name=".data.reminders.WeeklySummaryReceiver"
             android:exported="false" />
 

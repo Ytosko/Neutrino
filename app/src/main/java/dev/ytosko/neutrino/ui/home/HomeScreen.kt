@@ -1,5 +1,9 @@
 package dev.ytosko.neutrino.ui.home
 
+import dev.ytosko.neutrino.ui.medicine.dosesTitle
+import dev.ytosko.neutrino.ui.medicine.DosesDayCard
+import dev.ytosko.neutrino.ui.medicine.DoseSheet
+import dev.ytosko.neutrino.data.medicine.DoseEntity
 import dev.ytosko.neutrino.ui.glucose.GlucoseRow
 import dev.ytosko.neutrino.ui.components.MenuAction
 import dev.ytosko.neutrino.ui.components.LiftedContextMenu
@@ -204,6 +208,7 @@ fun HomeScreen(
     onOpenMeal: (id: String) -> Unit,
     onOpenGlucoseDay: (LocalDate) -> Unit,
     onOpenHealthConnect: () -> Unit,
+    onOpenMedicines: () -> Unit,
     savedResult: Boolean?,
     onSavedResultShown: () -> Unit,
     modifier: Modifier = Modifier,
@@ -215,6 +220,10 @@ fun HomeScreen(
     val mealWindows by viewModel.mealWindows.collectAsStateWithLifecycle()
     val glucoseReadings by viewModel.glucoseReadings.collectAsStateWithLifecycle()
     val glucoseLeftOut by viewModel.glucoseLeftOut.collectAsStateWithLifecycle()
+    val doses by viewModel.doses.collectAsStateWithLifecycle()
+    val medicineList by viewModel.medicineList.collectAsStateWithLifecycle()
+    val homeSettings by viewModel.appSettings.collectAsStateWithLifecycle()
+    val medicinesOn = homeSettings?.medicinesOn == true
     val glucoseVisible by viewModel.glucoseVisible.collectAsStateWithLifecycle()
     val glucoseRange by viewModel.glucoseRange.collectAsStateWithLifecycle()
     val mealGlucose by viewModel.mealGlucose.collectAsStateWithLifecycle()
@@ -222,6 +231,8 @@ fun HomeScreen(
     val mealTipVisible by viewModel.mealTipVisible.collectAsStateWithLifecycle()
     var editingGlucose by remember { mutableStateOf<GlucoseEntity?>(null) }
     var addingGlucose by remember { mutableStateOf(false) }
+    var addingDose by remember { mutableStateOf(false) }
+    var editingDose by remember { mutableStateOf<DoseEntity?>(null) }
     var pickingDate by remember { mutableStateOf(false) }
     val aiReady by viewModel.aiReady.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
@@ -293,6 +304,17 @@ fun HomeScreen(
             snackbar.currentSnackbarData?.dismiss()
             val result = snackbar.showSnackbar(glucoseDeleted, actionLabel = undo, duration = SnackbarDuration.Long)
             if (result == SnackbarResult.ActionPerformed) viewModel.undoGlucoseDelete(stored)
+        }
+    }
+
+    val doseLogged = stringResource(R.string.dose_logged)
+    val doseDeleted = stringResource(R.string.dose_deleted)
+    fun deleteDoseWithUndo(dose: DoseEntity) {
+        scope.launch {
+            val stored = viewModel.deleteDose(dose.id) ?: return@launch
+            snackbar.currentSnackbarData?.dismiss()
+            val result = snackbar.showSnackbar(doseDeleted, actionLabel = undo, duration = SnackbarDuration.Long)
+            if (result == SnackbarResult.ActionPerformed) viewModel.undoDoseDelete(stored)
         }
     }
 
@@ -607,6 +629,19 @@ fun HomeScreen(
                     )
                 }
             }
+            // Only for people who turned on medicines or insulin in Settings.
+            if (medicinesOn || doses.isNotEmpty()) {
+                item(key = "doses") {
+                    DosesDayCard(
+                        doses = doses,
+                        title = stringResource(homeSettings?.let(::dosesTitle) ?: R.string.doses_title_medicine),
+                        isToday = isToday,
+                        onAdd = { addingDose = true },
+                        onOpen = { editingDose = it },
+                        modifier = itemModifier.animateItem(),
+                    )
+                }
+            }
         }
         }
         }
@@ -639,6 +674,14 @@ fun HomeScreen(
                     SheetTile(R.drawable.ic_activity, stringResource(R.string.home_add_glucose), NeutrinoTheme.colors.rose, Modifier.weight(1f)) {
                         showSheet = false
                         addingGlucose = true
+                    }
+                }
+                if (medicinesOn) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                        SheetTile(R.drawable.ic_pill, stringResource(R.string.home_log_dose), NeutrinoTheme.colors.violet, Modifier.weight(1f)) {
+                            showSheet = false
+                            addingDose = true
+                        }
                     }
                 }
             }
@@ -726,6 +769,49 @@ fun HomeScreen(
                 deleteGlucoseWithUndo(reading)
             },
             onDismiss = { editingGlucose = null },
+        )
+    }
+
+    if (addingDose) {
+        DoseSheet(
+            medicines = medicineList,
+            dose = null,
+            date = shownDate,
+            onSave = { medicine, amount, at ->
+                if (medicine != null) {
+                    viewModel.logDose(medicine, amount, at)
+                    haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+                    scope.launch {
+                        snackbar.currentSnackbarData?.dismiss()
+                        snackbar.showSnackbar(doseLogged)
+                    }
+                }
+                addingDose = false
+            },
+            onDelete = {},
+            onAddMedicines = {
+                addingDose = false
+                onOpenMedicines()
+            },
+            onDismiss = { addingDose = false },
+        )
+    }
+
+    editingDose?.let { dose ->
+        DoseSheet(
+            medicines = medicineList,
+            dose = dose,
+            date = shownDate,
+            onSave = { medicine, amount, at ->
+                viewModel.editDose(dose, medicine, amount, at)
+                editingDose = null
+            },
+            onDelete = {
+                editingDose = null
+                deleteDoseWithUndo(dose)
+            },
+            onAddMedicines = {},
+            onDismiss = { editingDose = null },
         )
     }
 

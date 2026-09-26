@@ -1,5 +1,10 @@
 package dev.ytosko.neutrino.ui.insights
 
+import dev.ytosko.neutrino.domain.insights.DosePoint
+import dev.ytosko.neutrino.domain.insights.DoseSummary
+import dev.ytosko.neutrino.domain.insights.DoseInsights
+import dev.ytosko.neutrino.data.medicine.MedicineKind
+import dev.ytosko.neutrino.data.medicine.MedicineRepository
 import dev.ytosko.neutrino.domain.insights.GmiCalculator
 import dev.ytosko.neutrino.domain.insights.Gmi
 import androidx.lifecycle.ViewModel
@@ -47,6 +52,7 @@ class HealthViewModel(
     private val meals: MealRepository,
     private val glucose: GlucoseRepository,
     private val settings: SettingsRepository,
+    private val medicines: MedicineRepository,
     private val zone: ZoneId = ZoneId.systemDefault(),
     private val firstDayOfWeek: DayOfWeek = WeekFields.of(Locale.getDefault()).firstDayOfWeek,
 ) : ViewModel() {
@@ -87,6 +93,26 @@ class HealthViewModel(
                 GlucoseInsights.summarize(period, points, low, high)
             }
         }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** Medicines and insulin in the period; null (hidden) unless a medicine switch is on. */
+    val doseSummary: StateFlow<DoseSummary?> = combine(_period, _today) { period, day -> period to day }
+        .flatMapLatest { (period, day) ->
+            combine(
+                medicines.observeDoses(period.start, period.end.minusDays(1), zone),
+                settings.settings.map { it.medicinesOn }.distinctUntilChanged(),
+            ) { doses, on ->
+                if (!on) return@combine null
+                val points = doses.map {
+                    val at = Instant.ofEpochMilli(it.takenAtEpochMs).atZone(zone)
+                    DosePoint(at.toLocalDate(), at.hour, it.medicineId, it.medicineName, it.amount, it.kindEnum == MedicineKind.Insulin)
+                }
+                DoseInsights.summarize(period, day, points)
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    val medicineSettings: StateFlow<dev.ytosko.neutrino.data.settings.AppSettings?> = settings.settings
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /** Estimated A1c from the last 90 days of readings, whatever period is shown; null until there's enough. */
