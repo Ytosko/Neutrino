@@ -46,6 +46,9 @@ Paste the result as the value of `NEUTRINO_KEYSTORE_BASE64`.
    APK is signed with the registered key (SHA-1 `A5:52:B9:…:5C:72`, see [SIGNING.md](SIGNING.md)),
    and publishes `neutrino-<release name>.apk` (e.g. `neutrino-v1.4-NeutrinoBuddy.apk`) with its SHA-256 checksum, using the CHANGELOG section as the notes.
 
+5. For F-Droid, add `fastlane/metadata/android/en-US/changelogs/<versionCode>.txt` with a short
+   version of the notes (see [FDROID.md](FDROID.md)).
+
 Version codes come from the tag (`major × 10000 + minor × 100 + patch`), so each release installs
 over the previous one.
 

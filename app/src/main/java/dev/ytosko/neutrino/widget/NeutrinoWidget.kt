@@ -1,5 +1,10 @@
 package dev.ytosko.neutrino.widget
 
+import kotlin.math.roundToLong
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import androidx.glance.layout.size
 import androidx.glance.ColorFilter
 import android.graphics.PathMeasure as AndroidPathMeasure
@@ -89,10 +94,16 @@ private data class WidgetData(
     val proteinGoal: String?,
     val fatGoal: String?,
     val kcalGoal: String?,
+    /** How far past each goal, e.g. "+93g"; null when under it or without a goal. */
+    val carbsOver: String?,
+    val proteinOver: String?,
+    val fatOver: String?,
+    val kcalOver: String?,
     val water: String,
     /** "7.2 mmol/L · 6:08 PM", or null when hidden or there are no readings. */
     val glucose: String?,
     val canAddWater: Boolean,
+    val date: LocalDate,
 )
 
 /**
@@ -112,12 +123,15 @@ class NeutrinoWidget : GlanceAppWidget() {
         }
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     private fun data(context: Context): Flow<WidgetData> {
         val container = context.appContainer
         val zone = ZoneId.systemDefault()
-        val today = LocalDate.now(zone)
-        return combine(container.meals.observeDay(today, zone), container.settings.settings, container.glucose.latestReading) { day, settings, latest ->
-            toData(day, settings, latest, zone, today)
+        // Moves on to the new day at midnight, even if the widget stays live that long.
+        return todayFlow(zone).flatMapLatest { today ->
+            combine(container.meals.observeDay(today, zone), container.settings.settings, container.glucose.latestReading) { day, settings, latest ->
+                toData(day, settings, latest, zone, today)
+            }
         }
     }
 
@@ -164,11 +178,18 @@ class NeutrinoWidget : GlanceAppWidget() {
             proteinGoal = settings.proteinGoalG?.let { compactGrams(it.toDouble()) },
             fatGoal = settings.fatGoalG?.let { compactGrams(it.toDouble()) },
             kcalGoal = settings.kcalGoal?.let { compactNumber(it.toDouble()) },
+            carbsOver = settings.carbGoalG?.let { over(n.carbsG - it) { g -> compactGrams(g.roundToLong().toDouble()) } },
+            proteinOver = settings.proteinGoalG?.let { over(n.proteinG - it) { g -> compactGrams(g.roundToLong().toDouble()) } },
+            fatOver = settings.fatGoalG?.let { over(n.fatG - it) { g -> compactGrams(g.roundToLong().toDouble()) } },
+            kcalOver = settings.kcalGoal?.let { over(n.calories - it, ::compactNumber) },
             water = formatWater(day.waterMl),
             glucose = glucose,
             canAddWater = day.waterMl + GLASS_ML <= MAX_WATER_ML,
+            date = today,
         )
     }
+
+    private fun over(extra: Double, format: (Double) -> String): String? = if (extra >= 1) "+" + format(extra) else null
 
     @Composable
     private fun Content(context: Context, data: WidgetData) {
@@ -188,7 +209,7 @@ class NeutrinoWidget : GlanceAppWidget() {
             Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     // "Today · 26 Sep"
-                    context.getString(R.string.home_title) + " · " + LocalDate.now().format(DateTimeFormatter.ofPattern("d MMM")),
+                    context.getString(R.string.home_title) + " · " + data.date.format(DateTimeFormatter.ofPattern("d MMM")),
                     style = TextStyle(color = colors.onSurface, fontSize = 15.sp, fontWeight = FontWeight.Bold),
                     maxLines = 1,
                 )
@@ -208,10 +229,10 @@ class NeutrinoWidget : GlanceAppWidget() {
                 val diameter = minOf(cell, size.height - PADDING * 2 - HEADER_HEIGHT - BOTTOM_HEIGHT - 8.dp).coerceAtLeast(48.dp)
                 fun of(number: String, goal: String?) = goal?.let { context.getString(R.string.widget_of_goal, number, it) }
                 val tiles = listOf(
-                    Tile(data.carbs, of(data.carbsNumber, data.carbsGoal), context.getString(R.string.macro_carbs), MacroColor.Carbs, data.carbsProgress),
-                    Tile(data.protein, of(data.proteinNumber, data.proteinGoal), context.getString(R.string.macro_protein), MacroColor.Protein, data.proteinProgress),
-                    Tile(data.fat, of(data.fatNumber, data.fatGoal), context.getString(R.string.macro_fat), MacroColor.Fat, data.fatProgress),
-                    Tile(data.kcal, of(data.kcalNumber, data.kcalGoal), context.getString(R.string.macro_energy), MacroColor.Kcal, data.kcalProgress),
+                    Tile(data.carbs, of(data.carbsNumber, data.carbsGoal), context.getString(R.string.macro_carbs), MacroColor.Carbs, data.carbsProgress, data.carbsOver),
+                    Tile(data.protein, of(data.proteinNumber, data.proteinGoal), context.getString(R.string.macro_protein), MacroColor.Protein, data.proteinProgress, data.proteinOver),
+                    Tile(data.fat, of(data.fatNumber, data.fatGoal), context.getString(R.string.macro_fat), MacroColor.Fat, data.fatProgress, data.fatOver),
+                    Tile(data.kcal, of(data.kcalNumber, data.kcalGoal), context.getString(R.string.macro_energy), MacroColor.Kcal, data.kcalProgress, data.kcalOver),
                 )
                 Spacer(GlanceModifier.defaultWeight())
                 Row(modifier = GlanceModifier.fillMaxWidth()) {
@@ -262,29 +283,43 @@ class NeutrinoWidget : GlanceAppWidget() {
         val density = context.resources.displayMetrics.density
         val px = (diameter.value * density).toInt().coerceAtLeast(1)
         val layers = ringLayers(px, density, tile.progress ?: 0f)
-        Box(modifier = GlanceModifier.size(diameter), contentAlignment = Alignment.Center) {
-            Image(ImageProvider(layers.track), contentDescription = null, colorFilter = ColorFilter.tint(tile.color.track), modifier = GlanceModifier.fillMaxSize())
-            Image(
-                ImageProvider(layers.arc),
-                contentDescription = listOfNotNull(tile.label, tile.ofGoal ?: tile.value).joinToString(" "),
-                colorFilter = ColorFilter.tint(tile.color.provider),
-                modifier = GlanceModifier.fillMaxSize(),
-            )
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    tile.value,
-                    style = TextStyle(
-                        color = tile.color.provider,
-                        fontSize = (diameter.value * 0.19f).coerceIn(12f, 20f).sp,
-                        fontWeight = FontWeight.Bold,
-                    ),
-                    maxLines = 1,
+        // Outer box puts the "+93g" badge at the ring's top right; Glance aligns all children alike.
+        Box(modifier = GlanceModifier.size(diameter), contentAlignment = Alignment.TopEnd) {
+            Box(modifier = GlanceModifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Image(ImageProvider(layers.track), contentDescription = null, colorFilter = ColorFilter.tint(tile.color.track), modifier = GlanceModifier.fillMaxSize())
+                Image(
+                    ImageProvider(layers.arc),
+                    contentDescription = listOfNotNull(tile.label, tile.ofGoal ?: tile.value).joinToString(" "),
+                    colorFilter = ColorFilter.tint(tile.color.provider),
+                    modifier = GlanceModifier.fillMaxSize(),
                 )
-                Text(
-                    tile.label,
-                    style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 11.sp),
-                    maxLines = 1,
-                )
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        tile.value,
+                        style = TextStyle(
+                            color = tile.color.provider,
+                            fontSize = (diameter.value * 0.19f).coerceIn(12f, 20f).sp,
+                            fontWeight = FontWeight.Bold,
+                        ),
+                        maxLines = 1,
+                    )
+                    Text(
+                        tile.label,
+                        style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 11.sp),
+                        maxLines = 1,
+                    )
+                }
+            }
+            if (tile.over != null) {
+                Box(
+                    modifier = GlanceModifier.cornerRadius(9.dp).background(tile.color.provider).padding(horizontal = 5.dp, vertical = 1.dp),
+                ) {
+                    Text(
+                        tile.over,
+                        style = TextStyle(color = GlanceTheme.colors.widgetBackground, fontSize = 11.sp, fontWeight = FontWeight.Bold),
+                        maxLines = 1,
+                    )
+                }
             }
         }
     }
@@ -301,11 +336,30 @@ class NeutrinoWidget : GlanceAppWidget() {
         /** Redraws every Neutrino widget, e.g. after a meal, water or reading changes. */
         suspend fun refresh(context: Context) {
             runCatching { NeutrinoWidget().updateAll(context) }
+            runCatching { GlucoseWidget().updateAll(context) }
         }
     }
 }
 
-private data class Tile(val value: String, val ofGoal: String?, val label: String, val color: MacroColor, val progress: Float?)
+private data class Tile(
+    val value: String,
+    val ofGoal: String?,
+    val label: String,
+    val color: MacroColor,
+    val progress: Float?,
+    /** "+93g" when past the goal, shown as a badge on the ring. */
+    val over: String? = null,
+)
+
+/** Today's date, emitted again just after each midnight. */
+private fun todayFlow(zone: ZoneId): Flow<LocalDate> = flow {
+    while (true) {
+        val today = LocalDate.now(zone)
+        emit(today)
+        val untilMidnight = java.time.Duration.between(java.time.ZonedDateTime.now(zone), today.plusDays(1).atStartOfDay(zone))
+        delay(untilMidnight.toMillis().coerceAtLeast(0) + 1_000)
+    }
+}
 
 /** The app's macro colours for light and dark home screens. */
 private enum class MacroColor(val day: Long, val night: Long) {

@@ -71,7 +71,7 @@ fun SetupScaffold(
         contentWindowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal),
         topBar = {
             // Back, title and actions share one row, with no empty bar above the title.
-            Surface(color = MaterialTheme.colorScheme.background.copy(alpha = 1f - 0.08f * collapse)) {
+            Surface(color = MaterialTheme.colorScheme.background) {
                 Column {
                 Row(
                     modifier = Modifier

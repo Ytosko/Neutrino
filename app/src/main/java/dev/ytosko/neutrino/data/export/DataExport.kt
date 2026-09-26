@@ -324,8 +324,13 @@ private class PdfReport(
                 s(R.string.report_target) to "${g(report.low)}–${g(report.high)} ${unit.label}",
                 s(R.string.report_lowest) to "${g(stats.min)} ${unit.label}",
                 s(R.string.report_highest) to "${g(stats.max)} ${unit.label}",
+            ) + listOfNotNull(
+                stats.gmi?.let {
+                    s(R.string.health_gmi_title) to String.format(java.util.Locale.US, "%.1f%% (%d mmol/mol)", it.percent, it.mmolPerMol)
+                },
             ),
         )
+        if (stats.gmi != null) paragraph(s(R.string.report_gmi_note), paint(9f, muted))
         // Time in range as one stacked bar with its percentages.
         need(46f)
         text(s(R.string.health_glucose_time_in_range), paint(10f, muted))

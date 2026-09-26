@@ -2,6 +2,23 @@
 
 Every release has a section here, headed `## [x.y.z] - YYYY-MM-DD` with an optional ` · Release name`. The release workflow publishes the section as the GitHub release notes (and the name as its title), and refuses to release a version that has none.
 
+## [Unreleased]
+
+### Glucose
+- **Estimated A1c (GMI):** the Health page shows an estimated A1c from your last 90 days of readings, as a percentage and in mmol/mol, once you have readings on at least 14 days. It's clearly marked as an estimate from finger-prick readings, not a lab result. Doctor reports include it too when the report covers 14 days or more.
+- **Latest glucose widget:** a small 2×1 home screen widget with just your latest reading and its time, coloured by your target range.
+
+### Widget
+- **Over your goal:** a ring shows a small badge such as "+93g" once you've gone past that day's goal.
+- The widget moves on to the new day at midnight on its own.
+
+### Accessibility and polish
+- TalkBack now reads the "Log a meal" button.
+- Page headers are solid when you scroll, so text no longer shows faintly through them.
+
+### F-Droid
+- A **libre** version with no Google libraries, for F-Droid. It's the same app without Google Drive backup; the encrypted backup file works as before. The GitHub version is unchanged.
+
 ## [1.0.5] - 2026-09-26 · v1.4-NeutrinoBuddy
 
 Health Connect now covers your glucose readings too, and pages scroll all the way to the bottom.

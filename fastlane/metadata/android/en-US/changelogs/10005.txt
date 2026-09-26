@@ -1,0 +1,1 @@
+Health Connect now covers glucose readings too: the Health Connect page lists nutrition, hydration and blood glucose, each marked Allowed or Not allowed, and asks only for what is missing. Pages scroll all the way to the bottom.

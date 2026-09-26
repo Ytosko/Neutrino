@@ -394,7 +394,7 @@ fun HomeScreen(
                     scrollBehavior = scrollBehavior,
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = MaterialTheme.colorScheme.background,
-                        scrolledContainerColor = MaterialTheme.colorScheme.background.copy(alpha = 0.92f),
+                        scrolledContainerColor = MaterialTheme.colorScheme.background,
                     ),
                 )
                 return@Scaffold
@@ -455,7 +455,7 @@ fun HomeScreen(
                 scrollBehavior = scrollBehavior,
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background,
-                    scrolledContainerColor = MaterialTheme.colorScheme.background.copy(alpha = 0.92f),
+                    scrolledContainerColor = MaterialTheme.colorScheme.background,
                 ),
             )
         },
@@ -479,10 +479,12 @@ fun HomeScreen(
                 ) {
                     Icon(painterResource(R.drawable.ic_heart), contentDescription = stringResource(R.string.nav_open_health))
                 }
+                val logLabel = stringResource(R.string.home_log_meal)
                 ExtendedFloatingActionButton(
                     onClick = ::startLogging,
                     interactionSource = logPress,
-                    modifier = Modifier.pressScale(logPress, 0.95f),
+                    // The button's own text isn't exposed to TalkBack here, so label it explicitly.
+                    modifier = Modifier.pressScale(logPress, 0.95f).semantics { contentDescription = logLabel },
                     icon = { Icon(painterResource(R.drawable.ic_camera), contentDescription = null) },
                     text = { Text(stringResource(R.string.home_log_meal), style = MaterialTheme.typography.labelLarge) },
                     containerColor = MaterialTheme.colorScheme.primary,

@@ -37,7 +37,7 @@ keyPassword=your-key-password
 Then build a signed release:
 
 ```bash
-./gradlew assembleRelease
+./gradlew assembleFullRelease
 ```
 
 ## 3. Get fingerprints

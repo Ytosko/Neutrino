@@ -43,7 +43,8 @@ based on your local time, so they show up in Google Health, Fitbit and any other
 - **Everyday units:** plate, bowl, piece, cup, glass, can as well as g, kg, ml, L
 - **Your AI:** Gemini or OpenAI with your own key; pick any vision model your key can use
 - **Days:** browse any day, edit past meals, delete with undo, log water
-- **Health:** totals and touch-to-read charts for the last 30 days, 12 weeks, 12 months or 7 years
+- **Health:** one day, week, month or year at a time (‹ › to step back), 6-hour blocks or hour by hour, goal lines,
+  touch-to-read charts, and an estimated A1c (GMI) from 90 days of readings
 - **Automatic meal type** from your local time and your own meal times
 - **Reminders** for breakfast, lunch and dinner, skipped once that meal is logged
 - **AI hints:** your cuisine and short notes to improve recognition
@@ -52,8 +53,10 @@ based on your local time, so they show up in Google Health, Fitbit and any other
   meter's clock kept correct
 - **Glucose extras:** readings typed in by hand, mg/dL or mmol/L, glucose before and 2 h after each meal, optional
   "time to test" reminder
-- **Log again:** starred and recent meals in one tap; **daily goals** for carbs, calories and water
-- **Widget and shortcuts:** today's totals, one-tap water, a camera button and the latest glucose on the home screen
+- **Log again:** press and hold a meal to log it again, today or on its own day; **daily goals** for carbs, protein,
+  fat, calories and water
+- **Widgets and shortcuts:** today's macro rings, one-tap water, a camera button and the latest glucose; plus a small
+  latest-glucose widget
 - **Reports:** a PDF report for your doctor and a full CSV export, made on the phone
 - **Privacy:** optional app lock (fingerprint / screen lock) and hiding from recent apps
 - **Languages:** English and Bangla (বাংলা)
@@ -104,9 +107,13 @@ Or without Docker: `python -m http.server 8080 --directory web/public` (clean UR
 Kotlin, Jetpack Compose and Material 3. Minimum Android 9 (API 28), targets Android 16 (API 36).
 No DI framework, no analytics. Google Play services is used only for optional Drive backup.
 
+Two flavours: **full** (the GitHub release, with Google Drive backup) and **libre** (no Google
+libraries at all, for F-Droid; backups are the encrypted file only).
+
 ```bash
-./gradlew assembleDebug          # build app/build/outputs/apk/debug/app-debug.apk
-./gradlew testDebugUnitTest      # unit tests
+./gradlew assembleFullDebug                 # app/build/outputs/apk/full/debug/app-full-debug.apk
+./gradlew assembleLibreDebug                # the same without Google Play services
+./gradlew :app:testFullDebugUnitTest        # unit tests
 ```
 
 Open the repository root in Android Studio to run it on a device or emulator.

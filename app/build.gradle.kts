@@ -35,6 +35,19 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    // "full" is the GitHub release, with Google Drive backup through Google Play services.
+    // "libre" has no Google libraries at all, for F-Droid; backups are the encrypted file only.
+    flavorDimensions += "distribution"
+    productFlavors {
+        create("full") {
+            dimension = "distribution"
+            isDefault = true
+        }
+        create("libre") {
+            dimension = "distribution"
+        }
+    }
+
     signingConfigs {
         if (keystoreProperties.isNotEmpty()) {
             create("release") {
@@ -101,7 +114,7 @@ dependencies {
     implementation(libs.androidx.biometric)
     implementation(libs.androidx.glance.appwidget)
     implementation(libs.androidx.glance.material3)
-    implementation(libs.play.services.auth)
+    "fullImplementation"(libs.play.services.auth)
     implementation(libs.androidx.health.connect)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.okhttp)

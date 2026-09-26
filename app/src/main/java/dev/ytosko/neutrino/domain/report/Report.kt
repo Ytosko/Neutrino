@@ -33,6 +33,8 @@ data class GlucoseStats(
     val inRangeShare: Double,
     val aboveShare: Double,
     val byRelation: List<Pair<GlucoseRelation, Double>>,
+    /** Estimated A1c over the report's period; null with readings on fewer than 14 days. */
+    val gmi: dev.ytosko.neutrino.domain.insights.Gmi? = null,
 )
 
 data class FoodStats(
@@ -92,6 +94,7 @@ object ReportBuilder {
                 byRelation = GlucoseRelation.entries.mapNotNull { rel ->
                     r.filter { it.relation == rel }.takeIf { it.isNotEmpty() }?.let { rel to it.map { x -> x.mmolPerL }.average() }
                 },
+                gmi = dev.ytosko.neutrino.domain.insights.GmiCalculator.from(r.map { day(it.at) to it.mmolPerL }),
             )
         }
 

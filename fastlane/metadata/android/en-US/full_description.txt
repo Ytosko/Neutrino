@@ -1,0 +1,27 @@
+<p>Neutrino looks at a photo of your meal with <b>the AI model you choose</b>, using your own Google Gemini or OpenAI API key, and estimates carbohydrates, protein, fat and calories. You review the numbers, and Neutrino saves them on your phone and, if you like, to Health Connect.</p>
+
+<p><b>Principles</b></p>
+<ul>
+<li><b>No servers.</b> The app talks directly to your AI provider and to Health Connect on your phone.</li>
+<li><b>Bring your own key.</b> You pay your AI provider directly. Keys are encrypted with Android Keystore.</li>
+<li><b>No tracking.</b> No analytics, ads, crash reporting or accounts.</li>
+<li><b>Estimates, not medical advice.</b> You always review before saving. Neutrino is not a medical device.</li>
+</ul>
+
+<p><b>Features</b></p>
+<ul>
+<li>Photo to foods: the AI lists each food with its portion; you adjust before saving</li>
+<li>Food search: your foods, about 200 built-in foods, Open Food Facts for packaged products, or AI</li>
+<li>Everyday units: plate, bowl, piece, cup, glass as well as g, ml and more</li>
+<li>Health page: day, week, month or year, goal lines, and an estimated A1c (GMI)</li>
+<li>Daily goals for carbs, protein, fat, calories and water; water logging</li>
+<li>Bluetooth glucose meters (Bluetooth Glucose Profile, e.g. CONTOUR PLUS ELITE), or readings typed in, in mmol/L or mg/dL</li>
+<li>Glucose before and 2 hours after each meal, time in range, test reminders</li>
+<li>PDF report for your doctor and a full CSV export, made on the phone</li>
+<li>Home screen widgets, app lock, encrypted backup file</li>
+<li>English and Bangla</li>
+</ul>
+
+<p>This version has no Google libraries: Google Drive backup is only in the GitHub version. Use the encrypted backup file instead.</p>
+
+<p><b>Network services:</b> photos and food descriptions are sent to the AI provider you choose (Google Gemini or OpenAI), with your own key, when you ask for an estimate.</p>

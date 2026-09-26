@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Wording for the libre (F-Droid) build, which has no Google Drive backup. -->
+<resources>
+    <string name="backup_drive_unavailable">Neutrino-এর এই সংস্করণে Google Drive ব্যাকআপ নেই। আপনার ব্যাকআপ ফাইল আপনার ডেটা সুরক্ষিত রাখে; এর একটি কপি নিরাপদ জায়গায় রাখুন।</string>
+</resources>

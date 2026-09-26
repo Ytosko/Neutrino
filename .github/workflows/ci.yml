@@ -27,10 +27,10 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
 
       - name: Unit tests
-        run: ./gradlew --no-daemon testDebugUnitTest
+        run: ./gradlew --no-daemon :glucose-ble:testDebugUnitTest :app:testFullDebugUnitTest
 
-      - name: Build debug and release (unsigned)
-        run: ./gradlew --no-daemon assembleDebug :app:assembleRelease :app:lintDebug
+      - name: Build both flavours, debug and release (unsigned), and lint them
+        run: ./gradlew --no-daemon assembleDebug :app:assembleRelease :app:lintFullDebug :app:lintLibreDebug
 
       - name: Upload test reports
         if: failure()

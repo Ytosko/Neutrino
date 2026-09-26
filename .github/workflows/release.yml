@@ -45,12 +45,12 @@ jobs:
           } > keystore.properties
 
       - name: Test and build
-        run: ./gradlew --no-daemon -PversionName=${{ steps.version.outputs.name }} :app:testDebugUnitTest :glucose-ble:testDebugUnitTest :app:assembleRelease
+        run: ./gradlew --no-daemon -PversionName=${{ steps.version.outputs.name }} :app:testFullDebugUnitTest :glucose-ble:testDebugUnitTest :app:assembleFullRelease
 
       - name: Check the signing certificate
         # Only builds signed with the registered key can use Google Drive backup, so refuse anything else.
         run: |
-          APK=app/build/outputs/apk/release/app-release.apk
+          APK=app/build/outputs/apk/full/release/app-full-release.apk
           APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
           "$APKSIGNER" verify --print-certs "$APK" | tee certs.txt
           grep -qi "SHA-1 digest: a552b9634ff966585a64280484cb904038565c72" certs.txt \
@@ -67,7 +67,7 @@ jobs:
           # "## [1.2.3] - 2026-01-01 · v1.4-NeutrinoBuddy" -> title and file name "v1.4-NeutrinoBuddy".
           NAME=$(echo "$HEADING" | sed -n 's/.*· *//p')
           APK="neutrino-${NAME:-$VERSION}.apk"
-          cp app/build/outputs/apk/release/app-release.apk "$APK"
+          cp app/build/outputs/apk/full/release/app-full-release.apk "$APK"
           sha256sum "$APK" > "$APK.sha256"
 
           awk -v h="$HEADING" '$0 == h { on = 1; next } on && /^## \[/ { exit } on { print }' CHANGELOG.md > notes.md

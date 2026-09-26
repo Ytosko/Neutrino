@@ -1,5 +1,6 @@
 package dev.ytosko.neutrino.ui.insights
 
+import dev.ytosko.neutrino.domain.insights.Gmi
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
@@ -103,6 +104,7 @@ fun HealthContent(viewModel: HealthViewModel, contentPadding: PaddingValues, onO
     val summary by viewModel.summary.collectAsStateWithLifecycle()
     val glucose by viewModel.glucoseSummary.collectAsStateWithLifecycle()
     val mealRises by viewModel.mealRises.collectAsStateWithLifecycle()
+    val gmi by viewModel.gmi.collectAsStateWithLifecycle()
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -139,12 +141,14 @@ fun HealthContent(viewModel: HealthViewModel, contentPadding: PaddingValues, onO
         val rises = mealRises?.takeIf { it.first == period }?.second.orEmpty()
         if (data.isEmpty) {
             if (glucoseData != null) item(key = "glucose-$key") { GlucoseCard(glucoseData, chart, width) }
+            gmi?.let { item(key = "gmi") { GmiCard(it, width) } }
             if (rises.isNotEmpty()) item(key = "meal-glucose-$key") { MealGlucoseCard(rises, width) }
             item(key = "empty") { EmptyRange(width) }
             return@LazyColumn
         }
         item(key = "calories-$key") { CaloriesCard(data, chart, onOpenDay, width) }
         if (glucoseData != null) item(key = "glucose-$key") { GlucoseCard(glucoseData, chart, width) }
+        gmi?.let { item(key = "gmi") { GmiCard(it, width) } }
         if (rises.isNotEmpty()) item(key = "meal-glucose-$key") { MealGlucoseCard(rises, width) }
         item(key = "macros-$key") { MacroTrendCard(data, chart, width) }
         item(key = "split-$key") { MacroSplitCard(data, width) }
@@ -555,6 +559,39 @@ private fun GlucoseCard(data: GlucoseSummary, chart: ChartContext, modifier: Mod
                 }
             }
         }
+    }
+}
+
+/**
+ * Estimated A1c (GMI) from the last 90 days, always labelled as an estimate: finger-prick readings
+ * are taken at chosen times, so it can differ from a lab A1c.
+ */
+@Composable
+private fun GmiCard(gmi: Gmi, modifier: Modifier) {
+    ChartCard(title = stringResource(R.string.health_gmi_title), modifier = modifier) {
+        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+            Text(
+                String.format(java.util.Locale.US, "%.1f%%", gmi.percent),
+                style = MaterialTheme.typography.headlineSmall,
+                color = NeutrinoTheme.colors.glucose,
+            )
+            Text(
+                stringResource(R.string.health_gmi_ifcc, gmi.mmolPerMol),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 2.dp),
+            )
+        }
+        Text(
+            stringResource(R.string.health_gmi_detail, gmi.readings, gmi.days),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            stringResource(R.string.health_gmi_note),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

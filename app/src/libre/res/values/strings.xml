@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Wording for the libre (F-Droid) build, which has no Google Drive backup. -->
+<resources>
+    <string name="backup_drive_unavailable">Google Drive backup isn\'t part of this version of Neutrino. Your backup file protects your data; keep a copy somewhere safe.</string>
+</resources>

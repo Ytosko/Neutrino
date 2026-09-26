@@ -1,5 +1,7 @@
 package dev.ytosko.neutrino.ui.insights
 
+import dev.ytosko.neutrino.domain.insights.GmiCalculator
+import dev.ytosko.neutrino.domain.insights.Gmi
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.ytosko.neutrino.data.meal.MealRepository
@@ -83,6 +85,15 @@ class HealthViewModel(
                     GlucosePoint(at.toLocalDate(), it.mmolPerL, it.relationEnum, at.hour)
                 }
                 GlucoseInsights.summarize(period, points, low, high)
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** Estimated A1c from the last 90 days of readings, whatever period is shown; null until there's enough. */
+    val gmi: StateFlow<Gmi?> = _today
+        .flatMapLatest { day ->
+            glucose.observeBetween(day.minusDays(GmiCalculator.WINDOW_DAYS - 1), day, zone).map { readings ->
+                GmiCalculator.from(readings.map { Instant.ofEpochMilli(it.measuredAtEpochMs).atZone(zone).toLocalDate() to it.mmolPerL })
             }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)

@@ -495,7 +495,10 @@
     <string name="lock_body">Your meals and glucose readings are protected.</string>
     <string name="lock_unlock">Unlock</string>
     <string name="widget_name">Neutrino today</string>
-    <string name="widget_description">Today\'s carbs and calories, water, your latest glucose reading, and a camera button to log a meal.</string>
+    <string name="glucose_widget_name">Latest glucose</string>
+    <string name="glucose_widget_description">Your latest blood glucose reading, coloured by your target range.</string>
+    <string name="glucose_widget_none">No readings yet</string>
+    <string name="widget_description">Today\'s carbs, protein, fat and calories as rings toward your goals, water with one tap, your latest glucose reading, and a camera button to log a meal.</string>
     <string name="widget_of_goal">%1$s of %2$s</string>
     <string name="widget_totals">%1$s carbs · %2$s kcal</string>
     <string name="shortcut_log_meal">Log a meal</string>
@@ -589,6 +592,11 @@
     <string name="health_glucose_time_in_range">Time in range</string>
     <string name="health_glucose_target">Target %1$s–%2$s %3$s</string>
     <string name="health_glucose_by_meal">Average by meal</string>
+    <string name="health_gmi_title">Estimated A1c (GMI)</string>
+    <string name="health_gmi_ifcc">%1$d mmol/mol</string>
+    <string name="health_gmi_detail">From %1$d readings on %2$d days in the last 90 days.</string>
+    <string name="health_gmi_note">An estimate from your meter readings, not a lab result. Finger-prick readings are taken at certain times, so it can differ from your lab A1c.</string>
+    <string name="report_gmi_note">Estimated A1c (GMI) is calculated from the finger-prick readings in this report; it is not a lab A1c.</string>
     <string name="health_meal_glucose_title">Meals and glucose</string>
     <string name="health_meal_glucose_body">How much your glucose changed from before each meal to about 2 hours after, on average. Your own readings only.</string>
     <plurals name="health_meal_glucose_times">
