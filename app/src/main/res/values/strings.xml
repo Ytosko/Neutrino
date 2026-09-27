@@ -254,6 +254,8 @@
     <string name="voice_not_set_up">Set up a voice model and a Primary model in AI models first.</string>
     <string name="voice_mic_denied">Neutrino needs the microphone to hear you. You can allow it in the app\'s settings.</string>
     <string name="voice_medicine_unknown">%1$s isn\'t in your medicines.</string>
+    <string name="voice_medicine_off">The medicine log is off, so no medicine was logged. Turn it on in Settings to log medicines.</string>
+    <string name="voice_medicine_empty">Your medicine list is empty, so nothing was logged. Add your medicines in Settings.</string>
     <string name="voice_confirm_glucose">Please confirm your glucose reading.</string>
     <string name="voice_which_medicine">Which %1$s did you take?</string>
     <plurals name="ai_models_full">
@@ -270,7 +272,7 @@
     <string name="voice_needs_primary">Voice also needs a Primary model to understand what you say.</string>
     <string name="voice_speak_title">Speak replies</string>
     <string name="voice_speak_body">Neutrino answers out loud with your phone\'s own voice. Glucose values are never read out.</string>
-    <string name="voice_privacy_note">What you say goes to your voice model\'s provider to write it down, then to your Primary model to act on it. No recording is kept on your phone.</string>
+    <string name="voice_privacy_note">What you say goes to your voice model\'s provider to write it down, then to your Primary model to act on it, with your medicine list if you keep one. No recording is kept on your phone.</string>
     <string name="voice_model_helper">Only models that turn speech into text are listed. The suggested one handles Bangla and English well.</string>
     <string name="voice_edit_title">Voice model</string>
     <string name="voice_add_title">Voice model: %1$s</string>

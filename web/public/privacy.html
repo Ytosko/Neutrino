@@ -130,7 +130,7 @@
         <ul>
           <li><strong>Microphone:</strong> Neutrino asks for the microphone permission the first time you tap the mic, and listens only while you tap or hold it. It never listens in the background.</li>
           <li><strong>The recording</strong> is kept in memory only, sent once to your voice model's provider (Google, OpenAI or Groq) to write down what you said, and then discarded. It is never saved to your device's storage.</li>
-          <li><strong>The written-down words</strong> are sent to your Primary model (and its fallbacks, if it fails) to work out what to log. On a review page, the foods and amounts on that page go with it, so the assistant can change them. Your medicine list is <em>not</em> sent: the medicine you name is matched to your list on your device.</li>
+          <li><strong>The written-down words</strong> are sent to your Primary model (and its fallbacks, if it fails) to work out what to log. On a review page, the foods and amounts on that page go with it, so the assistant can change them. If you keep a medicine log, your medicine list (names, strengths and generic names) goes with it too, so the assistant picks exactly the medicine you mean; with the medicine log off, it is not sent.</li>
           <li><strong>Glucose and medicine:</strong> if you say a blood glucose value or a medicine, those words reach the providers above like everything else you say. A glucose reading is only saved after you confirm it on screen, and replies never read glucose values aloud.</li>
           <li><strong>Spoken replies</strong> use your phone's own text-to-speech engine, and no other service. You can turn them off; they're also shown as text when your phone is silent.</li>
         </ul>

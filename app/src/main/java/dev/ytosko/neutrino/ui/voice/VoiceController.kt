@@ -88,6 +88,8 @@ class VoiceController(
 
     private var job: Job? = null
     private var lastCommand: VoiceCommand? = null
+    /** The medicine list as numbered for the AI this turn; null when the medicine log is off. */
+    private var shownMedicines: List<MedicineEntity>? = null
 
     /** Starts listening; with [stopOnSilence] it also stops by itself when the user goes quiet. */
     fun start(stopOnSilence: Boolean = true) {
@@ -105,7 +107,10 @@ class VoiceController(
             try {
                 val text = assistant.transcribe(wav)
                 if (text.isBlank()) return@launch missed()
-                val command = assistant.understand(text, contextFor()) ?: return@launch missed()
+                val list = if (settings.settings.first().medicinesOn) medicines.activeMedicines() else null
+                shownMedicines = list
+                val context = contextFor().copy(medicines = list?.map(::medicineLine))
+                val command = assistant.understand(text, context) ?: return@launch missed()
                 act(command)
             } catch (e: AiException) {
                 _phase.value = VoicePhase.Failed(e)
@@ -168,19 +173,31 @@ class VoiceController(
         }
 
         if (command.medicines.isNotEmpty()) {
-            val list = medicines.activeMedicines()
-            val known = list.map { KnownMedicine(it.id, it.name, it.generic, it.strength) }
-            val choices = mutableListOf<MedicineChoice>()
-            command.medicines.forEach { spoken ->
-                val matches = MedicineMatcher.match(spoken, known).mapNotNull { m -> list.firstOrNull { it.id == m.id } }
-                when (matches.size) {
-                    0 -> notes += context.getString(R.string.voice_medicine_unknown, spoken.name)
-                    1 -> logDose(matches.first(), spoken)
-                    else -> choices += MedicineChoice(spoken, matches)
+            val list = shownMedicines
+            when {
+                list == null -> notes += context.getString(R.string.voice_medicine_off)
+                list.isEmpty() -> notes += context.getString(R.string.voice_medicine_empty)
+                else -> {
+                    val known = list.map { KnownMedicine(it.id, it.name, it.generic, it.strength) }
+                    val choices = mutableListOf<MedicineChoice>()
+                    command.medicines.forEach { spoken ->
+                        // The AI saw the list and names the line; if it couldn't tell, match here.
+                        val picked = list.getOrNull(spoken.listNumber - 1)
+                        val matches = if (picked != null) {
+                            listOf(picked)
+                        } else {
+                            MedicineMatcher.match(spoken, known).mapNotNull { m -> list.firstOrNull { it.id == m.id } }
+                        }
+                        when (matches.size) {
+                            0 -> notes += context.getString(R.string.voice_medicine_unknown, spoken.name)
+                            1 -> logDose(matches.first(), spoken)
+                            else -> choices += MedicineChoice(spoken, matches)
+                        }
+                    }
+                    _medicineChoices.value = choices
+                    _choice.value = choices.firstOrNull()
                 }
             }
-            _medicineChoices.value = choices
-            _choice.value = choices.firstOrNull()
         }
 
         if (command.hasMeal || (command.mealTime != null && contextFor().editing)) onMeal(command)
@@ -194,6 +211,13 @@ class VoiceController(
         _phase.value = VoicePhase.Idle
         replies.say((listOf(command.reply) + notes).filter { it.isNotBlank() }.joinToString(" "), speak)
         checkDone()
+    }
+
+    /** "Oramet SR 500 mg (Metformin Hydrochloride)", insulin marked as such. */
+    private fun medicineLine(m: MedicineEntity): String = buildString {
+        append(m.displayName)
+        m.generic?.takeIf { it.isNotBlank() && !it.equals(m.name, ignoreCase = true) }?.let { append(" (").append(it).append(')') }
+        if (m.kindEnum == dev.ytosko.neutrino.data.medicine.MedicineKind.Insulin) append(", insulin")
     }
 
     private suspend fun logDose(medicine: MedicineEntity, spoken: SpokenMedicine) {

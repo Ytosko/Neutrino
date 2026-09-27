@@ -232,6 +232,8 @@
     <string name="voice_not_set_up">আগে AI মডেলে একটি ভয়েস মডেল আর একটি প্রধান মডেল সেট করুন।</string>
     <string name="voice_mic_denied">আপনার কথা শুনতে Neutrino-র মাইক্রোফোন লাগবে। অ্যাপের সেটিংসে অনুমতি দিতে পারেন।</string>
     <string name="voice_medicine_unknown">%1$s আপনার ওষুধের তালিকায় নেই।</string>
+    <string name="voice_medicine_off">ওষুধের লগ বন্ধ আছে, তাই কোনো ওষুধ লগ হয়নি। ওষুধ লগ করতে সেটিংসে এটি চালু করুন।</string>
+    <string name="voice_medicine_empty">আপনার ওষুধের তালিকা খালি, তাই কিছু লগ হয়নি। সেটিংসে আপনার ওষুধগুলো যোগ করুন।</string>
     <string name="voice_confirm_glucose">আপনার গ্লুকোজ রিডিংটি নিশ্চিত করুন।</string>
     <string name="voice_which_medicine">কোন %1$s খেয়েছেন?</string>
     <plurals name="ai_models_full">
@@ -248,7 +250,7 @@
     <string name="voice_needs_primary">আপনার কথা বুঝতে ভয়েসের জন্য একটি প্রধান মডেলও লাগবে।</string>
     <string name="voice_speak_title">উত্তর শুনিয়ে দিন</string>
     <string name="voice_speak_body">Neutrino ফোনের নিজের কণ্ঠে উত্তর বলে। গ্লুকোজের মান কখনো জোরে বলা হয় না।</string>
-    <string name="voice_privacy_note">আপনি যা বলেন তা লিখে নিতে আপনার ভয়েস মডেলের প্রোভাইডারের কাছে যায়, তারপর কাজ করতে আপনার প্রধান মডেলের কাছে। কোনো রেকর্ডিং ফোনে রাখা হয় না।</string>
+    <string name="voice_privacy_note">আপনি যা বলেন তা লিখে নিতে আপনার ভয়েস মডেলের প্রোভাইডারের কাছে যায়, তারপর কাজ করতে আপনার প্রধান মডেলের কাছে, ওষুধের তালিকা রাখলে সেটিসহ। কোনো রেকর্ডিং ফোনে রাখা হয় না।</string>
     <string name="voice_model_helper">শুধু যে মডেলগুলো কথাকে লেখায় রূপ দেয় সেগুলো দেখানো হয়। প্রস্তাবিতটি বাংলা ও ইংরেজি ভালো বোঝে।</string>
     <string name="voice_edit_title">ভয়েস মডেল</string>
     <string name="voice_add_title">ভয়েস মডেল: %1$s</string>

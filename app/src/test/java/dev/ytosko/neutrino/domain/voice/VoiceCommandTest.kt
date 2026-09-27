@@ -1,6 +1,9 @@
 package dev.ytosko.neutrino.domain.voice
 
 import dev.ytosko.neutrino.data.ai.ModelCatalog
+import dev.ytosko.neutrino.data.ai.PromptHints
+import dev.ytosko.neutrino.data.voice.VoiceContext
+import dev.ytosko.neutrino.data.voice.VoicePrompt
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -97,5 +100,26 @@ class VoiceCommandTest {
         val groq = ModelCatalog.voiceFromGroq(listOf("qwen/qwen3.8-27b", "whisper-large-v3-turbo", "whisper-large-v3"))
         assertEquals("whisper-large-v3", groq.recommended)
         assertEquals("Whisper Large v3 Turbo", groq.models[1].displayName)
+    }
+
+    @Test
+    fun `the prompt numbers the medicine list and isn't indented`() {
+        val prompt = VoicePrompt.command(
+            "I took metformin 500",
+            VoiceContext(now, medicines = listOf("Oramet SR 500 mg (Metformin Hydrochloride)", "Napa 500 mg (Paracetamol)")),
+            PromptHints(),
+        )
+        assertTrue("1. Oramet SR 500 mg (Metformin Hydrochloride)" in prompt)
+        assertTrue("2. Napa 500 mg (Paracetamol)" in prompt)
+        assertTrue(prompt.lines().none { it.startsWith("            ") })
+        val off = VoicePrompt.command("I took metformin", VoiceContext(now), PromptHints())
+        assertTrue("doesn't keep a medicine log" in off)
+    }
+
+    @Test
+    fun `the medicine the AI picked from the list`() {
+        val reply = """{"reply": "Logged.", "items": [], "meal_time": "", "water_ml": 0, "glucose_value": 0, "glucose_unit": "",
+            "glucose_relation": "", "glucose_time": "", "medicines": [{"medicine": 2, "name": "metformin", "strength": "500", "amount": 1, "time": ""}]}"""
+        assertEquals(2, VoiceCommandParser.parse(reply, now, 0)!!.medicines.single().listNumber)
     }
 }

@@ -52,7 +52,8 @@ data class SpokenGlucose(val value: Double, val unit: String?, val relation: Spo
     }
 }
 
-data class SpokenMedicine(val name: String, val strength: String, val amount: Double, val time: LocalDateTime?)
+/** [listNumber]: the line of the user's medicine list the AI picked (1-based), 0 if none fits. */
+data class SpokenMedicine(val name: String, val strength: String, val amount: Double, val time: LocalDateTime?, val listNumber: Int = 0)
 
 /** Reads the AI's JSON reply. Lenient: bad or missing parts are dropped rather than failing. */
 object VoiceCommandParser {
@@ -109,7 +110,7 @@ object VoiceCommandParser {
         val medicines = (obj["medicines"] as? JsonArray).orEmpty().mapNotNull { element ->
             val m = element as? JsonObject ?: return@mapNotNull null
             val name = m.string("name")?.take(60)?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
-            SpokenMedicine(name, m.string("strength").orEmpty().take(20), m.number("amount"), time(m.string("time"), now))
+            SpokenMedicine(name, m.string("strength").orEmpty().take(20), m.number("amount"), time(m.string("time"), now), m.number("medicine").toInt())
         }
 
         return VoiceCommand(
