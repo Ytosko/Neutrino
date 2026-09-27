@@ -35,6 +35,12 @@ data class AppSettings(
     val onboardingComplete: Boolean = false,
     /** The AI models set up, in answering order for those in use (see [AiLineup]). Keys aren't here. */
     val aiConfigs: List<AiConfig> = emptyList(),
+    /** Talk to Neutrino: Log by voice and the review page's mic. Off until turned on. */
+    val voiceEnabled: Boolean = false,
+    /** The one speech-to-text model; its key is stored like the others'. */
+    val voiceConfig: AiConfig? = null,
+    /** Read the assistant's replies aloud (otherwise they show as text). */
+    val speakReplies: Boolean = true,
     /** Breakfast, lunch and dinner reminders (10 AM, 2 PM, 6 PM). */
     val remindersEnabled: Boolean = true,
     /** Neutrino already asked for notification permission once (Android 13+). */
@@ -86,6 +92,8 @@ data class AppSettings(
     val promptHints: PromptHints get() = PromptHints(cuisine, aiNotes.takeIf { it.isNotBlank() })
     /** A Primary model is set, so photos can be analysed. */
     val aiReady: Boolean get() = aiConfigs.any { it.inUse }
+    /** Voice can be used: turned on, a voice model set, and a Primary to understand what was said. */
+    val voiceReady: Boolean get() = voiceEnabled && voiceConfig != null && aiReady
 }
 
 /**
@@ -134,6 +142,9 @@ class SettingsRepository(context: Context, private val cipher: SecretCipher) {
         fun apiKey(provider: AiProvider) = stringPreferencesKey("ai_key_${provider.id}")
         val aiConfigs = stringPreferencesKey("ai_configs")
         fun configKey(id: String) = stringPreferencesKey("ai_cfg_key_$id")
+        val voiceEnabled = booleanPreferencesKey("voice_enabled")
+        val voiceConfig = stringPreferencesKey("voice_config")
+        val speakReplies = booleanPreferencesKey("voice_speak")
     }
 
     private val preferences: Flow<Preferences> = store.data.catch { e ->
@@ -144,6 +155,9 @@ class SettingsRepository(context: Context, private val cipher: SecretCipher) {
         AppSettings(
             onboardingComplete = p[Keys.onboardingComplete] ?: false,
             aiConfigs = decodeConfigs(p[Keys.aiConfigs]),
+            voiceEnabled = p[Keys.voiceEnabled] ?: false,
+            voiceConfig = decodeVoice(p[Keys.voiceConfig]),
+            speakReplies = p[Keys.speakReplies] ?: true,
             remindersEnabled = p[Keys.reminders] ?: true,
             notificationsAsked = p[Keys.notificationsAsked] ?: false,
             cuisine = p[Keys.cuisine],
@@ -186,6 +200,31 @@ class SettingsRepository(context: Context, private val cipher: SecretCipher) {
 
     private fun decodeConfigs(raw: String?): List<AiConfig> =
         raw?.let { runCatching { configJson.decodeFromString<List<AiConfig>>(it) }.getOrNull() }.orEmpty()
+
+    private fun decodeVoice(raw: String?): AiConfig? =
+        raw?.let { runCatching { configJson.decodeFromString<AiConfig>(it) }.getOrNull() }
+
+    suspend fun setVoiceEnabled(on: Boolean) = store.edit { it[Keys.voiceEnabled] = on }
+
+    suspend fun setSpeakReplies(on: Boolean) = store.edit { it[Keys.speakReplies] = on }
+
+    /** Sets the voice model (there is only one). [key] null keeps the stored key. */
+    suspend fun saveVoiceConfig(config: AiConfig, key: String?) {
+        val encrypted = key?.let { withContext(Dispatchers.IO) { cipher.encrypt(it) } }
+        store.edit { p ->
+            val old = decodeVoice(p[Keys.voiceConfig])
+            if (old != null && old.id != config.id) p.remove(Keys.configKey(old.id))
+            p[Keys.voiceConfig] = configJson.encodeToString(config.copy(keyTail = key?.let(::tailOf) ?: config.keyTail))
+            if (encrypted != null) p[Keys.configKey(config.id)] = encrypted
+        }
+    }
+
+    suspend fun deleteVoiceConfig() {
+        store.edit { p ->
+            decodeVoice(p[Keys.voiceConfig])?.let { p.remove(Keys.configKey(it.id)) }
+            p.remove(Keys.voiceConfig)
+        }
+    }
 
     /** The decrypted key of one model, only when making a call. */
     suspend fun aiKey(configId: String): String? {
@@ -257,6 +296,22 @@ class SettingsRepository(context: Context, private val cipher: SecretCipher) {
         }
     }
 
+    private suspend fun restoreVoice(snapshot: SettingsSnapshot) {
+        val voice = snapshot.voiceConfig
+        val encrypted = voice?.let { withContext(Dispatchers.IO) { cipher.encrypt(it.key) } }
+        store.edit { p ->
+            decodeVoice(p[Keys.voiceConfig])?.let { p.remove(Keys.configKey(it.id)) }
+            if (voice != null && encrypted != null) {
+                p[Keys.voiceConfig] = configJson.encodeToString(voice.config)
+                p[Keys.configKey(voice.config.id)] = encrypted
+            } else {
+                p.remove(Keys.voiceConfig)
+            }
+            p[Keys.voiceEnabled] = snapshot.voiceEnabled
+            p[Keys.speakReplies] = snapshot.speakReplies
+        }
+    }
+
     private fun tailOf(key: String) = key.takeLast(3)
 
     /** "gemini-3.8-flash" → "Gemini 3.8 Flash", "gpt-5-mini" → "GPT-5 Mini", for names made without the model list. */
@@ -270,6 +325,9 @@ class SettingsRepository(context: Context, private val cipher: SecretCipher) {
         val p = preferences.first()
         return SettingsSnapshot(
             aiConfigs = decodeConfigs(p[Keys.aiConfigs]).mapNotNull { config -> aiKey(config.id)?.let { AiConfigBackup(config, it) } },
+            voiceConfig = decodeVoice(p[Keys.voiceConfig])?.let { config -> aiKey(config.id)?.let { AiConfigBackup(config, it) } },
+            voiceEnabled = p[Keys.voiceEnabled] ?: false,
+            speakReplies = p[Keys.speakReplies] ?: true,
         )
     }
 
@@ -278,6 +336,7 @@ class SettingsRepository(context: Context, private val cipher: SecretCipher) {
      * onboarding. Backups from before several models carry one key per provider; those are migrated.
      */
     suspend fun restore(snapshot: SettingsSnapshot) {
+        restoreVoice(snapshot)
         val current = decodeConfigs(preferences.first()[Keys.aiConfigs])
         if (snapshot.aiConfigs.isNotEmpty()) {
             val encrypted = withContext(Dispatchers.IO) { snapshot.aiConfigs.associate { it.config.id to cipher.encrypt(it.key) } }

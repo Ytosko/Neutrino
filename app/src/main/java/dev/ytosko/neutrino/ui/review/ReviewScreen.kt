@@ -1,5 +1,9 @@
 package dev.ytosko.neutrino.ui.review
 
+import androidx.compose.foundation.layout.navigationBarsPadding
+import dev.ytosko.neutrino.appContainer
+import dev.ytosko.neutrino.ui.voice.VoiceDialogs
+import dev.ytosko.neutrino.ui.voice.ReviewVoiceMic
 import dev.ytosko.neutrino.ui.glucose.FoodRiseLine
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -159,8 +163,14 @@ fun ReviewScreen(
         searchTarget = target
     }
 
+    val voice = viewModel.voice
+    val appSettings by LocalContext.current.appContainer.settings.settings.collectAsStateWithLifecycle(initialValue = null)
+    val showMic = voice != null && appSettings?.voiceReady == true && (phase == ReviewPhase.Ready || phase == ReviewPhase.Saving)
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
+        floatingActionButton = {
+            if (showMic && voice != null) ReviewVoiceMic(voice, Modifier.navigationBarsPadding())
+        },
         topBar = {
             ReviewHeader(
                 state = state,
@@ -177,7 +187,8 @@ fun ReviewScreen(
                 start = Spacing.md,
                 end = Spacing.md,
                 top = padding.calculateTopPadding(),
-                bottom = padding.calculateBottomPadding() + Spacing.lg,
+                // Room under the last line so the mic never covers it.
+                bottom = padding.calculateBottomPadding() + Spacing.lg + if (showMic) 88.dp else 0.dp,
             ),
             verticalArrangement = Arrangement.spacedBy(Spacing.xs),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -219,7 +230,7 @@ fun ReviewScreen(
                     }
                 }
                 items(state.items, key = { it.key }) { item ->
-                    ItemCard(item = item, onClick = { editingKey = item.key }, modifier = width)
+                    ItemCard(item = item, highlighted = item.key in state.highlighted, onClick = { editingKey = item.key }, modifier = width)
                 }
             }
 
@@ -263,6 +274,10 @@ fun ReviewScreen(
                 onDismiss = { editingKey = null },
             )
         }
+    }
+
+    if (voice != null) {
+        VoiceDialogs(voice, (appSettings?.glucoseLow ?: 4.0)..(appSettings?.glucoseHigh ?: 10.0))
     }
 
     if (showMealDetails) {
@@ -495,15 +510,21 @@ private fun FailureBanner(reason: FailureReason, onRetry: () -> Unit, onManual: 
 
 /** A food in the meal. Tap to change the amount, swap the food or remove it. */
 @Composable
-private fun ItemCard(item: ReviewItem, onClick: () -> Unit, modifier: Modifier) {
+private fun ItemCard(item: ReviewItem, highlighted: Boolean, onClick: () -> Unit, modifier: Modifier) {
     val colors = NeutrinoTheme.colors
     val n = item.nutrition
     val invalid = item.grams == null
+    // A line just changed by voice glows briefly, so the user sees where the change went.
+    val container by androidx.compose.animation.animateColorAsState(
+        if (highlighted) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerLowest,
+        animationSpec = androidx.compose.animation.core.tween(if (highlighted) 250 else 900),
+        label = "highlight",
+    )
     Card(
         onClick = onClick,
         modifier = modifier,
         shape = MaterialTheme.shapes.medium,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
+        colors = CardDefaults.cardColors(containerColor = container),
         border = BorderStroke(1.dp, if (invalid) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outlineVariant),
     ) {
         Row(

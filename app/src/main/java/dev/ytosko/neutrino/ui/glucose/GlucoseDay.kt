@@ -283,6 +283,9 @@ fun GlucoseEditDialog(
     newReadingTime: Instant = Instant.now(),
     /** That day's meals, to link the reading to one. */
     meals: List<MealOption> = emptyList(),
+    /** A new reading's value and meal relation when they're already known (said by voice). */
+    initialMmol: Double? = null,
+    initialRelation: GlucoseRelation? = null,
     onSave: (mmolPerL: Double?, GlucoseRelation, Instant, MealLinkChoice) -> Unit,
     onDelete: () -> Unit,
     onDismiss: () -> Unit,
@@ -292,7 +295,7 @@ fun GlucoseEditDialog(
     val zone = remember { ZoneId.systemDefault() }
     val key = reading?.id ?: "new"
     val original = remember(key) { Instant.ofEpochMilli(reading?.measuredAtEpochMs ?: newReadingTime.toEpochMilli()).atZone(zone) }
-    val originalRelation = reading?.relationEnum ?: GlucoseRelation.General
+    val originalRelation = reading?.relationEnum ?: initialRelation ?: GlucoseRelation.General
     var relation by remember(key) { mutableStateOf(originalRelation) }
     val originalLink = reading?.mealLink ?: MealLinkChoice.Auto
     var link by remember(key) { mutableStateOf(originalLink) }
@@ -302,7 +305,7 @@ fun GlucoseEditDialog(
     var pickDate by remember { mutableStateOf(false) }
     var pickTime by remember { mutableStateOf(false) }
     val valueEditable = reading == null || reading.isManual
-    var valueText by remember(key) { mutableStateOf(reading?.takeIf { it.isManual }?.let { unit.format(it.mmolPerL) } ?: "") }
+    var valueText by remember(key) { mutableStateOf(reading?.takeIf { it.isManual }?.let { unit.format(it.mmolPerL) } ?: initialMmol?.let(unit::format) ?: "") }
     // Typed in the user's unit; meters measure roughly 0.6–33.3 mmol/L (10–600 mg/dL).
     val typedMmol = valueText.replace(',', '.').toDoubleOrNull()?.let(unit::toMmol)?.takeIf { it in 0.6..33.3 }
     val valueError = valueEditable && valueText.isNotBlank() && typedMmol == null

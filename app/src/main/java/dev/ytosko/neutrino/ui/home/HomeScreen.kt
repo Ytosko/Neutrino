@@ -209,6 +209,8 @@ fun HomeScreen(
     onOpenBackup: () -> Unit,
     onPhotoSelected: (uri: Uri, fromCamera: Boolean) -> Unit,
     onAddManually: () -> Unit,
+    /** Opens Log by voice (only offered when voice is turned on). */
+    onLogByVoice: () -> Unit,
     onOpenMeal: (id: String) -> Unit,
     onOpenGlucoseDay: (LocalDate) -> Unit,
     onOpenHealthConnect: () -> Unit,
@@ -233,6 +235,7 @@ fun HomeScreen(
     val medicineList by viewModel.medicineList.collectAsStateWithLifecycle()
     val homeSettings by viewModel.appSettings.collectAsStateWithLifecycle()
     val medicinesOn = homeSettings?.medicinesOn == true
+    val voiceOn = homeSettings?.voiceEnabled == true
     val glucoseVisible by viewModel.glucoseVisible.collectAsStateWithLifecycle()
     val glucoseRange by viewModel.glucoseRange.collectAsStateWithLifecycle()
     val mealGlucose by viewModel.mealGlucose.collectAsStateWithLifecycle()
@@ -677,22 +680,40 @@ fun HomeScreen(
                         withAi { gallery.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
                     }
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    SheetTile(R.drawable.ic_search, stringResource(R.string.home_add_manually), NeutrinoTheme.colors.amber, Modifier.weight(1f)) {
-                        showSheet = false
-                        onAddManually()
+                // In order, two to a row: manual, voice (if on), glucose, dose (if on).
+                val tiles = buildList<@Composable (Modifier) -> Unit> {
+                    add { m ->
+                        SheetTile(R.drawable.ic_search, stringResource(R.string.home_add_manually), NeutrinoTheme.colors.amber, m) {
+                            showSheet = false
+                            onAddManually()
+                        }
                     }
-                    SheetTile(R.drawable.ic_activity, stringResource(R.string.home_add_glucose), NeutrinoTheme.colors.rose, Modifier.weight(1f)) {
-                        showSheet = false
-                        addingGlucose = true
+                    if (voiceOn) {
+                        add { m ->
+                            SheetTile(R.drawable.ic_mic, stringResource(R.string.voice_log_title), NeutrinoTheme.colors.teal, m) {
+                                showSheet = false
+                                onLogByVoice()
+                            }
+                        }
+                    }
+                    add { m ->
+                        SheetTile(R.drawable.ic_activity, stringResource(R.string.home_add_glucose), NeutrinoTheme.colors.rose, m) {
+                            showSheet = false
+                            addingGlucose = true
+                        }
+                    }
+                    if (medicinesOn) {
+                        add { m ->
+                            SheetTile(R.drawable.ic_pill, stringResource(R.string.home_log_dose), NeutrinoTheme.colors.violet, m) {
+                                showSheet = false
+                                addingDose = true
+                            }
+                        }
                     }
                 }
-                if (medicinesOn) {
+                tiles.chunked(2).forEach { row ->
                     Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                        SheetTile(R.drawable.ic_pill, stringResource(R.string.home_log_dose), NeutrinoTheme.colors.violet, Modifier.weight(1f)) {
-                            showSheet = false
-                            addingDose = true
-                        }
+                        row.forEach { tile -> tile(Modifier.weight(1f)) }
                     }
                 }
             }

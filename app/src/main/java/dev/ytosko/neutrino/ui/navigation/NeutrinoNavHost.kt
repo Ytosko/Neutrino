@@ -1,5 +1,12 @@
 package dev.ytosko.neutrino.ui.navigation
 
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import dev.ytosko.neutrino.ui.voice.voiceController
+import dev.ytosko.neutrino.ui.voice.VoiceDialogs
+import dev.ytosko.neutrino.ui.voice.LogByVoiceSheet
+import dev.ytosko.neutrino.ui.voice.VoiceLogViewModel
 import dev.ytosko.neutrino.ui.ai.AiModelsViewModel
 import dev.ytosko.neutrino.ui.ai.AiModelsScreen
 import dev.ytosko.neutrino.ui.medicine.MedicinesViewModel
@@ -82,6 +89,8 @@ sealed interface Route {
         val fromCamera: Boolean = false,
         val logEpochDay: Long? = null,
         val editMealId: String? = null,
+        /** Opens the meal just said with Log by voice. */
+        val fromVoice: Boolean = false,
     ) : Route
     @Serializable data object SetupBackup : Route
     @Serializable data object SettingsBackup : Route
@@ -97,7 +106,7 @@ sealed interface Route {
     @Serializable data object RestoreHealth : Route
     @Serializable data object Medicines : Route
     /** One AI model's setup: an existing one ([configId]) or a new one of [provider]. */
-    @Serializable data class AiConfigEdit(val configId: String? = null, val provider: String? = null) : Route
+    @Serializable data class AiConfigEdit(val configId: String? = null, val provider: String? = null, val voice: Boolean = false) : Route
 }
 
 private const val KEY_SAVED_RESULT = "meal_saved_synced"
@@ -171,6 +180,17 @@ fun NeutrinoNavHost(startDestination: Route, modifier: Modifier = Modifier) {
             val savedResult by entry.savedStateHandle.getStateFlow<Boolean?>(KEY_SAVED_RESULT, null).collectAsStateWithLifecycle()
             val backup by container.backups.state.collectAsStateWithLifecycle(initialValue = null)
             val healthViewModel: HealthViewModel = viewModel { HealthViewModel(container.meals, container.glucose, container.settings, container.medicines) }
+            val context = LocalContext.current
+            val voiceViewModel: VoiceLogViewModel = viewModel { VoiceLogViewModel(container, context) }
+            val appSettings by container.settings.settings.collectAsStateWithLifecycle(initialValue = null)
+            var voiceOpen by rememberSaveable { mutableStateOf(false) }
+            val voiceDone by voiceViewModel.controller.finished.collectAsStateWithLifecycle()
+            LaunchedEffect(voiceDone) {
+                val command = voiceDone ?: return@LaunchedEffect
+                voiceViewModel.controller.consumeFinished()
+                voiceOpen = false
+                if (command.hasMeal) navController.navigate(Route.Review(logEpochDay = homeViewModel.pastDayEpoch(), fromVoice = true))
+            }
             HomeScreen(
                 viewModel = homeViewModel,
                 healthViewModel = healthViewModel,
@@ -182,6 +202,8 @@ fun NeutrinoNavHost(startDestination: Route, modifier: Modifier = Modifier) {
                     navController.navigate(Route.Review(uri.toString(), fromCamera, homeViewModel.pastDayEpoch()))
                 },
                 onAddManually = { navController.navigate(Route.Review(logEpochDay = homeViewModel.pastDayEpoch())) },
+                // Voice is on but not ready (no voice model, or no Primary): finish setting it up first.
+                onLogByVoice = { if (appSettings?.voiceReady == true) voiceOpen = true else navController.navigate(Route.SettingsAi) },
                 onOpenMeal = { id -> navController.navigate(Route.Review(editMealId = id)) },
                 onOpenGlucoseDay = { date -> navController.navigate(Route.GlucoseDay(date.toEpochDay())) },
                 onOpenHealthConnect = { navController.navigate(Route.SettingsHealth) },
@@ -189,6 +211,8 @@ fun NeutrinoNavHost(startDestination: Route, modifier: Modifier = Modifier) {
                 savedResult = savedResult,
                 onSavedResultShown = { entry.savedStateHandle[KEY_SAVED_RESULT] = null },
             )
+            if (voiceOpen) LogByVoiceSheet(voiceViewModel.controller, onDismiss = { voiceOpen = false })
+            VoiceDialogs(voiceViewModel.controller, (appSettings?.glucoseLow ?: 4.0)..(appSettings?.glucoseHigh ?: 10.0))
         }
         composable<Route.Review> { entry ->
             val route = entry.toRoute<Route.Review>()
@@ -207,6 +231,8 @@ fun NeutrinoNavHost(startDestination: Route, modifier: Modifier = Modifier) {
                     onPhotoConsumed = { if (route.fromCamera && uri != null) runCatching { context.contentResolver.delete(uri, null, null) } },
                     logDate = route.logEpochDay?.let(java.time.LocalDate::ofEpochDay),
                     editMealId = route.editMealId,
+                    voiceMeal = if (route.fromVoice) container.voiceMeal.also { container.voiceMeal = null } else null,
+                    voiceFactory = { scope, contextFor, onMeal -> container.voiceController(scope, context, contextFor, onMeal) },
                 )
             }
             ReviewScreen(
@@ -324,6 +350,8 @@ fun NeutrinoNavHost(startDestination: Route, modifier: Modifier = Modifier) {
                 onBack = navController::popBackStack,
                 onAdd = { provider -> navController.navigate(Route.AiConfigEdit(provider = provider.id)) },
                 onOpen = { id -> navController.navigate(Route.AiConfigEdit(configId = id)) },
+                onAddVoice = { provider -> navController.navigate(Route.AiConfigEdit(provider = provider.id, voice = true)) },
+                onOpenVoice = { navController.navigate(Route.AiConfigEdit(voice = true)) },
             )
         }
         composable<Route.AiConfigEdit> { entry ->
@@ -333,6 +361,7 @@ fun NeutrinoNavHost(startDestination: Route, modifier: Modifier = Modifier) {
                 onboarding = false,
                 configId = route.configId,
                 provider = dev.ytosko.neutrino.data.ai.AiProvider.fromId(route.provider),
+                voice = route.voice,
                 onSaved = navController::popBackStack,
             )
         }
@@ -377,10 +406,18 @@ private fun AiScreen(
     onSaved: () -> Unit,
     configId: String? = null,
     provider: dev.ytosko.neutrino.data.ai.AiProvider? = null,
+    voice: Boolean = false,
 ) {
     val container = LocalContext.current.appContainer
     val viewModel: AiSetupViewModel = viewModel {
-        AiSetupViewModel(settings = container.settings, clients = container.aiClients, configId = configId, provider = provider)
+        AiSetupViewModel(
+            settings = container.settings,
+            clients = container.aiClients,
+            configId = configId,
+            provider = provider,
+            voice = voice,
+            speech = container.speechClients,
+        )
     }
     val state by viewModel.state.collectAsStateWithLifecycle()
     LaunchedEffect(viewModel) { viewModel.saved.collect { onSaved() } }
@@ -388,6 +425,8 @@ private fun AiScreen(
     SetupScaffold(
         title = when {
             onboarding -> stringResource(R.string.ai_title)
+            voice && provider == null -> stringResource(R.string.voice_edit_title)
+            voice -> stringResource(R.string.voice_add_title, state.provider.displayName)
             configId != null -> stringResource(R.string.ai_config_edit_title)
             else -> stringResource(R.string.ai_config_add_title, state.provider.displayName)
         },
@@ -424,6 +463,7 @@ private fun AiScreen(
                 onCheckKey = viewModel::checkKey,
                 onModelChange = viewModel::selectModel,
                 onPhotoDetailChange = viewModel::selectPhotoDetail,
+                voice = voice,
             )
         }
     }

@@ -37,6 +37,17 @@ import java.time.LocalTime
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import kotlin.math.roundToInt
+import dev.ytosko.neutrino.data.voice.VoiceContext
+import dev.ytosko.neutrino.data.voice.VoiceMeal
+import dev.ytosko.neutrino.domain.ScannedItem
+import dev.ytosko.neutrino.domain.voice.ItemChange
+import dev.ytosko.neutrino.domain.voice.VoiceCommand
+import dev.ytosko.neutrino.ui.voice.VoiceController
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
+import java.time.LocalDateTime
+
+private const val HIGHLIGHT_MS = 1_600L
 
 sealed interface ReviewPhase {
     data object Preparing : ReviewPhase
@@ -86,6 +97,8 @@ data class ReviewUiState(
     val editing: Boolean = false,
     /** The user changed something since the screen opened (or the meal was loaded). */
     val changed: Boolean = false,
+    /** Lines a voice request just changed, lit up for a moment. */
+    val highlighted: Set<Long> = emptySet(),
 ) {
     val nutrition: Nutrition get() = items.fold(Nutrition.ZERO) { acc, item -> acc + item.nutrition }
 
@@ -120,6 +133,10 @@ class ReviewViewModel(
     logDate: LocalDate? = null,
     /** Opens a saved meal for editing. */
     private val editMealId: String? = null,
+    /** A meal said with Log by voice, to open with its foods and time. */
+    voiceMeal: VoiceMeal? = null,
+    /** Builds the page's voice assistant when voice is on; null hides the mic. */
+    voiceFactory: ((CoroutineScope, () -> VoiceContext, suspend (VoiceCommand) -> Unit) -> VoiceController)? = null,
 ) : ViewModel() {
 
     private val pastDay: LocalDate? = logDate?.takeIf { it != LocalDate.now(zone) }
@@ -142,6 +159,9 @@ class ReviewViewModel(
     private var job: Job? = null
     private var nextKey = 0L
 
+    /** The mic on this page; null when voice isn't set up. */
+    val voice: VoiceController? = voiceFactory?.invoke(viewModelScope, ::voiceContext, ::applyVoice)
+
     init {
         // Use the user's meal times once settings load (the default guess shows until then).
         viewModelScope.launch {
@@ -153,7 +173,83 @@ class ReviewViewModel(
         when {
             editMealId != null -> loadForEditing(editMealId)
             photoUri != null -> analyze()
+            voiceMeal != null -> openVoiceMeal(voiceMeal)
         }
+    }
+
+    /** Fills a new meal from Log by voice: its foods, and the time the user said. */
+    private fun openVoiceMeal(meal: VoiceMeal) {
+        viewModelScope.launch {
+            val items = meal.items.take(MAX_ITEMS).map { ScanFoods.resolve(it, foods.findByName(it.name)) }.map { newItem(it.food, it.portion) }
+            val at = meal.eatenAt?.atZone(zone) ?: now
+            _state.update {
+                it.copy(
+                    items = items,
+                    name = autoName(items),
+                    eatenAt = at,
+                    mealType = if (it.mealTypeChosenByUser) it.mealType else mealWindows.mealAt(at.toLocalTime()),
+                )
+            }
+        }
+    }
+
+    /** What the assistant sees: the meal's lines as on screen, and its time. */
+    private fun voiceContext(): VoiceContext {
+        val snapshot = _state.value
+        val lines = snapshot.items.map { item ->
+            val grams = item.grams?.let { " (${it.roundToInt()} g)" }.orEmpty()
+            "${item.food.name}: ${item.quantityText.ifBlank { "?" }} ${item.unit.key}$grams"
+        }
+        return VoiceContext(now = LocalDateTime.now(zone), mealLines = lines, mealTime = snapshot.eatenAt.toLocalDateTime())
+    }
+
+    /** Applies what the user asked for by voice: new foods, changed amounts, removed lines, a new time. */
+    private suspend fun applyVoice(command: VoiceCommand) {
+        val before = _state.value.items
+        val changed = mutableSetOf<Long>()
+        val removed = mutableSetOf<Long>()
+        var items = before
+        command.items.forEach { change ->
+            when (change) {
+                is ItemChange.Add -> {
+                    val resolved = ScanFoods.resolve(change.item, foods.findByName(change.item.name))
+                    val line = newItem(resolved.food, resolved.portion)
+                    items = items + line
+                    changed += line.key
+                }
+                is ItemChange.Set -> {
+                    val target = before.getOrNull(change.index) ?: return@forEach
+                    val updated = withAmount(target, change.item) ?: return@forEach
+                    items = items.map { if (it.key == target.key) updated else it }
+                    changed += target.key
+                }
+                is ItemChange.Remove -> before.getOrNull(change.index)?.let { removed += it.key }
+            }
+        }
+        if (changed.isNotEmpty() || removed.isNotEmpty()) updateItems { items.filterNot { it.key in removed }.take(MAX_ITEMS) }
+        command.mealTime?.let { time ->
+            val at = time.atZone(zone)
+            _state.update {
+                it.copy(eatenAt = at, mealType = if (it.mealTypeChosenByUser) it.mealType else mealWindows.mealAt(at.toLocalTime()), changed = true)
+            }
+        }
+        if (changed.isNotEmpty()) {
+            _state.update { it.copy(highlighted = changed) }
+            delay(HIGHLIGHT_MS)
+            _state.update { it.copy(highlighted = emptySet()) }
+        }
+    }
+
+    /** The line with the amount the user said, in their unit when the food has it, else in grams. */
+    private fun withAmount(item: ReviewItem, said: ScannedItem): ReviewItem? {
+        val unit = FoodUnit.fromKey(said.unit)
+        if (unit != null && item.food.grams(said.quantity, unit) != null) {
+            return item.copy(quantityText = formatQuantity(roundForUnit(said.quantity, unit)), unit = unit)
+        }
+        if (said.grams > 0 && item.food.grams(said.grams, FoodUnit.Gram) != null) {
+            return item.copy(quantityText = formatQuantity(said.grams.roundToInt().toDouble()), unit = FoodUnit.Gram)
+        }
+        return null
     }
 
     /** Fills the screen from a saved meal. Foods come from the directory, else are rebuilt from the saved line. */

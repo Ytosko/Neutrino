@@ -1,5 +1,12 @@
 package dev.ytosko.neutrino.ui.ai
 
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.material3.Switch
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.ui.platform.LocalContext
+import android.widget.Toast
 import androidx.compose.runtime.key
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -90,6 +97,18 @@ class AiModelsViewModel(private val settings: SettingsRepository) : ViewModel() 
         viewModelScope.launch { settings.deleteAiConfig(id) }
     }
 
+    fun setVoiceEnabled(on: Boolean) {
+        viewModelScope.launch { settings.setVoiceEnabled(on) }
+    }
+
+    fun setSpeakReplies(on: Boolean) {
+        viewModelScope.launch { settings.setSpeakReplies(on) }
+    }
+
+    fun deleteVoice() {
+        viewModelScope.launch { settings.deleteVoiceConfig() }
+    }
+
     fun setCuisine(cuisine: String?) {
         viewModelScope.launch { settings.setCuisine(cuisine) }
     }
@@ -114,10 +133,18 @@ fun AiModelsScreen(
     onBack: () -> Unit,
     onAdd: (AiProvider) -> Unit,
     onOpen: (configId: String) -> Unit,
+    /** Sets up the voice model with this provider (there's only one voice model). */
+    onAddVoice: (AiProvider) -> Unit,
+    onOpenVoice: () -> Unit,
 ) {
     val appSettings by viewModel.appSettings.collectAsStateWithLifecycle()
     val configs = appSettings?.aiConfigs.orEmpty()
+    val context = LocalContext.current
+    val full = configs.size >= AiLineup.MAX_MODELS
+    val fullMessage = pluralStringResource(R.plurals.ai_models_full, AiLineup.MAX_MODELS, AiLineup.MAX_MODELS)
     var picking by remember { mutableStateOf(false) }
+    var pickingVoice by remember { mutableStateOf(false) }
+    var deletingVoice by remember { mutableStateOf(false) }
     var lifted by remember { mutableStateOf<Pair<AiConfig, Rect>?>(null) }
     var deleting by remember { mutableStateOf<AiConfig?>(null) }
 
@@ -126,7 +153,7 @@ fun AiModelsScreen(
         subtitle = stringResource(R.string.ai_models_body),
         onBack = onBack,
         actions = {
-            IconButton(onClick = { picking = true }) {
+            IconButton(onClick = { if (full) Toast.makeText(context, fullMessage, Toast.LENGTH_LONG).show() else picking = true }) {
                 Icon(painterResource(R.drawable.ic_plus), contentDescription = stringResource(R.string.ai_models_add))
             }
         },
@@ -165,12 +192,21 @@ fun AiModelsScreen(
                 onMove = viewModel::move,
             )
             Text(
-                stringResource(R.string.ai_models_hint),
+                if (full) fullMessage else stringResource(R.string.ai_models_hint),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = Spacing.sm),
             )
         }
+        VoiceSection(
+            settings = appSettings!!,
+            onEnabledChange = viewModel::setVoiceEnabled,
+            onSpeakChange = viewModel::setSpeakReplies,
+            onConfigure = { pickingVoice = true },
+            onOpen = onOpenVoice,
+            onDelete = { deletingVoice = true },
+            modifier = Modifier.padding(top = Spacing.lg),
+        )
         AiPreferences(
             cuisine = appSettings?.cuisine,
             notes = appSettings?.aiNotes.orEmpty(),
@@ -182,11 +218,39 @@ fun AiModelsScreen(
 
     if (picking) {
         ProviderPickerSheet(
+            voice = false,
             onPick = { provider ->
                 picking = false
                 onAdd(provider)
             },
             onDismiss = { picking = false },
+        )
+    }
+
+    if (pickingVoice) {
+        ProviderPickerSheet(
+            voice = true,
+            onPick = { provider ->
+                pickingVoice = false
+                onAddVoice(provider)
+            },
+            onDismiss = { pickingVoice = false },
+        )
+    }
+
+    if (deletingVoice) {
+        val name = appSettings?.voiceConfig?.name.orEmpty()
+        IosAlert(
+            title = stringResource(R.string.ai_delete_title, name),
+            message = stringResource(R.string.ai_delete_body),
+            buttons = listOf(
+                AlertButton(stringResource(R.string.home_cancel), AlertStyle.Cancel) { deletingVoice = false },
+                AlertButton(stringResource(R.string.ai_delete), AlertStyle.Destructive) {
+                    viewModel.deleteVoice()
+                    deletingVoice = false
+                },
+            ),
+            onDismiss = { deletingVoice = false },
         )
     }
 
@@ -386,7 +450,7 @@ private fun RoleBadge(role: AiRole) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ProviderPickerSheet(onPick: (AiProvider) -> Unit, onDismiss: () -> Unit) {
+private fun ProviderPickerSheet(voice: Boolean, onPick: (AiProvider) -> Unit, onDismiss: () -> Unit) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
@@ -396,7 +460,7 @@ private fun ProviderPickerSheet(onPick: (AiProvider) -> Unit, onDismiss: () -> U
             modifier = Modifier.navigationBarsPadding().padding(start = Spacing.lg, end = Spacing.lg, bottom = Spacing.lg),
             verticalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
-            Text(stringResource(R.string.ai_pick_provider), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(bottom = Spacing.xs))
+            Text(stringResource(if (voice) R.string.voice_pick_provider else R.string.ai_pick_provider), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(bottom = Spacing.xs))
             AiProvider.entries.forEach { provider ->
                 Card(
                     shape = MaterialTheme.shapes.large,
@@ -414,9 +478,9 @@ private fun ProviderPickerSheet(onPick: (AiProvider) -> Unit, onDismiss: () -> U
                             Text(
                                 stringResource(
                                     when (provider) {
-                                        AiProvider.Gemini -> R.string.ai_provider_gemini_note
-                                        AiProvider.OpenAi -> R.string.ai_provider_openai_note
-                                        AiProvider.Groq -> R.string.ai_provider_groq_note
+                                        AiProvider.Gemini -> if (voice) R.string.voice_provider_gemini_note else R.string.ai_provider_gemini_note
+                                        AiProvider.OpenAi -> if (voice) R.string.voice_provider_openai_note else R.string.ai_provider_openai_note
+                                        AiProvider.Groq -> if (voice) R.string.voice_provider_groq_note else R.string.ai_provider_groq_note
                                     },
                                 ),
                                 style = MaterialTheme.typography.bodySmall,
@@ -432,3 +496,103 @@ private fun ProviderPickerSheet(onPick: (AiProvider) -> Unit, onDismiss: () -> U
 }
 
 private val ROW_HEIGHT = 72.dp
+
+/**
+ * Voice: off by default. On, it offers one voice model (speech to text), whether replies are read
+ * aloud, and says plainly where the words go.
+ */
+@Composable
+private fun VoiceSection(
+    settings: AppSettings,
+    onEnabledChange: (Boolean) -> Unit,
+    onSpeakChange: (Boolean) -> Unit,
+    onConfigure: () -> Unit,
+    onOpen: () -> Unit,
+    onDelete: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(bottom = Spacing.xs))
+        SwitchLine(
+            title = stringResource(R.string.voice_switch_title),
+            body = stringResource(R.string.voice_switch_body),
+            checked = settings.voiceEnabled,
+            onChange = onEnabledChange,
+        )
+        if (!settings.voiceEnabled) return@Column
+        val voice = settings.voiceConfig
+        if (voice == null) {
+            OutlinedButton(onClick = onConfigure, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                Icon(painterResource(R.drawable.ic_mic), contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.size(Spacing.xs))
+                Text(stringResource(R.string.voice_configure))
+            }
+        } else {
+            val provider = voice.providerEnum ?: AiProvider.Gemini
+            Card(
+                shape = MaterialTheme.shapes.large,
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
+                elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(ROW_HEIGHT)
+                        .clickable(role = Role.Button, onClick = onOpen)
+                        .padding(start = Spacing.md),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+                ) {
+                    ProviderLogo(provider, size = 40.dp)
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(voice.name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(
+                            "${provider.displayName} · ${voice.model}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    IconButton(onClick = onDelete) {
+                        Icon(painterResource(R.drawable.ic_trash), contentDescription = stringResource(R.string.ai_delete), tint = MaterialTheme.colorScheme.outline)
+                    }
+                }
+            }
+        }
+        if (!settings.aiReady) {
+            Text(stringResource(R.string.voice_needs_primary), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+        }
+        SwitchLine(
+            title = stringResource(R.string.voice_speak_title),
+            body = stringResource(R.string.voice_speak_body),
+            checked = settings.speakReplies,
+            onChange = onSpeakChange,
+        )
+        Text(
+            stringResource(R.string.voice_privacy_note),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun SwitchLine(title: String, body: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(MaterialTheme.shapes.medium)
+            .toggleable(value = checked, role = Role.Switch, onValueChange = onChange)
+            .padding(vertical = Spacing.xs),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.titleSmall)
+            Text(body, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Switch(checked = checked, onCheckedChange = null)
+    }
+}

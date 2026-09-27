@@ -238,6 +238,42 @@
         <item quantity="other">%1$d models</item>
     </plurals>
     <string name="settings_ai_no_primary">No Primary model set</string>
+    <!-- Voice -->
+    <string name="voice_log_title">Log by voice</string>
+    <string name="voice_start">Start listening</string>
+    <string name="voice_stop">Stop listening</string>
+    <string name="voice_listening">Listening…</string>
+    <string name="voice_listening_hint">Tap to stop, or hold the mic while you talk.</string>
+    <string name="voice_thinking">Thinking…</string>
+    <string name="voice_missed">Sorry, I didn\'t catch that.</string>
+    <string name="voice_missed_title">Didn\'t catch that</string>
+    <string name="voice_try_again_hint">Tap the mic and try again.</string>
+    <string name="voice_failed_title">Couldn\'t do that</string>
+    <string name="voice_idle_title">Tap the mic and say what you had</string>
+    <string name="voice_log_example">For example: “Rice and chicken curry at 2 pm, a glass of water, and I took Metformin”</string>
+    <string name="voice_not_set_up">Set up a voice model and a Primary model in AI models first.</string>
+    <string name="voice_mic_denied">Neutrino needs the microphone to hear you. You can allow it in the app\'s settings.</string>
+    <string name="voice_medicine_unknown">%1$s isn\'t in your medicines.</string>
+    <string name="voice_confirm_glucose">Please confirm your glucose reading.</string>
+    <string name="voice_which_medicine">Which %1$s did you take?</string>
+    <plurals name="ai_models_full">
+        <item quantity="one">You can set up %1$d model. Delete it to add another.</item>
+        <item quantity="other">You can set up %1$d models. Delete one to add another.</item>
+    </plurals>
+    <string name="voice_pick_provider">Voice model from</string>
+    <string name="voice_provider_gemini_note">Flash and Transcribe models; a free tier is available</string>
+    <string name="voice_provider_openai_note">Whisper and Transcribe models; pay as you go</string>
+    <string name="voice_provider_groq_note">Whisper; very fast, with a free plan</string>
+    <string name="voice_switch_title">Talk to Neutrino</string>
+    <string name="voice_switch_body">Log meals, water, glucose and medicine by speaking, and change a meal on the review page with the mic.</string>
+    <string name="voice_configure">Configure voice model</string>
+    <string name="voice_needs_primary">Voice also needs a Primary model to understand what you say.</string>
+    <string name="voice_speak_title">Speak replies</string>
+    <string name="voice_speak_body">Neutrino answers out loud with your phone\'s own voice. Glucose values are never read out.</string>
+    <string name="voice_privacy_note">What you say goes to your voice model\'s provider to write it down, then to your Primary model to act on it. No recording is kept on your phone.</string>
+    <string name="voice_model_helper">Only models that turn speech into text are listed. The suggested one handles Bangla and English well.</string>
+    <string name="voice_edit_title">Voice model</string>
+    <string name="voice_add_title">Voice model: %1$s</string>
     <string name="ai_get_key">Get a %1$s API key</string>
     <string name="ai_key_label">API key</string>
     <string name="ai_key_helper">Stored encrypted on this phone. Sent only to %1$s.</string>
@@ -521,7 +557,7 @@
     <string name="settings_test_reminder">Remind me to test after meals</string>
     <string name="settings_test_reminder_body">About 2 hours after a meal, skipped if you\'ve already tested</string>
     <string name="settings_widget_glucose">Glucose on the widget</string>
-    <string name="settings_widget_glucose_body">Show your latest reading on the home screen widget. Anyone who sees your screen can see it.</string>
+    <string name="settings_widget_glucose_body">Show today\'s latest reading on the home screen widget, with its time. Anyone who sees your screen can see it.</string>
     <string name="settings_section_goals">Goals</string>
     <string name="settings_weekly">Weekly summary</string>
     <string name="settings_weekly_body">A notification on Sunday evening about your week</string>
@@ -551,7 +587,7 @@
     <string name="glucose_widget_name">Latest glucose</string>
     <string name="glucose_widget_description">Your latest blood glucose reading, coloured by your target range.</string>
     <string name="glucose_widget_none">No readings yet</string>
-    <string name="widget_description">Today\'s carbs, protein, fat and calories as rings toward your goals, water with one tap, your latest glucose reading, and a camera button to log a meal.</string>
+    <string name="widget_description">Today\'s carbs, protein, fat and calories as rings toward your goals, water with one tap, today\'s latest glucose reading, and a camera button to log a meal.</string>
     <string name="widget_of_goal">%1$s of %2$s</string>
     <string name="widget_totals">%1$s carbs · %2$s kcal</string>
     <string name="shortcut_log_meal">Log a meal</string>

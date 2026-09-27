@@ -61,6 +61,42 @@ object ModelCatalog {
         return ModelChoices(usable, usable.firstOrNull()?.id)
     }
 
+    /**
+     * Voice models: ones that turn speech into text. Every Gemini model offered for photos also
+     * accepts audio, and Gemini's own "transcribe" models are made for it (suggested first).
+     */
+    fun voiceFromGemini(models: List<GeminiModelInfo>): ModelChoices {
+        val all = fromGemini(models).models
+        val sorted = all.sortedBy { if ("transcribe" in it.id) 0 else 1 }
+        val recommended = sorted.firstOrNull { "transcribe" in it.id && !isPreview(it.id) }
+            ?: sorted.firstOrNull { !isPreview(it.id) && geminiFamilyRank(it.id) == 0 } ?: sorted.firstOrNull()
+        return ModelChoices(sorted, recommended?.id)
+    }
+
+    private val openAiSpeech = Regex("^(whisper-|gpt-.*transcribe)")
+
+    /** OpenAI's speech-to-text models: Whisper and the "…-transcribe" models (live-streaming ones left out). */
+    fun voiceFromOpenAi(ids: List<String>): ModelChoices {
+        val usable = ids
+            .filter { openAiSpeech.containsMatchIn(it) && "realtime" !in it && "diarize" !in it && !datedSnapshot.containsMatchIn(it) }
+            .distinct()
+            .sortedWith(compareBy<String> { it.startsWith("whisper") }.thenBy { !it.contains("mini") }.thenByDescending { it })
+            .map { AiModel(it, it) }
+        return ModelChoices(usable, usable.firstOrNull()?.id)
+    }
+
+    /** Groq's Whisper models; large-v3 first, the most accurate for Bangla. */
+    fun voiceFromGroq(ids: List<String>): ModelChoices {
+        val usable = ids.filter { it.startsWith("whisper") }.distinct()
+            .sortedWith(compareBy<String> { "turbo" in it || "distil" in it }.thenBy { it })
+            .map { AiModel(it, whisperName(it)) }
+        return ModelChoices(usable, usable.firstOrNull()?.id)
+    }
+
+    /** "whisper-large-v3-turbo" → "Whisper Large v3 Turbo". */
+    private fun whisperName(id: String): String =
+        id.split('-').joinToString(" ") { part -> if (part.matches(Regex("""v\d+"""))) part else part.replaceFirstChar(Char::uppercase) }
+
     /** "qwen/qwen3.8-27b" → "Qwen 3.8 27B". */
     private fun groqName(id: String): String = when {
         id.startsWith("qwen/qwen") -> id.removePrefix("qwen/qwen").let { rest ->

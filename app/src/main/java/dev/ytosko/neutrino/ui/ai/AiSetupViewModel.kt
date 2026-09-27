@@ -1,5 +1,6 @@
 package dev.ytosko.neutrino.ui.ai
 
+import dev.ytosko.neutrino.data.voice.SpeechClient
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.ytosko.neutrino.data.ai.AiClient
@@ -67,6 +68,9 @@ class AiSetupViewModel(
     private val clients: Map<AiProvider, AiClient>,
     private val configId: String? = null,
     private val provider: AiProvider? = null,
+    /** Setting up the voice model: speech-to-text models are listed and it's saved as the voice model. */
+    private val voice: Boolean = false,
+    private val speech: Map<AiProvider, SpeechClient> = emptyMap(),
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(AiSetupUiState())
@@ -130,7 +134,11 @@ class AiSetupViewModel(
         checkJob = viewModelScope.launch {
             _state.update { it.copy(check = KeyCheck.Checking) }
             try {
-                val choices = clients.getValue(snapshot.provider).listModels(snapshot.keyInput)
+                val choices = if (voice) {
+                    speech.getValue(snapshot.provider).listModels(snapshot.keyInput)
+                } else {
+                    clients.getValue(snapshot.provider).listModels(snapshot.keyInput)
+                }
                 _state.update { state ->
                     val keep = state.selectedModel?.takeIf { id -> choices.models.any { it.id == id } }
                     val checked = state.copy(
@@ -151,7 +159,8 @@ class AiSetupViewModel(
         if (!snapshot.canSave || model == null) return
         viewModelScope.launch {
             _state.update { it.copy(saving = true) }
-            val all = settings.settings.first().aiConfigs
+            val current = settings.settings.first()
+            val all = if (voice) listOfNotNull(current.voiceConfig) else current.aiConfigs
             val existing = all.firstOrNull { it.id == snapshot.configId }
             val id = existing?.id ?: UUID.randomUUID().toString()
             val name = if (snapshot.customName && snapshot.nameInput.isNotBlank()) {
@@ -166,22 +175,24 @@ class AiSetupViewModel(
                 customName = snapshot.customName && snapshot.nameInput.isNotBlank(),
                 photoDetail = snapshot.photoDetail.id,
             )
-            settings.saveAiConfig(config, snapshot.keyInput)
+            if (voice) settings.saveVoiceConfig(config, snapshot.keyInput) else settings.saveAiConfig(config, snapshot.keyInput)
             _state.update { it.copy(saving = false, keyVisible = false, configId = id) }
             _saved.send(Unit)
         }
     }
 
+    /** Keys of the other models of [provider], photo and voice alike. */
     private suspend fun existingKeys(provider: AiProvider, exceptId: String?): List<ExistingKey> =
-        settings.settings.first().aiConfigs
+        settings.settings.first().let { it.aiConfigs + listOfNotNull(it.voiceConfig) }
             .filter { it.provider == provider.id && it.id != exceptId }
             // One entry per key, so the same key isn't offered twice.
             .distinctBy { it.keyTail.ifEmpty { it.id } }
             .map { ExistingKey(it.id, it.name, it.keyTail) }
 
     private suspend fun load() {
-        val all = settings.settings.first().aiConfigs
-        val existing = all.firstOrNull { it.id == configId }
+        val current = settings.settings.first()
+        // The voice model is edited when it exists and no new provider was picked.
+        val existing = if (voice) current.voiceConfig?.takeIf { provider == null || it.providerEnum == provider } else current.aiConfigs.firstOrNull { it.id == configId }
         if (existing == null) {
             val chosen = provider ?: AiProvider.Gemini
             _state.value = AiSetupUiState(loaded = true, provider = chosen, existingKeys = existingKeys(chosen, null))

@@ -42,6 +42,9 @@ sealed interface AiRole {
  */
 object AiLineup {
 
+    /** Most photo models one can set up (the voice model doesn't count). */
+    const val MAX_MODELS = 4
+
     fun roles(list: List<AiConfig>): Map<String, AiRole> {
         var used = 0
         return list.associate { config ->

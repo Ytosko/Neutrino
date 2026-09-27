@@ -109,7 +109,7 @@ private data class WidgetData(
 
 /**
  * Home screen widget: today's carbs and calories, water with a one-tap +250 ml, a camera button
- * that opens straight into logging a meal, and (unless turned off) the latest glucose reading.
+ * that opens straight into logging a meal, and (unless turned off) today's latest glucose reading.
  */
 class NeutrinoWidget : GlanceAppWidget() {
 
@@ -143,20 +143,17 @@ class NeutrinoWidget : GlanceAppWidget() {
         zone: ZoneId,
         today: LocalDate,
     ): WidgetData {
+        // Only today's latest reading, as "6.2 · 5:30 PM"; with none today the corner stays empty.
         val glucose = if (settings.widgetShowsGlucose) {
             latest?.let { reading ->
                 val at = Instant.ofEpochMilli(reading.measuredAtEpochMs).atZone(zone)
-                val whenText = if (at.toLocalDate() == today) {
-                    at.format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT))
-                } else {
-                    at.format(DateTimeFormatter.ofLocalizedDateTime(FormatStyle.SHORT))
-                }
+                if (at.toLocalDate() != today) return@let null
                 val value = when (reading.rangeFlag) {
                     "High" -> "HI"
                     "Low" -> "LO"
                     else -> settings.glucoseUnit.format(reading.mmolPerL)
                 }
-                "$value ${settings.glucoseUnit.label} · $whenText"
+                "$value · " + at.format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT))
             }
         } else {
             null

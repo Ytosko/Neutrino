@@ -276,6 +276,20 @@ class AppContainer(application: Application) {
         AiProvider.OpenAi to OpenAiClient(http, json),
         AiProvider.Groq to dev.ytosko.neutrino.data.ai.GroqClient(http, json),
     )
+
+    /** Speech-to-text for the voice model, per provider. */
+    val speechClients: Map<AiProvider, dev.ytosko.neutrino.data.voice.SpeechClient> = mapOf(
+        AiProvider.Gemini to dev.ytosko.neutrino.data.voice.GeminiSpeechClient(http, json),
+        AiProvider.OpenAi to dev.ytosko.neutrino.data.voice.OpenAiSpeechClient(http, json, AiProvider.OpenAi),
+        AiProvider.Groq to dev.ytosko.neutrino.data.voice.OpenAiSpeechClient(http, json, AiProvider.Groq),
+    )
+
+    val voice by lazy { dev.ytosko.neutrino.data.voice.VoiceAssistant(settings, speechClients, aiClients) }
+
+    val voiceReplies by lazy { dev.ytosko.neutrino.data.voice.VoiceReplies(application) }
+
+    /** A meal said with Log by voice, waiting for the review page to open it. */
+    var voiceMeal: dev.ytosko.neutrino.data.voice.VoiceMeal? = null
 }
 
 val Context.appContainer: AppContainer

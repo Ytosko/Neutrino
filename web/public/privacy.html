@@ -44,7 +44,7 @@
     <div class="legal-hero">
       <span class="kicker">Legal</span>
       <h1>Privacy Policy</h1>
-      <p class="meta">Effective 25 September 2026 · Last updated 27 September 2026</p>
+      <p class="meta">Effective 25 September 2026 · Last updated 28 September 2026</p>
     </div>
 
     <div class="legal-layout">
@@ -55,6 +55,7 @@
           <li><a href="#who">Who we are</a></li>
           <li><a href="#app-data">Data the app handles</a></li>
           <li><a href="#ai">AI providers</a></li>
+          <li><a href="#voice">Voice</a></li>
           <li><a href="#glucose-meter">Glucose meter</a></li>
           <li><a href="#glucose-import">Glucose from other apps</a></li>
           <li><a href="#medicines">Medicines and insulin</a></li>
@@ -93,6 +94,7 @@
         <table>
           <thead><tr><th>Data</th><th>Why</th><th>Where it goes</th></tr></thead>
           <tbody>
+            <tr><td>Your voice, if you turn voice on</td><td>To log meals, water, glucose and medicines by speaking</td><td>Recorded in memory while you tap or hold the mic, sent to the voice and AI providers you set up, never saved on your device.</td></tr>
             <tr><td>Meal photos you take or select</td><td>To estimate the foods and nutrition in your meal</td><td>Sent to the AI provider you selected, using your API key. A small thumbnail may be kept on your device for your meal history.</td></tr>
             <tr><td>Your AI provider API key</td><td>To call the AI provider on your behalf</td><td>Stored on your device, encrypted with Android Keystore. Sent only to that provider, as required to authenticate your requests.</td></tr>
             <tr><td>Nutrition estimates you approve (foods, portions, carbohydrates, protein, fat, energy, meal type, time)</td><td>To log your meals</td><td>Written to Health Connect on your device, and kept in the app's local history.</td></tr>
@@ -121,7 +123,17 @@
           <li>Groq: <a href="https://console.groq.com/docs/your-data" rel="noopener">console.groq.com/docs/your-data</a> (by default Groq doesn't keep requests; it may keep them for up to 30 days to investigate problems or abuse, which you can turn off in its Data Controls)</li>
           <li>OpenAI: <a href="https://openai.com/policies/" rel="noopener">openai.com/policies</a></li>
         </ul>
-        <p>Neutrino does not send your nutrition history, Health Connect data or any other personal data to AI providers. Only the photo you are analyzing, or the name of a new food you add, is sent with the analysis instructions, together with the optional cuisine and notes you set in the app.</p>
+        <p>Neutrino does not send your nutrition history, Health Connect data or any other personal data to AI providers. Only the photo you are analyzing, the name of a new food you add, or what you say to the voice assistant (below) is sent with the instructions, together with the optional cuisine and notes you set in the app.</p>
+
+        <h2 id="voice">Voice (optional)</h2>
+        <p>Voice is off until you turn it on in AI models and set up a voice model with your own API key. Then you can log meals, water, blood glucose and medicines by speaking, and change a meal on its review page.</p>
+        <ul>
+          <li><strong>Microphone:</strong> Neutrino asks for the microphone permission the first time you tap the mic, and listens only while you tap or hold it. It never listens in the background.</li>
+          <li><strong>The recording</strong> is kept in memory only, sent once to your voice model's provider (Google, OpenAI or Groq) to write down what you said, and then discarded. It is never saved to your device's storage.</li>
+          <li><strong>The written-down words</strong> are sent to your Primary model (and its fallbacks, if it fails) to work out what to log. On a review page, the foods and amounts on that page go with it, so the assistant can change them. Your medicine list is <em>not</em> sent: the medicine you name is matched to your list on your device.</li>
+          <li><strong>Glucose and medicine:</strong> if you say a blood glucose value or a medicine, those words reach the providers above like everything else you say. A glucose reading is only saved after you confirm it on screen, and replies never read glucose values aloud.</li>
+          <li><strong>Spoken replies</strong> use your phone's own text-to-speech engine, and no other service. You can turn them off; they're also shown as text when your phone is silent.</li>
+        </ul>
 
         <h3>Open Food Facts</h3>
         <p>When you search for a food and type three or more letters, Neutrino also searches <a href="https://world.openfoodfacts.org" rel="noopener">Open Food Facts</a>, a free, open database of packaged products, so you can log branded items. Only the search text is sent, along with the app's name and version, which Open Food Facts asks apps to identify themselves with. Open Food Facts' own <a href="https://world.openfoodfacts.org/privacy" rel="noopener">privacy policy</a> applies to those requests. Built-in foods and your own food list are searched on your device without any network request.</p>

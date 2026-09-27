@@ -41,6 +41,10 @@ data class SettingsSnapshot(
     /** Provider id → API key. */
     val apiKeys: Map<String, String> = emptyMap(),
     val photoDetail: String? = null,
+    /** The voice model and its key, if one was set up. */
+    val voiceConfig: AiConfigBackup? = null,
+    val voiceEnabled: Boolean = false,
+    val speakReplies: Boolean = true,
 )
 
 /**

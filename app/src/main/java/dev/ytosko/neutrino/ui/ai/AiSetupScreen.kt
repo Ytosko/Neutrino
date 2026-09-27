@@ -72,6 +72,8 @@ fun AiSetupForm(
     onModelChange: (String) -> Unit,
     onPhotoDetailChange: (PhotoDetail) -> Unit,
     modifier: Modifier = Modifier,
+    /** A voice model: no photo detail to choose. */
+    voice: Boolean = false,
 ) {
     val uriHandler = LocalUriHandler.current
     var choosingKey by remember { mutableStateOf(false) }
@@ -178,21 +180,24 @@ fun AiSetupForm(
                     valid = valid,
                     selected = state.selectedModel,
                     onSelect = onModelChange,
+                    voice = voice,
                 )
             }
         }
 
-        Text(stringResource(R.string.ai_photo_detail), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = Spacing.xs))
-        SegmentedControl(
-            options = PhotoDetail.entries.map { stringResource(if (it == PhotoDetail.Standard) R.string.ai_photo_standard else R.string.ai_photo_low) },
-            selected = PhotoDetail.entries.indexOf(state.photoDetail),
-            onSelect = { onPhotoDetailChange(PhotoDetail.entries[it]) },
-        )
-        Text(
-            stringResource(R.string.ai_photo_helper),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        if (!voice) {
+            Text(stringResource(R.string.ai_photo_detail), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = Spacing.xs))
+            SegmentedControl(
+                options = PhotoDetail.entries.map { stringResource(if (it == PhotoDetail.Standard) R.string.ai_photo_standard else R.string.ai_photo_low) },
+                selected = PhotoDetail.entries.indexOf(state.photoDetail),
+                onSelect = { onPhotoDetailChange(PhotoDetail.entries[it]) },
+            )
+            Text(
+                stringResource(R.string.ai_photo_helper),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 
     if (choosingKey) {
@@ -257,7 +262,7 @@ private fun KeyCheckStatus(check: KeyCheck) {
         is KeyCheck.Valid ->
             if (check.models.isEmpty()) Triple(R.drawable.ic_alert, stringResource(R.string.ai_no_models), MaterialTheme.colorScheme.error)
             else Triple(R.drawable.ic_check, stringResource(R.string.ai_key_ok, check.models.size), MaterialTheme.colorScheme.tertiary)
-        is KeyCheck.Failed -> Triple(R.drawable.ic_alert, errorMessage(check.error), MaterialTheme.colorScheme.error)
+        is KeyCheck.Failed -> Triple(R.drawable.ic_alert, aiErrorMessage(check.error), MaterialTheme.colorScheme.error)
         else -> return
     }
     Row(
@@ -271,7 +276,7 @@ private fun KeyCheckStatus(check: KeyCheck) {
 }
 
 @Composable
-private fun errorMessage(error: AiException): String = when (error) {
+internal fun aiErrorMessage(error: AiException): String = when (error) {
     is AiException.InvalidKey -> stringResource(R.string.ai_error_invalid_key)
     is AiException.RateLimited -> stringResource(if (error.provider == dev.ytosko.neutrino.data.ai.AiProvider.Groq) R.string.ai_error_rate_limited_groq else R.string.ai_error_rate_limited)
     is AiException.Network -> stringResource(R.string.ai_error_network)
@@ -281,7 +286,7 @@ private fun errorMessage(error: AiException): String = when (error) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ModelPicker(valid: KeyCheck.Valid, selected: String?, onSelect: (String) -> Unit) {
+private fun ModelPicker(valid: KeyCheck.Valid, selected: String?, onSelect: (String) -> Unit, voice: Boolean = false) {
     var expanded by remember { mutableStateOf(false) }
     val recommendedLabel = stringResource(R.string.ai_recommended)
     fun label(id: String?): String {
@@ -315,7 +320,7 @@ private fun ModelPicker(valid: KeyCheck.Valid, selected: String?, onSelect: (Str
             }
         }
         Text(
-            stringResource(R.string.ai_model_helper),
+            stringResource(if (voice) R.string.voice_model_helper else R.string.ai_model_helper),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = Spacing.md),
