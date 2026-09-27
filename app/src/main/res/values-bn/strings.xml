@@ -291,6 +291,7 @@
     <string name="ai_check_key">কী যাচাই করুন</string>
     <string name="ai_checking">যাচাই হচ্ছে…</string>
     <string name="ai_key_ok">কী কাজ করছে · %1$dটি মডেল পাওয়া গেছে</string>
+    <string name="ai_key_ok_free">কী কাজ করছে · %1$dটি ফ্রি মডেল পাওয়া গেছে</string>
     <string name="ai_model">মডেল</string>
     <string name="ai_recommended">প্রস্তাবিত</string>
     <string name="ai_model_helper">দ্রুত “flash” ও “mini” মডেলে খরচ কম, খাবারের জন্য ভালো কাজ করে।</string>

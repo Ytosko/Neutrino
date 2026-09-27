@@ -314,6 +314,7 @@
     <string name="ai_check_key">Check key</string>
     <string name="ai_checking">Checking…</string>
     <string name="ai_key_ok">Key works · %1$d models available</string>
+    <string name="ai_key_ok_free">Key works · %1$d free models available</string>
     <string name="ai_model">Model</string>
     <string name="ai_recommended">Recommended</string>
     <string name="ai_model_helper">Faster “flash” and “mini” models cost less and work well for meals.</string>

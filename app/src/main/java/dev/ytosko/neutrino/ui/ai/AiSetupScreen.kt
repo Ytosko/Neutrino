@@ -177,7 +177,8 @@ fun AiSetupForm(
             }
         }
 
-        KeyCheckStatus(state.check)
+        // The count matches the list: OpenRouter on a free plan counts only its free models.
+        KeyCheckStatus(state.check, shown = state.models.size, freeOnly = state.isOpenRouter && state.freePlan)
 
         if (state.isOpenRouter) OpenRouterPlan(state, onFreePlanChange)
 
@@ -274,11 +275,11 @@ fun ProviderLogo(provider: AiProvider, size: androidx.compose.ui.unit.Dp = 40.dp
 }
 
 @Composable
-private fun KeyCheckStatus(check: KeyCheck) {
+private fun KeyCheckStatus(check: KeyCheck, shown: Int, freeOnly: Boolean) {
     val (icon, text, color) = when (check) {
         is KeyCheck.Valid ->
             if (check.models.isEmpty()) Triple(R.drawable.ic_alert, stringResource(R.string.ai_no_models), MaterialTheme.colorScheme.error)
-            else Triple(R.drawable.ic_check, stringResource(R.string.ai_key_ok, check.models.size), MaterialTheme.colorScheme.tertiary)
+            else Triple(R.drawable.ic_check, stringResource(if (freeOnly) R.string.ai_key_ok_free else R.string.ai_key_ok, shown), MaterialTheme.colorScheme.tertiary)
         is KeyCheck.Failed -> Triple(R.drawable.ic_alert, aiErrorMessage(check.error), MaterialTheme.colorScheme.error)
         else -> return
     }
