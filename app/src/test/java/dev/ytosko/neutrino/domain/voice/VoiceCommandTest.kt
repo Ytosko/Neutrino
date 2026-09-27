@@ -122,4 +122,19 @@ class VoiceCommandTest {
             "glucose_relation": "", "glucose_time": "", "medicines": [{"medicine": 2, "name": "metformin", "strength": "500", "amount": 1, "time": ""}]}"""
         assertEquals(2, VoiceCommandParser.parse(reply, now, 0)!!.medicines.single().listNumber)
     }
+
+    @Test
+    fun `a vague correction asks back, and the answer carries the question`() {
+        val reply = """{"reply": "", "question": "About how much did the three chicken burgers weigh?", "items": [], "meal_time": "", "water_ml": 0,
+            "glucose_value": 0, "glucose_unit": "", "glucose_relation": "", "glucose_time": "", "medicines": []}"""
+        val command = VoiceCommandParser.parse(reply, now, 1)!!
+        assertEquals("About how much did the three chicken burgers weigh?", command.question)
+        assertTrue(!command.isEmpty)
+        val next = VoicePrompt.command(
+            "maximum 100 gram",
+            VoiceContext(now, mealLines = listOf("Chicken burger / sandwich: 3 piece (561 g)"), asked = "it's not that big" to command.question),
+            PromptHints(),
+        )
+        assertTrue("you asked: \"About how much did the three chicken burgers weigh?\"" in next)
+    }
 }

@@ -36,6 +36,8 @@ data class VoiceContext(
      * the AI picks the exact one. Null when the medicine log is off; empty when it has no medicines.
      */
     val medicines: List<String>? = null,
+    /** The assistant's last question and what the user had said before it, when the user is answering it. */
+    val asked: Pair<String, String>? = null,
 ) {
     val editing: Boolean get() = mealLines != null
 }
@@ -102,17 +104,21 @@ object VoicePrompt {
                 context.medicines.forEachIndexed { i, line -> append(i + 1).append(". ").append(line.replace('"', ' ')).append('\n') }
             }
         }
+        val followUp = context.asked?.let { (before, question) ->
+            val clean = { t: String -> t.replace(Regex("[\"{}\\n\\r]"), " ").trim().take(300) }
+            "\nEarlier the user said: \"${clean(before)}\" and you asked: \"${clean(question)}\". What they say now may be the answer."
+        }.orEmpty()
         return """
             You are the voice assistant of Neutrino, a food and health diary. Act on what the user said, like a helpful assistant would.
             The user said (speech written down; may be English, Bangla or a mix): "$said"
             Now: ${context.now.format(stamp)}.
             @@CONTEXT@@
             Return ONLY a JSON object:
-            {"reply": "string", "items": [{"action": "add|set|remove", "item": X, "name": "string", "quantity": X, "unit": "string", "grams": X, "calories": X, "protein_g": X, "carbs_g": X, "fat_g": X}], "meal_time": "string", "water_ml": X, "glucose_value": X, "glucose_unit": "string", "glucose_relation": "string", "glucose_time": "string", "medicines": [{"medicine": X, "name": "string", "strength": "string", "amount": X, "time": "string"}]}
+            {"reply": "string", "question": "string", "items": [{"action": "add|set|remove", "item": X, "name": "string", "quantity": X, "unit": "string", "grams": X, "calories": X, "protein_g": X, "carbs_g": X, "fat_g": X}], "meal_time": "string", "water_ml": X, "glucose_value": X, "glucose_unit": "string", "glucose_relation": "string", "glucose_time": "string", "medicines": [{"medicine": X, "name": "string", "strength": "string", "amount": X, "time": "string"}]}
 
             items: foods and drinks with calories the user ate.
             - "add": a new food. Give its amount as a quantity and a household unit (piece, slice, cup, bowl, plate, glass, tbsp, tsp) or g/ml, its weight in grams, and calories, protein, carbs and fat for that whole amount. Use a short common English name; add the local name in parentheses for South Asian dishes. Typical portions: a plate of cooked rice is about 250 g, one roti 40 g, one paratha 80 g, a bowl of dal 200 g, a piece of curried chicken or fish 100 g.
-            - "set": change a line of the meal above. "item" is its number. Give the new TOTAL amount, grams and nutrition for that total. Use it when the user says how much they had of a food already listed ("I had three burgers" when burgers are listed means 3 in total; "another burger" or "one more" adds to the listed amount), or corrects an amount.
+            - "set": change a line of the meal above. "item" is its number. Give the new TOTAL amount, grams and nutrition for that total. Use it when the user says how much they had of a food already listed ("I had three burgers" when burgers are listed means 3 in total; "another burger" or "one more" adds to the listed amount), or corrects an amount or size in any unit ("they were only 100 g", "300 ml", "it was 300 calories", "half of that"). Always give the new total in grams, worked out from what the user said.
             - "remove": remove line "item" when the user says they didn't have it. Other fields may be empty or 0.
             - Match foods the user names loosely to the listed lines (e.g. "the rice" or "700 g of protein" for a listed chicken). Leave "item" 0 for "add".
             - With no meal above, only use "add".
@@ -120,9 +126,10 @@ object VoicePrompt {
             water_ml: plain water drunk, in ml (a glass is 250 ml, a bottle 500 ml); 0 if none. Tea, coffee, milk and juice go in items, not here.
             glucose_value: a blood sugar reading the user reports, as said; 0 if none. glucose_unit: "mmol" or "mgdl" if the user said it, else "". glucose_relation: fasting, before_meal, after_meal, bedtime or general. glucose_time: "YYYY-MM-DD HH:MM", or "" for now.
             medicines: medicines or insulin the user says they took. medicine: the number of the one they mean in their medicine list above, matching by brand or generic name and strength (e.g. "Metformin 500" is a list line whose generic is Metformin and strength 500); 0 if it isn't in the list or you can't tell which. name exactly as said (brand or generic), strength if said (e.g. "500"), amount (tablets, or units of insulin; 0 if not said), time "YYYY-MM-DD HH:MM" or "" for now. Only say a medicine was logged when it is in the list.
+            question: when the user says an amount is wrong but not what it should be ("it's not that big", "less than that"), don't guess and don't change anything: ask one short question to get the amount, e.g. "About how much did the three chicken burgers weigh?", in the language the user spoke; leave reply "". Otherwise "".
             reply: one short, friendly sentence saying what you did, to be read aloud, in the language the user spoke. Never put glucose numbers in it.
             If the words are not about food, water, blood sugar or medicine, or make no sense, return empty lists, 0s and "" everywhere.
-        """.trimIndent().replace("@@CONTEXT@@", (meal + medicineList).trim()) + hints.render()
+        """.trimIndent().replace("@@CONTEXT@@", (meal + medicineList + followUp).trim()) + hints.render()
     }
 
     val SCHEMA = Obj(

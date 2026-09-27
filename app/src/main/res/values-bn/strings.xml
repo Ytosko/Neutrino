@@ -234,6 +234,7 @@
     <string name="voice_medicine_unknown">%1$s আপনার ওষুধের তালিকায় নেই।</string>
     <string name="voice_medicine_off">ওষুধের লগ বন্ধ আছে, তাই কোনো ওষুধ লগ হয়নি। ওষুধ লগ করতে সেটিংসে এটি চালু করুন।</string>
     <string name="voice_medicine_empty">আপনার ওষুধের তালিকা খালি, তাই কিছু লগ হয়নি। সেটিংসে আপনার ওষুধগুলো যোগ করুন।</string>
+    <string name="voice_change_failed">%1$s বদলাতে পারিনি। বদলাতে ওটায় ট্যাপ করুন।</string>
     <string name="voice_confirm_glucose">আপনার গ্লুকোজ রিডিংটি নিশ্চিত করুন।</string>
     <string name="voice_which_medicine">কোন %1$s খেয়েছেন?</string>
     <plurals name="ai_models_full">

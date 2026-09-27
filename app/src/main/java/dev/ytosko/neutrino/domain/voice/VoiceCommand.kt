@@ -22,8 +22,10 @@ data class VoiceCommand(
     val waterMl: Int = 0,
     val glucose: SpokenGlucose? = null,
     val medicines: List<SpokenMedicine> = emptyList(),
+    /** A question back to the user ("About how much did they weigh?"); nothing else is done then. */
+    val question: String = "",
 ) {
-    val isEmpty: Boolean get() = items.isEmpty() && mealTime == null && waterMl <= 0 && glucose == null && medicines.isEmpty()
+    val isEmpty: Boolean get() = items.isEmpty() && mealTime == null && waterMl <= 0 && glucose == null && medicines.isEmpty() && question.isBlank()
     val hasMeal: Boolean get() = items.isNotEmpty()
 }
 
@@ -115,6 +117,7 @@ object VoiceCommandParser {
 
         return VoiceCommand(
             reply = obj.string("reply").orEmpty().take(200),
+            question = obj.string("question").orEmpty().take(200),
             items = items,
             mealTime = time(obj.string("meal_time"), now),
             waterMl = obj.number("water_ml").toInt().coerceIn(0, 5_000),

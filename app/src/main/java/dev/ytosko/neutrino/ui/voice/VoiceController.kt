@@ -65,7 +65,8 @@ class VoiceController(
     private val zone: ZoneId = ZoneId.systemDefault(),
     /** The meal on screen, for the review page; null when logging from scratch. */
     private val contextFor: () -> VoiceContext = { VoiceContext(LocalDateTime.now(zone)) },
-    private val onMeal: suspend (VoiceCommand) -> Unit,
+    /** Applies the meal part; returns the names of lines it couldn't change. */
+    private val onMeal: suspend (VoiceCommand) -> List<String>,
 ) {
     private val recorder = VoiceRecorder()
     val level: StateFlow<Float> = recorder.level
@@ -90,6 +91,8 @@ class VoiceController(
     private var lastCommand: VoiceCommand? = null
     /** The medicine list as numbered for the AI this turn; null when the medicine log is off. */
     private var shownMedicines: List<MedicineEntity>? = null
+    /** What the user said and the question asked about it, while waiting for the answer. */
+    private var asked: Pair<String, String>? = null
 
     /** Starts listening; with [stopOnSilence] it also stops by itself when the user goes quiet. */
     fun start(stopOnSilence: Boolean = true) {
@@ -109,8 +112,13 @@ class VoiceController(
                 if (text.isBlank()) return@launch missed()
                 val list = if (settings.settings.first().medicinesOn) medicines.activeMedicines() else null
                 shownMedicines = list
-                val context = contextFor().copy(medicines = list?.map(::medicineLine))
+                val context = contextFor().copy(medicines = list?.map(::medicineLine), asked = asked)
                 val command = assistant.understand(text, context) ?: return@launch missed()
+                if (command.question.isNotBlank()) {
+                    ask(text, command.question)
+                    return@launch
+                }
+                asked = null
                 act(command)
             } catch (e: AiException) {
                 _phase.value = VoicePhase.Failed(e)
@@ -130,6 +138,7 @@ class VoiceController(
 
     /** Stops and throws away the current turn. */
     fun cancel() {
+        asked = null
         recorder.stop()
         job?.cancel()
         replies.stop()
@@ -160,6 +169,15 @@ class VoiceController(
         _medicineChoices.value = _medicineChoices.value.drop(1)
         _choice.value = _medicineChoices.value.firstOrNull()
         checkDone()
+    }
+
+    /** Asks back ("About how much did they weigh?") and listens for the answer once it's been said. */
+    private suspend fun ask(said: String, question: String) {
+        asked = said to question
+        _phase.value = VoicePhase.Idle
+        replies.say(question, settings.settings.first().speakReplies) {
+            if (_phase.value == VoicePhase.Idle) start(stopOnSilence = true)
+        }
     }
 
     private suspend fun act(command: VoiceCommand) {
@@ -200,7 +218,7 @@ class VoiceController(
             }
         }
 
-        if (command.hasMeal || (command.mealTime != null && contextFor().editing)) onMeal(command)
+        val unchanged = if (command.hasMeal || (command.mealTime != null && contextFor().editing)) onMeal(command) else emptyList()
 
         if (command.glucose != null) {
             _glucose.value = command.glucose
@@ -209,7 +227,9 @@ class VoiceController(
 
         lastCommand = command
         _phase.value = VoicePhase.Idle
-        replies.say((listOf(command.reply) + notes).filter { it.isNotBlank() }.joinToString(" "), speak)
+        // The AI wrote its reply before the change was made; if a line couldn't be changed, say that instead.
+        val reply = if (unchanged.isEmpty()) command.reply else context.getString(R.string.voice_change_failed, unchanged.joinToString(", "))
+        replies.say((listOf(reply) + notes).filter { it.isNotBlank() }.joinToString(" "), speak)
         checkDone()
     }
 
@@ -246,7 +266,7 @@ fun AppContainer.voiceController(
     scope: CoroutineScope,
     context: Context,
     contextFor: () -> VoiceContext = { VoiceContext(LocalDateTime.now()) },
-    onMeal: suspend (VoiceCommand) -> Unit,
+    onMeal: suspend (VoiceCommand) -> List<String>,
 ) = VoiceController(
     scope = scope,
     context = context.applicationContext,
@@ -267,5 +287,6 @@ class VoiceLogViewModel(container: AppContainer, context: Context) : ViewModel()
             items = command.items.filterIsInstance<ItemChange.Add>().map { it.item },
             eatenAt = command.mealTime,
         )
+        emptyList()
     }
 }

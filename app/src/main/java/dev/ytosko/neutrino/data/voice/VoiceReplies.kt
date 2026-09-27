@@ -1,5 +1,8 @@
 package dev.ytosko.neutrino.data.voice
 
+import android.speech.tts.UtteranceProgressListener
+import android.os.Looper
+import android.os.Handler
 import android.content.Context
 import android.media.AudioManager
 import android.speech.tts.TextToSpeech
@@ -17,9 +20,13 @@ class VoiceReplies(context: Context) {
     private var tts: TextToSpeech? = null
     private var ready = false
     private var pending: String? = null
+    private var afterSpeaking: (() -> Unit)? = null
+    private val main = Handler(Looper.getMainLooper())
 
-    fun say(text: String, speak: Boolean) {
-        if (text.isBlank()) return
+    /** Says [text]; [then] runs once it's been said (or shown), e.g. to listen for an answer. */
+    fun say(text: String, speak: Boolean, then: (() -> Unit)? = null) {
+        afterSpeaking = then
+        if (text.isBlank()) return done()
         if (!speak || muted()) {
             show(text)
             return
@@ -29,6 +36,12 @@ class VoiceReplies(context: Context) {
             pending = text
             tts = TextToSpeech(app) { status ->
                 ready = status == TextToSpeech.SUCCESS
+                tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                    override fun onStart(utteranceId: String?) = Unit
+                    override fun onDone(utteranceId: String?) = done()
+                    @Deprecated("Deprecated in Java")
+                    override fun onError(utteranceId: String?) = done()
+                })
                 pending?.let { waiting ->
                     pending = null
                     if (ready) speakNow(waiting) else show(waiting)
@@ -52,7 +65,14 @@ class VoiceReplies(context: Context) {
     }
 
     fun stop() {
+        afterSpeaking = null
         tts?.stop()
+    }
+
+    private fun done() {
+        val next = afterSpeaking ?: return
+        afterSpeaking = null
+        main.post(next)
     }
 
     fun shutdown() {
@@ -66,5 +86,12 @@ class VoiceReplies(context: Context) {
         return audio.ringerMode != AudioManager.RINGER_MODE_NORMAL || audio.getStreamVolume(AudioManager.STREAM_MUSIC) == 0
     }
 
-    private fun show(text: String) = Toast.makeText(app, text, Toast.LENGTH_LONG).show()
+    private fun show(text: String) {
+        Toast.makeText(app, text, Toast.LENGTH_LONG).show()
+        // Give a moment to read it before anything follows.
+        afterSpeaking?.let { next ->
+            afterSpeaking = null
+            main.postDelayed(next, 1_500)
+        }
+    }
 }

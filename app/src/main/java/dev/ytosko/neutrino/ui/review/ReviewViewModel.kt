@@ -136,7 +136,7 @@ class ReviewViewModel(
     /** A meal said with Log by voice, to open with its foods and time. */
     voiceMeal: VoiceMeal? = null,
     /** Builds the page's voice assistant when voice is on; null hides the mic. */
-    voiceFactory: ((CoroutineScope, () -> VoiceContext, suspend (VoiceCommand) -> Unit) -> VoiceController)? = null,
+    voiceFactory: ((CoroutineScope, () -> VoiceContext, suspend (VoiceCommand) -> List<String>) -> VoiceController)? = null,
 ) : ViewModel() {
 
     private val pastDay: LocalDate? = logDate?.takeIf { it != LocalDate.now(zone) }
@@ -203,9 +203,13 @@ class ReviewViewModel(
         return VoiceContext(now = LocalDateTime.now(zone), mealLines = lines, mealTime = snapshot.eatenAt.toLocalDateTime())
     }
 
-    /** Applies what the user asked for by voice: new foods, changed amounts, removed lines, a new time. */
-    private suspend fun applyVoice(command: VoiceCommand) {
+    /**
+     * Applies what the user asked for by voice: new foods, changed amounts, removed lines, a new time.
+     * Returns the names of lines that couldn't be changed, so the reply can say so.
+     */
+    private suspend fun applyVoice(command: VoiceCommand): List<String> {
         val before = _state.value.items
+        val unchanged = mutableListOf<String>()
         val changed = mutableSetOf<Long>()
         val removed = mutableSetOf<Long>()
         var items = before
@@ -219,7 +223,11 @@ class ReviewViewModel(
                 }
                 is ItemChange.Set -> {
                     val target = before.getOrNull(change.index) ?: return@forEach
-                    val updated = withAmount(target, change.item) ?: return@forEach
+                    val updated = withAmount(target, change.item)
+                    if (updated == null) {
+                        unchanged += target.food.name
+                        return@forEach
+                    }
                     items = items.map { if (it.key == target.key) updated else it }
                     changed += target.key
                 }
@@ -234,23 +242,18 @@ class ReviewViewModel(
             }
         }
         if (changed.isNotEmpty()) {
-            _state.update { it.copy(highlighted = changed) }
-            delay(HIGHLIGHT_MS)
-            _state.update { it.copy(highlighted = emptySet()) }
+            viewModelScope.launch {
+                _state.update { it.copy(highlighted = changed) }
+                delay(HIGHLIGHT_MS)
+                _state.update { it.copy(highlighted = emptySet()) }
+            }
         }
+        return unchanged
     }
 
-    /** The line with the amount the user said, in their unit when the food has it, else in grams. */
-    private fun withAmount(item: ReviewItem, said: ScannedItem): ReviewItem? {
-        val unit = FoodUnit.fromKey(said.unit)
-        if (unit != null && item.food.grams(said.quantity, unit) != null) {
-            return item.copy(quantityText = formatQuantity(roundForUnit(said.quantity, unit)), unit = unit)
-        }
-        if (said.grams > 0 && item.food.grams(said.grams, FoodUnit.Gram) != null) {
-            return item.copy(quantityText = formatQuantity(said.grams.roundToInt().toDouble()), unit = FoodUnit.Gram)
-        }
-        return null
-    }
+    /** The line with the amount the user said; see [voiceAmount]. */
+    private fun withAmount(item: ReviewItem, said: ScannedItem): ReviewItem? =
+        voiceAmount(item.food, said)?.let { portion -> item.copy(quantityText = formatQuantity(portion.quantity), unit = portion.unit) }
 
     /** Fills the screen from a saved meal. Foods come from the directory, else are rebuilt from the saved line. */
     private fun loadForEditing(id: String) {
@@ -482,4 +485,26 @@ internal fun savedLineFood(
         density = if (unit.isVolume) 1.0 else null,
         source = dev.ytosko.neutrino.domain.food.FoodSource.Custom,
     )
+}
+
+/**
+ * The amount for a line changed by voice. The unit said is kept when the food has it and it agrees
+ * with the weight the AI worked out ("3 pieces" when 3 pieces are about that heavy); otherwise the
+ * weight wins and the line switches to grams ("they were only 100 g" → 100 g). With only calories
+ * said, the weight comes from the food's calories per 100 g. Null when there's nothing to go on.
+ */
+internal fun voiceAmount(food: Food, said: ScannedItem): Portion? {
+    val unit = FoodUnit.fromKey(said.unit)
+    val unitGrams = unit?.let { food.grams(said.quantity, it) }
+    val grams = when {
+        said.grams > 0 -> said.grams
+        unitGrams != null -> unitGrams
+        said.nutrition.calories > 0 && food.per100g.calories > 0 -> said.nutrition.calories / food.per100g.calories * 100
+        else -> return null
+    }
+    if (grams <= 0) return null
+    if (unit != null && unitGrams != null && kotlin.math.abs(unitGrams - grams) <= grams * 0.15) {
+        return Portion(roundForUnit(said.quantity, unit), unit)
+    }
+    return Portion(grams.roundToInt().toDouble().coerceAtLeast(1.0), FoodUnit.Gram)
 }
