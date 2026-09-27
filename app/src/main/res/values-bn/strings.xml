@@ -120,6 +120,8 @@
     <string name="review_total">মোট</string>
     <string name="review_no_items">এই বেলার খাবারগুলো যোগ করুন। নাম দিয়ে খুঁজুন, তারপর কতটা খেয়েছেন বেছে নিন।</string>
     <string name="review_name_hint">খালি রাখলে খাবারগুলোর নামে নাম হবে</string>
+    <string name="home_add_glucose_hint">যেকোনো মিটারের রিডিং লিখে রাখুন</string>
+    <string name="home_log_dose_hint">এইমাত্র খাওয়া ওষুধ বা ইনসুলিন</string>
     <string name="home_add_manually">ছবি ছাড়া খাবার যোগ করুন</string>
     <string name="review_max_items">এক বেলায় সর্বোচ্চ %1$dটি খাবার</string>
     <string name="review_name_required">খাবারের নাম দিতে হবে</string>

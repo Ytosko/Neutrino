@@ -132,6 +132,8 @@
     <string name="review_total">Total</string>
     <string name="review_no_items">Add the foods in this meal. Search by name, and pick how much you ate.</string>
     <string name="review_name_hint">Named after your foods if left empty</string>
+    <string name="home_add_glucose_hint">Type in a reading from any meter</string>
+    <string name="home_log_dose_hint">A medicine or insulin you just took</string>
     <string name="home_add_manually">Add foods without a photo</string>
     <string name="review_max_items">Up to %1$d foods per meal</string>
     <string name="review_name_required">Meal name is required</string>

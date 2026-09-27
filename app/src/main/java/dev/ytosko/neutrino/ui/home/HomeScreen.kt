@@ -680,31 +680,38 @@ fun HomeScreen(
                         withAi { gallery.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
                     }
                 }
-                // In order, two to a row: manual, voice (if on), glucose, dose (if on).
-                val tiles = buildList<@Composable (Modifier) -> Unit> {
-                    add { m ->
+                // In order, two to a row: manual, voice (if on), glucose, dose (if on). A tile left
+                // alone in the last row spans it, laid out wide (see SheetTile).
+                val tiles = buildList<@Composable (Modifier, Boolean) -> Unit> {
+                    add { m, _ ->
                         SheetTile(R.drawable.ic_search, stringResource(R.string.home_add_manually), NeutrinoTheme.colors.amber, m) {
                             showSheet = false
                             onAddManually()
                         }
                     }
                     if (voiceOn) {
-                        add { m ->
+                        add { m, _ ->
                             SheetTile(R.drawable.ic_mic, stringResource(R.string.voice_log_title), NeutrinoTheme.colors.teal, m) {
                                 showSheet = false
                                 onLogByVoice()
                             }
                         }
                     }
-                    add { m ->
-                        SheetTile(R.drawable.ic_activity, stringResource(R.string.home_add_glucose), NeutrinoTheme.colors.rose, m) {
+                    add { m, wide ->
+                        SheetTile(
+                            R.drawable.ic_activity, stringResource(R.string.home_add_glucose), NeutrinoTheme.colors.rose, m,
+                            subtitle = stringResource(R.string.home_add_glucose_hint).takeIf { wide },
+                        ) {
                             showSheet = false
                             addingGlucose = true
                         }
                     }
                     if (medicinesOn) {
-                        add { m ->
-                            SheetTile(R.drawable.ic_pill, stringResource(R.string.home_log_dose), NeutrinoTheme.colors.violet, m) {
+                        add { m, wide ->
+                            SheetTile(
+                                R.drawable.ic_pill, stringResource(R.string.home_log_dose), NeutrinoTheme.colors.violet, m,
+                                subtitle = stringResource(R.string.home_log_dose_hint).takeIf { wide },
+                            ) {
                                 showSheet = false
                                 addingDose = true
                             }
@@ -713,9 +720,7 @@ fun HomeScreen(
                 }
                 tiles.chunked(2).forEach { row ->
                     Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                        row.forEach { tile -> tile(Modifier.weight(1f)) }
-                        // A lone last tile keeps the same size as the others instead of stretching.
-                        if (row.size == 1) Spacer(Modifier.weight(1f))
+                        row.forEach { tile -> tile(Modifier.weight(1f), row.size == 1) }
                     }
                 }
             }
@@ -917,16 +922,42 @@ private fun newCaptureUri(context: Context): Uri {
     return FileProvider.getUriForFile(context, "${context.packageName}.files", file)
 }
 
-/** A big, friendly choice in the "Log a meal" sheet. */
+/**
+ * A big, friendly choice in the "Log a meal" sheet: icon above the label. With a [subtitle] it's the wide version for a
+ * tile alone in its row: icon, label and a line of explanation side by side, and an arrow.
+ */
 @Composable
-private fun SheetTile(icon: Int, label: String, tint: Tint, modifier: Modifier = Modifier, onClick: () -> Unit) {
+private fun SheetTile(
+    icon: Int,
+    label: String,
+    tint: Tint,
+    modifier: Modifier = Modifier,
+    subtitle: String? = null,
+    onClick: () -> Unit,
+) {
     val press = remember { MutableInteractionSource() }
+    val base = modifier
+        .pressScale(press)
+        .clip(MaterialTheme.shapes.large)
+        .background(MaterialTheme.colorScheme.surfaceContainerLowest)
+        .clickable(interactionSource = press, indication = ripple(), role = Role.Button, onClick = onClick)
+    if (subtitle != null) {
+        Row(
+            modifier = base.heightIn(min = 84.dp).padding(horizontal = Spacing.md, vertical = Spacing.sm),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+        ) {
+            IconBadge(icon = icon, container = tint.container, content = tint.content, size = 44.dp)
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(label, style = MaterialTheme.typography.titleSmall, maxLines = 1)
+                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
+            }
+            Icon(painterResource(R.drawable.ic_chevron_right), contentDescription = null, tint = MaterialTheme.colorScheme.outline)
+        }
+        return
+    }
     Column(
-        modifier = modifier
-            .pressScale(press)
-            .clip(MaterialTheme.shapes.large)
-            .background(MaterialTheme.colorScheme.surfaceContainerLowest)
-            .clickable(interactionSource = press, indication = ripple(), role = Role.Button, onClick = onClick)
+        modifier = base
             .heightIn(min = 112.dp)
             .padding(Spacing.md),
         verticalArrangement = Arrangement.spacedBy(Spacing.sm),
