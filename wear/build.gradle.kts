@@ -31,8 +31,10 @@ android {
         applicationId = "dev.ytosko.neutrino"
         minSdk = 30
         targetSdk = 36
-        versionName = (findProperty("versionName") as String?) ?: "1.0.0"
-        versionCode = versionCodeFor(versionName!!)
+        // Same as the phone app (app/build.gradle.kts); bumped together with every release.
+        versionCode = 10007
+        versionName = "1.0.7"
+        check(versionCode == versionCodeFor(versionName!!)) { "versionCode must be major × 10000 + minor × 100 + patch" }
     }
 
     signingConfigs {

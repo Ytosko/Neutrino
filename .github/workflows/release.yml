@@ -26,7 +26,13 @@ jobs:
 
       - name: Version from tag
         id: version
-        run: echo "name=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+        # The version lives in the build files (F-Droid reads it there); the tag must match it.
+        run: |
+          NAME="${GITHUB_REF_NAME#v}"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          for f in app/build.gradle.kts wear/build.gradle.kts; do
+            grep -q "versionName = \"$NAME\"" "$f" || { echo "::error::$f says a different versionName than the tag $GITHUB_REF_NAME"; exit 1; }
+          done
 
       - name: Restore signing key
         env:
@@ -45,7 +51,7 @@ jobs:
           } > keystore.properties
 
       - name: Test and build
-        run: ./gradlew --no-daemon -PversionName=${{ steps.version.outputs.name }} :app:testFullDebugUnitTest :glucose-ble:testDebugUnitTest :wear-protocol:testDebugUnitTest :app:assembleFullRelease :wear:assembleRelease
+        run: ./gradlew --no-daemon :app:testFullDebugUnitTest :glucose-ble:testDebugUnitTest :wear-protocol:testDebugUnitTest :app:assembleFullRelease :wear:assembleRelease
 
       - name: Check the signing certificate
         # Only builds signed with the registered key can use Google Drive backup, so refuse anything else.

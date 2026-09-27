@@ -2,6 +2,13 @@
 
 Every release has a section here, headed `## [x.y.z] - YYYY-MM-DD` with an optional ` · Release name`. The release workflow publishes the section as the GitHub release notes (and the name as its title), and refuses to release a version that has none.
 
+## [1.0.7] - 2026-09-27 · v1.6-NeutrinoBuddy
+
+Getting ready for F-Droid.
+
+- **Store screenshots:** the F-Droid listing now shows the app: your day, the Health page, glucose and estimated A1c, food search and medicines.
+- **Version in the build files:** the version number now lives in the build files, so F-Droid can find each new release on its own. Nothing changes in the app.
+
 ## [1.0.6] - 2026-09-26 · v1.5-NeutrinoBuddy
 
 Medicines and insulin, glucose from CGM apps, what each food does to your glucose, a much bigger South Asian food list, and Neutrino on your watch.

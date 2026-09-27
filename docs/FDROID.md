@@ -43,6 +43,7 @@ Categories:
   - Sports & Health
 License: GPL-3.0-only
 AuthorName: Ytosko
+AuthorEmail: privacy@ytosko.dev
 WebSite: https://neutrino.ytosko.dev
 SourceCode: https://github.com/Ytosko/Neutrino
 IssueTracker: https://github.com/Ytosko/Neutrino/issues
@@ -57,30 +58,28 @@ RepoType: git
 Repo: https://github.com/Ytosko/Neutrino.git
 
 Builds:
-  - versionName: 1.0.6
-    versionCode: 10006
-    commit: v1.0.6
+  - versionName: 1.0.7
+    versionCode: 10007
+    commit: <full commit hash of the v1.0.7 tag>
     subdir: app
     rm:
       - wear
     gradle:
       - libre
-    gradleprops:
-      - versionName=1.0.6
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags ^v[0-9.]+$
-CurrentVersion: 1.0.6
-CurrentVersionCode: 10006
+CurrentVersion: 1.0.7
+CurrentVersionCode: 10007
 ```
 
 Notes for the review:
 
-- The version name comes from the `versionName` Gradle property (the release tag without the
-  `v`), and the version code is calculated from it (`major × 10000 + minor × 100 + patch`), hence
-  `gradleprops`. F-Droid's reviewers may prefer a different update check; follow their advice.
-- The first F-Droid build must come from a tag that already has the `libre` flavour (1.0.6 or
-  later), so update `versionName`, `versionCode`, `commit` and `gradleprops` to that release.
+- The version is written in `app/build.gradle.kts` (`versionCode`, `versionName`), so F-Droid's
+  update check reads it from each tag; the release workflow checks the tag matches it.
+- `commit` must be the full hash, not the tag (fdroiddata's rule): `git rev-parse "v1.0.7^{commit}"`.
+- Not reproducible: F-Droid signs its build with its own key (the GitHub release is the `full`
+  flavour, so the APKs couldn't match anyway).
 - F-Droid signs with its own key, so the F-Droid and GitHub versions can't be installed over each
   other. Moving between them means a backup file, uninstall, install, restore.
 - Health Connect (`androidx.health.connect:connect-client`) is an open-source AndroidX library; the

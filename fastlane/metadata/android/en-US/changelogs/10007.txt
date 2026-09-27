@@ -1,0 +1,1 @@
+Store screenshots, and the version number now lives in the build files so F-Droid finds new releases by itself. Nothing changes in the app.

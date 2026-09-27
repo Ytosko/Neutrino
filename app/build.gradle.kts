@@ -29,9 +29,11 @@ android {
         applicationId = "dev.ytosko.neutrino"
         minSdk = 28
         targetSdk = 36
-        // CI passes the release tag (v1.2.3 -> -PversionName=1.2.3); local builds use the default.
-        versionName = (findProperty("versionName") as String?) ?: "1.0.0"
-        versionCode = versionCodeFor(versionName!!)
+        // Bumped with every release (here and in wear/build.gradle.kts). F-Droid reads them from
+        // here to spot new versions; the release workflow checks they match the tag.
+        versionCode = 10007
+        versionName = "1.0.7"
+        check(versionCode == versionCodeFor(versionName!!)) { "versionCode must be major × 10000 + minor × 100 + patch" }
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

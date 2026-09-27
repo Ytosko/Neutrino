@@ -35,24 +35,25 @@ Paste the result as the value of `NEUTRINO_KEYSTORE_BASE64`.
    `## [1.0.2] - 2026-10-01 · Release name`, describing what's new. Write each paragraph and bullet on
    one line (GitHub shows line breaks as-is). This becomes the release notes and title; the release
    fails without it. Commit and push.
-3. Tag and push:
+3. Set `versionName` and `versionCode` in `app/build.gradle.kts` and `wear/build.gradle.kts`
+   (e.g. `"1.0.7"` and `10007`; the build refuses a code that doesn't match the name), and add
+   `fastlane/metadata/android/en-US/changelogs/<versionCode>.txt` for F-Droid. Commit and push, then tag:
 
    ```bash
    git tag v1.0.0
    git push origin v1.0.0
    ```
 
-4. The **Release** workflow tests, builds with `versionName` 1.0.0 (`versionCode` 10000), checks the
+4. The **Release** workflow checks the tag matches the version in the build files, tests, builds, checks the
    APK is signed with the registered key (SHA-1 `A5:52:B9:…:5C:72`, see [SIGNING.md](SIGNING.md)),
    and publishes `neutrino-<release name>.apk` (e.g. `neutrino-v1.4-NeutrinoBuddy.apk`) with its SHA-256 checksum, using the CHANGELOG section as the notes.
    The Wear OS app is built, checked and published alongside it as `neutrino-wear-<release name>.apk`
    (same key, same version code; see [WEAR.md](WEAR.md)).
 
-5. For F-Droid, add `fastlane/metadata/android/en-US/changelogs/<versionCode>.txt` with a short
-   version of the notes (see [FDROID.md](FDROID.md)).
+5. F-Droid picks up the new tag by itself and reads the version from `app/build.gradle.kts`
+   (see [FDROID.md](FDROID.md)).
 
-Version codes come from the tag (`major × 10000 + minor × 100 + patch`), so each release installs
-over the previous one.
+Version codes are `major × 10000 + minor × 100 + patch`, so each release installs over the previous one.
 
 ## Installing
 
