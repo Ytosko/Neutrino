@@ -49,6 +49,28 @@ object ModelCatalog {
         return ModelChoices(usable, recommended?.id)
     }
 
+    /**
+     * Groq lists every model it hosts (speech, guard, text…) without saying which read images, so
+     * only its known photo models are offered: Qwen 3.x multimodal and Llama 4 Scout/Maverick.
+     */
+    private val groqVision = Regex("""^(qwen/qwen3\.\d+-27b|meta-llama/llama-4-(scout|maverick)-.*)$""")
+
+    fun fromGroq(ids: List<String>): ModelChoices {
+        val usable = ids.filter { groqVision.matches(it) }.distinct().sortedWith(compareBy<String> { !it.startsWith("qwen/") }.thenByDescending { it })
+            .map { AiModel(it, groqName(it)) }
+        return ModelChoices(usable, usable.firstOrNull()?.id)
+    }
+
+    /** "qwen/qwen3.8-27b" → "Qwen 3.8 27B". */
+    private fun groqName(id: String): String = when {
+        id.startsWith("qwen/qwen") -> id.removePrefix("qwen/qwen").let { rest ->
+            val (version, size) = rest.split('-', limit = 2).let { it[0] to it.getOrElse(1) { "" } }
+            "Qwen $version ${size.uppercase()}".trim()
+        }
+        id.startsWith("meta-llama/") -> id.removePrefix("meta-llama/").split('-').joinToString(" ") { it.replaceFirstChar(Char::uppercase) }
+        else -> id
+    }
+
     private fun isPreview(id: String) = "preview" in id || "exp" in id
 
     private fun versionOf(id: String): Double =

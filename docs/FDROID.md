@@ -52,7 +52,7 @@ Changelog: https://github.com/Ytosko/Neutrino/blob/main/CHANGELOG.md
 AutoName: Neutrino
 AntiFeatures:
   NonFreeNet:
-    en-US: Meal photos are sent to the AI provider you choose (Google Gemini or OpenAI), with your own API key. Medicine names you type can be looked up on MedEx.
+    en-US: Meal photos are sent to the AI provider you choose (Google Gemini, OpenAI or Groq), with your own API key. Medicine names you type can be looked up on MedEx.
 
 RepoType: git
 Repo: https://github.com/Ytosko/Neutrino.git

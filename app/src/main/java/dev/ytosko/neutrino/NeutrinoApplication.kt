@@ -273,6 +273,7 @@ class AppContainer(application: Application) {
     val aiClients: Map<AiProvider, AiClient> = mapOf(
         AiProvider.Gemini to GeminiClient(http, json),
         AiProvider.OpenAi to OpenAiClient(http, json),
+        AiProvider.Groq to dev.ytosko.neutrino.data.ai.GroqClient(http, json),
     )
 }
 

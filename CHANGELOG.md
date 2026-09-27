@@ -2,6 +2,10 @@
 
 Every release has a section here, headed `## [x.y.z] - YYYY-MM-DD` with an optional ` · Release name`. The release workflow publishes the section as the GitHub release notes (and the name as its title), and refuses to release a version that has none.
 
+## [Unreleased]
+
+- **Groq as a third AI provider:** use Groq with your own key, next to Google Gemini and OpenAI. Groq has a free plan and answers in under a second; Neutrino uses its photo model (Qwen 3.8 27B). On the free plan it allows about one photo a minute: Neutrino waits a few seconds by itself when Groq asks, and says so clearly when it's longer.
+
 ## [1.0.8] - 2026-09-27 · v1.7-NeutrinoBuddy
 
 Link your glucose readings to meals.

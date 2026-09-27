@@ -19,7 +19,7 @@
 ---
 
 Neutrino looks at a photo of your meal with **the AI model you choose**, using your own
-Google Gemini or OpenAI API key, and estimates carbohydrates, protein, fat and calories. You review
+Google Gemini, OpenAI or Groq API key, and estimates carbohydrates, protein, fat and calories. You review
 the numbers, and Neutrino saves them to **Health Connect** as breakfast, lunch, dinner or a snack
 based on your local time, so they show up in Google Health, Fitbit and any other app you allow.
 
@@ -41,7 +41,7 @@ based on your local time, so they show up in Google Health, Fitbit and any other
 - **Food search:** your foods first, ~750 built-in foods (USDA plus a big South Asian list, searchable in Bangla), Open Food Facts for packaged
   products, or AI for anything new
 - **Everyday units:** plate, bowl, piece, cup, glass, can as well as g, kg, ml, L
-- **Your AI:** Gemini or OpenAI with your own key; pick any vision model your key can use
+- **Your AI:** Gemini, OpenAI or Groq with your own key; pick any vision model your key can use
 - **Days:** browse any day, edit past meals, delete with undo, log water
 - **Health:** one day, week, month or year at a time (‹ › to step back), 6-hour blocks or hour by hour, goal lines,
   touch-to-read charts, and an estimated A1c (GMI) from 90 days of readings

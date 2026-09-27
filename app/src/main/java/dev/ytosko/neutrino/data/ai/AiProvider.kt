@@ -16,6 +16,7 @@ enum class AiProvider(
 ) {
     Gemini(id = "gemini", displayName = "Google Gemini", keyUrl = "https://aistudio.google.com/apikey", keyPrefix = "AIza…"),
     OpenAi(id = "openai", displayName = "OpenAI", keyUrl = "https://platform.openai.com/api-keys", keyPrefix = "sk-…"),
+    Groq(id = "groq", displayName = "Groq", keyUrl = "https://console.groq.com/keys", keyPrefix = "gsk_…"),
     ;
 
     companion object {
@@ -47,7 +48,8 @@ data class ModelChoices(val models: List<AiModel>, val recommended: String?)
 /** Failures surfaced to the user; each maps to a clear message and recovery action. */
 sealed class AiException(message: String, cause: Throwable? = null) : Exception(message, cause) {
     class InvalidKey : AiException("The API key was rejected")
-    class RateLimited : AiException("Rate limit or quota exceeded")
+    /** [provider] set when it has a known, tight limit worth naming (Groq's free plan). */
+    class RateLimited(val provider: AiProvider? = null) : AiException("Rate limit or quota exceeded")
     class Network(cause: Throwable) : AiException("Network error", cause)
     class Unexpected(val code: Int) : AiException("Unexpected response ($code)")
     /** The model answered but gave no usable result (blocked, refused, or unparseable). */

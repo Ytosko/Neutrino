@@ -173,7 +173,7 @@ private fun KeyCheckStatus(check: KeyCheck) {
 @Composable
 private fun errorMessage(error: AiException): String = when (error) {
     is AiException.InvalidKey -> stringResource(R.string.ai_error_invalid_key)
-    is AiException.RateLimited -> stringResource(R.string.ai_error_rate_limited)
+    is AiException.RateLimited -> stringResource(if (error.provider == dev.ytosko.neutrino.data.ai.AiProvider.Groq) R.string.ai_error_rate_limited_groq else R.string.ai_error_rate_limited)
     is AiException.Network -> stringResource(R.string.ai_error_network)
     is AiException.Unexpected -> stringResource(R.string.ai_error_unexpected, error.code)
     is AiException.NoResult -> stringResource(R.string.ai_error_no_result)

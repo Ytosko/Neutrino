@@ -6,7 +6,7 @@
     <string name="welcome_tagline">Snap your plate.\nLog your macros.</string>
     <string name="welcome_body">Take a photo of your meal. The AI model you choose estimates carbs, protein, fat and calories, and Neutrino saves it to Health Connect.</string>
     <string name="welcome_point_ai_title">Your AI, your key</string>
-    <string name="welcome_point_ai_body">Use Google Gemini or OpenAI with your own API key.</string>
+    <string name="welcome_point_ai_body">Use Google Gemini, OpenAI or Groq with your own API key.</string>
     <string name="welcome_point_review_title">You stay in control</string>
     <string name="welcome_point_review_body">Review every estimate before it\'s saved.</string>
     <string name="welcome_point_privacy_title">Private by design</string>
@@ -213,6 +213,7 @@
     <string name="ai_model_helper">Faster “flash” and “mini” models cost less and work well for meals.</string>
     <string name="ai_no_models">This key has no models that can read images.</string>
     <string name="ai_error_invalid_key">That key was rejected. Check that you copied it completely.</string>
+    <string name="ai_error_rate_limited_groq">Groq\'s free plan allows about one photo a minute. Wait a moment and try again.</string>
     <string name="ai_error_rate_limited">Your provider says the rate limit or quota was reached. Check your plan, then try again.</string>
     <string name="ai_error_network">Couldn\'t reach the provider. Check your internet connection.</string>
     <string name="ai_error_unexpected">The provider returned an error (%1$d). Try again in a moment.</string>

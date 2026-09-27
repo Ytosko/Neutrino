@@ -5,7 +5,7 @@
     <string name="welcome_tagline">খাবারের ছবি তুলুন।\nম্যাক্রো লগ করুন।</string>
     <string name="welcome_body">আপনার খাবারের একটি ছবি তুলুন। আপনার বেছে নেওয়া AI মডেল কার্বস, প্রোটিন, ফ্যাট ও ক্যালরির হিসাব দেবে, আর Neutrino সেটা Health Connect-এ সেভ করবে।</string>
     <string name="welcome_point_ai_title">আপনার AI, আপনার কী</string>
-    <string name="welcome_point_ai_body">নিজের API কী দিয়ে Google Gemini বা OpenAI ব্যবহার করুন।</string>
+    <string name="welcome_point_ai_body">নিজের API key দিয়ে Google Gemini, OpenAI বা Groq ব্যবহার করুন।</string>
     <string name="welcome_point_review_title">নিয়ন্ত্রণ আপনার হাতে</string>
     <string name="welcome_point_review_body">সেভ করার আগে প্রতিটি হিসাব আপনি দেখে নেবেন।</string>
     <string name="welcome_point_privacy_title">প্রাইভেসি প্রথমে</string>
@@ -193,6 +193,7 @@
     <string name="ai_model_helper">দ্রুত “flash” ও “mini” মডেলে খরচ কম, খাবারের জন্য ভালো কাজ করে।</string>
     <string name="ai_no_models">এই কী দিয়ে ছবি পড়তে পারে এমন কোনো মডেল নেই।</string>
     <string name="ai_error_invalid_key">কীটি গ্রহণ করা হয়নি। পুরো কী কপি করেছেন কিনা দেখুন।</string>
+    <string name="ai_error_rate_limited_groq">Groq-এর ফ্রি প্ল্যানে মিনিটে প্রায় একটি ছবি চলে। একটু অপেক্ষা করে আবার চেষ্টা করুন।</string>
     <string name="ai_error_rate_limited">প্রোভাইডার বলছে সীমা বা কোটা শেষ হয়ে গেছে। আপনার প্ল্যান দেখে আবার চেষ্টা করুন।</string>
     <string name="ai_error_network">প্রোভাইডারের সাথে যোগাযোগ করা যায়নি। ইন্টারনেট সংযোগ দেখুন।</string>
     <string name="ai_error_unexpected">প্রোভাইডার একটি ত্রুটি দিয়েছে (%1$d)। একটু পরে আবার চেষ্টা করুন।</string>
