@@ -282,6 +282,7 @@ internal fun aiErrorMessage(error: AiException): String = when (error) {
     is AiException.Network -> stringResource(R.string.ai_error_network)
     is AiException.Unexpected -> stringResource(R.string.ai_error_unexpected, error.code)
     is AiException.NoResult -> stringResource(R.string.ai_error_no_result)
+    is AiException.TooLarge -> stringResource(R.string.ai_error_too_large)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

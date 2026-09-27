@@ -475,13 +475,7 @@ private fun FailureBanner(reason: FailureReason, onRetry: () -> Unit, onManual: 
         FailureReason.AiNotSetUp -> stringResource(R.string.review_ai_not_set)
         FailureReason.NoFood -> stringResource(R.string.review_no_food)
         FailureReason.PhotoUnreadable -> stringResource(R.string.review_photo_error)
-        is FailureReason.Ai -> when (val e = reason.error) {
-            is AiException.InvalidKey -> stringResource(R.string.ai_error_invalid_key)
-            is AiException.RateLimited -> stringResource(if (e.provider == dev.ytosko.neutrino.data.ai.AiProvider.Groq) R.string.ai_error_rate_limited_groq else R.string.ai_error_rate_limited)
-            is AiException.Network -> stringResource(R.string.ai_error_network)
-            is AiException.Unexpected -> stringResource(R.string.ai_error_unexpected, e.code)
-            is AiException.NoResult -> stringResource(R.string.ai_error_no_result)
-        }
+        is FailureReason.Ai -> dev.ytosko.neutrino.ui.ai.aiErrorMessage(reason.error)
     }
     Column(
         modifier = modifier

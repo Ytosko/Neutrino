@@ -247,6 +247,7 @@ private fun statusText(phase: VoicePhase): Pair<String, String> = when (phase) {
 
 @Composable
 fun voiceErrorMessage(error: Exception): String = when (error) {
+    is AiException.TooLarge -> stringResource(R.string.voice_too_long)
     is AiException -> aiErrorMessage(error)
     is VoiceNotSetUp -> stringResource(R.string.voice_not_set_up)
     else -> stringResource(R.string.ai_error_no_result)

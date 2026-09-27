@@ -52,6 +52,11 @@ sealed class AiException(message: String, cause: Throwable? = null) : Exception(
     class RateLimited(val provider: AiProvider? = null) : AiException("Rate limit or quota exceeded")
     class Network(cause: Throwable) : AiException("Network error", cause)
     class Unexpected(val code: Int) : AiException("Unexpected response ($code)")
+    /**
+     * The request is bigger than the model or plan takes (Groq's "request too large", OpenAI's
+     * "context length exceeded"). Waiting won't help; a shorter request will.
+     */
+    class TooLarge : AiException("Request too large for the model or plan")
     /** The model answered but gave no usable result (blocked, refused, or unparseable). */
     class NoResult : AiException("No usable answer in the response")
 }

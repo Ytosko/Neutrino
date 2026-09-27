@@ -16,8 +16,8 @@ import kotlinx.coroutines.flow.first
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
-/** A meal said with Log by voice, handed to the review page that opens it. */
-data class VoiceMeal(val items: List<dev.ytosko.neutrino.domain.ScannedItem>, val eatenAt: LocalDateTime?)
+/** A meal said with Log by voice, handed to the review page that opens it (with the words, to start its session). */
+data class VoiceMeal(val items: List<dev.ytosko.neutrino.domain.ScannedItem>, val eatenAt: LocalDateTime?, val said: String = "")
 
 /** The voice model isn't set up (or its key is gone). */
 class VoiceNotSetUp : Exception("No voice model")
@@ -38,6 +38,8 @@ data class VoiceContext(
     val medicines: List<String>? = null,
     /** The assistant's last question and what the user had said before it, when the user is answering it. */
     val asked: Pair<String, String>? = null,
+    /** The review page's conversation so far, oldest first (see [dev.ytosko.neutrino.domain.voice.VoiceSession]). */
+    val history: List<String> = emptyList(),
 ) {
     val editing: Boolean get() = mealLines != null
 }
@@ -60,15 +62,21 @@ class VoiceAssistant(
         return client.transcribe(key, config.model, wav, VOCABULARY)
     }
 
-    /** Null when nothing actionable was said. */
+    /**
+     * Null when nothing actionable was said. There's no fixed size limit: the whole conversation is
+     * sent, and only if the provider says the request is too big are the oldest turns left out, one
+     * at a time. If even the sentence alone is too big, [AiException.TooLarge] reaches the user.
+     */
     suspend fun understand(transcript: String, context: VoiceContext): VoiceCommand? {
         val hints = settings.settings.first().promptHints
-        val prompt = VoicePrompt.command(transcript, context, hints)
         val chain = settings.aiChain()
-        val (_, command) = AiChain.run(chain, clients, shouldFallBack = { it !is AiException.NoResult }) { client, key, config ->
-            val reply = client.generateJson(key, config.model, prompt, VoicePrompt.SCHEMA)
-            VoiceCommandParser.parse(reply.text, context.now, context.mealLines?.size ?: 0) ?: throw AiException.NoResult()
-        } ?: throw VoiceNotSetUp()
+        val command = withShorterHistory(context.history) { history ->
+            val prompt = VoicePrompt.command(transcript, context.copy(history = history), hints)
+            AiChain.run(chain, clients, shouldFallBack = { it !is AiException.NoResult && it !is AiException.TooLarge }) { client, key, config ->
+                val reply = client.generateJson(key, config.model, prompt, VoicePrompt.SCHEMA)
+                VoiceCommandParser.parse(reply.text, context.now, context.mealLines?.size ?: 0) ?: throw AiException.NoResult()
+            }?.second ?: throw VoiceNotSetUp()
+        }
         return command.takeUnless { it.isEmpty }
     }
 
@@ -79,6 +87,21 @@ class VoiceAssistant(
                 "dim, bhorta, shak, singara, fuchka, cha, water, glass, plate, bowl, glucose, sugar, mmol, mg/dL, fasting, " +
                 "Metformin, insulin, units, tablet"
     }
+}
+
+/**
+ * Runs [attempt] with the whole [history]; each time the provider says the request is too big, again
+ * with one turn fewer (oldest first), down to none. Too big even then: the error goes to the user.
+ */
+suspend fun <T> withShorterHistory(history: List<String>, attempt: suspend (List<String>) -> T): T {
+    for (keep in history.size downTo 0) {
+        try {
+            return attempt(history.takeLast(keep))
+        } catch (e: AiException.TooLarge) {
+            if (keep == 0) throw e
+        }
+    }
+    throw AiException.TooLarge()
 }
 
 object VoicePrompt {
@@ -104,6 +127,10 @@ object VoicePrompt {
                 context.medicines.forEachIndexed { i, line -> append(i + 1).append(". ").append(line.replace('"', ' ')).append('\n') }
             }
         }
+        val history = if (context.history.isEmpty()) "" else buildString {
+            append("\nThis conversation about the meal so far (oldest first; what the app actually did after each):\n")
+            context.history.forEach { append("- ").append(it.replace('"', '\'')).append('\n') }
+        }
         val followUp = context.asked?.let { (before, question) ->
             val clean = { t: String -> t.replace(Regex("[\"{}\\n\\r]"), " ").trim().take(300) }
             "\nEarlier the user said: \"${clean(before)}\" and you asked: \"${clean(question)}\". What they say now may be the answer."
@@ -119,7 +146,9 @@ object VoicePrompt {
             items: foods and drinks with calories the user ate.
             - "add": a new food. Give its amount as a quantity and a household unit (piece, slice, cup, bowl, plate, glass, tbsp, tsp) or g/ml, its weight in grams, and calories, protein, carbs and fat for that whole amount. Use a short common English name; add the local name in parentheses for South Asian dishes. Typical portions: a plate of cooked rice is about 250 g, one roti 40 g, one paratha 80 g, a bowl of dal 200 g, a piece of curried chicken or fish 100 g.
             - "set": change a line of the meal above. "item" is its number. Give the new TOTAL amount, grams and nutrition for that total. Use it when the user says how much they had of a food already listed ("I had three burgers" when burgers are listed means 3 in total; "another burger" or "one more" adds to the listed amount), or corrects an amount or size in any unit ("they were only 100 g", "300 ml", "it was 300 calories", "half of that"). Always give the new total in grams, worked out from what the user said.
+            - Keep the count (pieces, plates…) unless the user says a new count. When they give only a weight, volume or calories for a line ("those three were maximum 100 grams"), keep the count out of it: set unit "g" and quantity to the total grams.
             - "remove": remove line "item" when the user says they didn't have it. Other fields may be empty or 0.
+            - Use the conversation above to understand "it", "those", "no, I said three" or "undo that" (put back what the last change in the conversation changed, using the amounts shown there).
             - Match foods the user names loosely to the listed lines (e.g. "the rice" or "700 g of protein" for a listed chicken). Leave "item" 0 for "add".
             - With no meal above, only use "add".
             meal_time: "YYYY-MM-DD HH:MM" or "".${if (context.editing) " Only when the user clearly asks to change this meal's time (\"change the time to 2 pm\"); a time said along with a food does not count." else " When the user says when they ate (work out times like \"two hours ago\" from Now); otherwise \"\"."}
@@ -129,7 +158,7 @@ object VoicePrompt {
             question: when the user says an amount is wrong but not what it should be ("it's not that big", "less than that"), don't guess and don't change anything: ask one short question to get the amount, e.g. "About how much did the three chicken burgers weigh?", in the language the user spoke; leave reply "". Otherwise "".
             reply: one short, friendly sentence saying what you did, to be read aloud, in the language the user spoke. Never put glucose numbers in it.
             If the words are not about food, water, blood sugar or medicine, or make no sense, return empty lists, 0s and "" everywhere.
-        """.trimIndent().replace("@@CONTEXT@@", (meal + medicineList + followUp).trim()) + hints.render()
+        """.trimIndent().replace("@@CONTEXT@@", (meal + history + medicineList + followUp).trim()) + hints.render()
     }
 
     val SCHEMA = Obj(

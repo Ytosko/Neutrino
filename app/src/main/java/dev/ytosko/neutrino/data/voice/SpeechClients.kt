@@ -94,7 +94,8 @@ class OpenAiSpeechClient(
 
     private fun error(code: Int): AiException = when (code) {
         401, 403 -> AiException.InvalidKey()
-        413, 429 -> AiException.RateLimited(provider.takeIf { it == AiProvider.Groq })
+        413 -> AiException.TooLarge()
+        429 -> AiException.RateLimited(provider.takeIf { it == AiProvider.Groq })
         else -> AiException.Unexpected(code)
     }
 }

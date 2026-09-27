@@ -232,7 +232,7 @@ fun NeutrinoNavHost(startDestination: Route, modifier: Modifier = Modifier) {
                     logDate = route.logEpochDay?.let(java.time.LocalDate::ofEpochDay),
                     editMealId = route.editMealId,
                     voiceMeal = if (route.fromVoice) container.voiceMeal.also { container.voiceMeal = null } else null,
-                    voiceFactory = { scope, contextFor, onMeal -> container.voiceController(scope, context, contextFor, onMeal) },
+                    voiceFactory = { scope, contextFor, session, onMeal -> container.voiceController(scope, context, contextFor, session, onMeal) },
                 )
             }
             ReviewScreen(

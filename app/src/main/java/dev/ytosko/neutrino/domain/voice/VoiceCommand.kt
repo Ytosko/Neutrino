@@ -175,12 +175,12 @@ data class KnownMedicine(val id: String, val name: String, val generic: String?,
 object MedicineMatcher {
 
     fun match(spoken: SpokenMedicine, list: List<KnownMedicine>): List<KnownMedicine> {
-        val words = spoken.name.lowercase().split(Regex("[^\\p{L}]+")).filter { it.length >= 3 }
+        val words = spoken.name.lowercase().split(Regex("[^\\p{L}\\p{M}]+")).filter { it.length >= 3 }
         val numbers = numbersIn(spoken.strength + " " + spoken.name)
         if (words.isEmpty()) return emptyList()
         val byName = list.filter { medicine ->
             val names = listOfNotNull(medicine.name, medicine.generic)
-                .flatMap { it.lowercase().split(Regex("[^\\p{L}]+")) }
+                .flatMap { it.lowercase().split(Regex("[^\\p{L}\\p{M}]+")) }
                 .filter { it.length >= 3 }
             words.any { word -> names.any { similar(word, it) } }
         }

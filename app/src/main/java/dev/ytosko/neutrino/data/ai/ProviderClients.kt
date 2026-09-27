@@ -74,7 +74,7 @@ class GeminiClient(
                 .post(body.toString().toRequestBody(JSON_MEDIA))
                 .build()
             val (code, response) = http.call(request)
-            val canRetry = index < attempts.lastIndex && code == 400 && !isKeyError(response)
+            val canRetry = index < attempts.lastIndex && code == 400 && !isKeyError(response) && !geminiTooLarge(response)
             when {
                 code in 200..299 -> return parse(response)
                 canRetry -> Unit
@@ -157,6 +157,7 @@ class GeminiClient(
 
     private fun error(code: Int, body: String): AiException = when {
         code == 400 && isKeyError(body) -> AiException.InvalidKey()
+        code == 413 || geminiTooLarge(body) -> AiException.TooLarge()
         code == 401 || code == 403 -> AiException.InvalidKey()
         code == 429 -> AiException.RateLimited()
         else -> AiException.Unexpected(code)
@@ -173,7 +174,7 @@ class OpenAiClient(
     override suspend fun listModels(apiKey: String): ModelChoices {
         val request = Request.Builder().url("$baseUrl/models").header("Authorization", "Bearer $apiKey").build()
         val (code, body) = http.call(request)
-        if (code !in 200..299) throw error(code)
+        if (code !in 200..299) throw error(code, body)
         return ModelCatalog.fromOpenAi(json.decodeFromString<OpenAiModelList>(body).data.map { it.id })
     }
 
@@ -188,8 +189,8 @@ class OpenAiClient(
             val (code, body) = http.call(request)
             when {
                 code in 200..299 -> return parse(body)
-                code == 400 && lean -> continue
-                else -> throw error(code)
+                code == 400 && lean && !openAiTooLarge(body) -> continue
+                else -> throw error(code, body)
             }
         }
         throw AiException.NoResult()
@@ -245,9 +246,10 @@ class OpenAiClient(
         return JsonReply(text, usage)
     }
 
-    private fun error(code: Int): AiException = when (code) {
-        401, 403 -> AiException.InvalidKey()
-        429 -> AiException.RateLimited()
+    private fun error(code: Int, body: String): AiException = when {
+        code == 401 || code == 403 -> AiException.InvalidKey()
+        code == 413 || openAiTooLarge(body) -> AiException.TooLarge()
+        code == 429 -> AiException.RateLimited()
         else -> AiException.Unexpected(code)
     }
 }
@@ -282,6 +284,12 @@ internal fun JsonSchema.openAi(): JsonElement = when (this) {
         put("additionalProperties", false)
     }
 }
+
+/** OpenAI (and compatible APIs) say the request is over the model's context window. */
+internal fun openAiTooLarge(body: String) = "context_length_exceeded" in body || "maximum context length" in body
+
+/** Gemini says the input has more tokens than the model takes. */
+internal fun geminiTooLarge(body: String) = "exceeds the maximum number of tokens" in body || "input token count" in body
 
 private fun JsonObject.int(key: String): Int = (this[key] as? JsonPrimitive)?.intOrNull ?: 0
 

@@ -1,5 +1,6 @@
 package dev.ytosko.neutrino.ui.voice
 
+import dev.ytosko.neutrino.domain.voice.VoiceSession
 import dev.ytosko.neutrino.domain.voice.ItemChange
 import dev.ytosko.neutrino.data.voice.VoiceMeal
 import androidx.lifecycle.viewModelScope
@@ -45,6 +46,9 @@ sealed interface VoicePhase {
     data class Failed(val error: Exception) : VoicePhase
 }
 
+/** What a voice turn did to the meal on screen: descriptions of the changes, and lines it couldn't change. */
+data class MealOutcome(val changes: List<String> = emptyList(), val unchanged: List<String> = emptyList())
+
 /** Several of the user's medicines fit what was said ("Metformin 500" and two brands of it). */
 data class MedicineChoice(val spoken: SpokenMedicine, val options: List<MedicineEntity>)
 
@@ -65,8 +69,10 @@ class VoiceController(
     private val zone: ZoneId = ZoneId.systemDefault(),
     /** The meal on screen, for the review page; null when logging from scratch. */
     private val contextFor: () -> VoiceContext = { VoiceContext(LocalDateTime.now(zone)) },
-    /** Applies the meal part; returns the names of lines it couldn't change. */
-    private val onMeal: suspend (VoiceCommand) -> List<String>,
+    /** The review page's conversation; null for Log by voice, which has none. */
+    private val session: VoiceSession? = null,
+    /** Applies the meal part to what's on screen, given what was said. */
+    private val onMeal: suspend (said: String, command: VoiceCommand) -> MealOutcome,
 ) {
     private val recorder = VoiceRecorder()
     val level: StateFlow<Float> = recorder.level
@@ -112,14 +118,28 @@ class VoiceController(
                 if (text.isBlank()) return@launch missed()
                 val list = if (settings.settings.first().medicinesOn) medicines.activeMedicines() else null
                 shownMedicines = list
-                val context = contextFor().copy(medicines = list?.map(::medicineLine), asked = asked)
-                val command = assistant.understand(text, context) ?: return@launch missed()
+                // On the review page the session carries the conversation; elsewhere only a question asked.
+                val history = session?.lines.orEmpty()
+                val context = contextFor().copy(
+                    medicines = list?.map(::medicineLine),
+                    asked = asked.takeIf { session == null },
+                    history = history,
+                )
+                val command = assistant.understand(text, context)
+                if (command == null) {
+                    session?.said(text, emptyList())
+                    return@launch missed()
+                }
                 if (command.question.isNotBlank()) {
+                    session?.said(text, listOf("Asked: \"${command.question}\""))
                     ask(text, command.question)
                     return@launch
                 }
                 asked = null
-                act(command)
+                act(text, command)
+            } catch (e: AiException.TooLarge) {
+                _phase.value = VoicePhase.Failed(e)
+                replies.say(context.getString(R.string.voice_too_long), settings.settings.first().speakReplies)
             } catch (e: AiException) {
                 _phase.value = VoicePhase.Failed(e)
             } catch (e: VoiceNotSetUp) {
@@ -180,14 +200,16 @@ class VoiceController(
         }
     }
 
-    private suspend fun act(command: VoiceCommand) {
+    private suspend fun act(said: String, command: VoiceCommand) {
         val speak = settings.settings.first().speakReplies
         val notes = mutableListOf<String>()
+        val done = mutableListOf<String>()
         val now = LocalDateTime.now(zone)
 
         if (command.waterMl > 0) {
             val at = (if (contextFor().editing) null else command.mealTime) ?: now
             meals.addWater(command.waterMl, zone, at.atZone(zone).toInstant())
+            done += "Logged water: ${command.waterMl} ml"
         }
 
         if (command.medicines.isNotEmpty()) {
@@ -208,7 +230,10 @@ class VoiceController(
                         }
                         when (matches.size) {
                             0 -> notes += context.getString(R.string.voice_medicine_unknown, spoken.name)
-                            1 -> logDose(matches.first(), spoken)
+                            1 -> {
+                                logDose(matches.first(), spoken)
+                                done += "Logged medicine: ${matches.first().displayName}"
+                            }
                             else -> choices += MedicineChoice(spoken, matches)
                         }
                     }
@@ -218,12 +243,17 @@ class VoiceController(
             }
         }
 
-        val unchanged = if (command.hasMeal || (command.mealTime != null && contextFor().editing)) onMeal(command) else emptyList()
+        val meal = if (command.hasMeal || (command.mealTime != null && contextFor().editing)) onMeal(said, command) else MealOutcome()
+        val unchanged = meal.unchanged
+        done += meal.changes
+        unchanged.forEach { done += "Couldn't change: $it" }
 
         if (command.glucose != null) {
             _glucose.value = command.glucose
             notes += context.getString(R.string.voice_confirm_glucose)
+            done += "Glucose reading waiting for the user to confirm"
         }
+        session?.said(said, done)
 
         lastCommand = command
         _phase.value = VoicePhase.Idle
@@ -266,7 +296,8 @@ fun AppContainer.voiceController(
     scope: CoroutineScope,
     context: Context,
     contextFor: () -> VoiceContext = { VoiceContext(LocalDateTime.now()) },
-    onMeal: suspend (VoiceCommand) -> List<String>,
+    session: VoiceSession? = null,
+    onMeal: suspend (said: String, command: VoiceCommand) -> MealOutcome,
 ) = VoiceController(
     scope = scope,
     context = context.applicationContext,
@@ -277,16 +308,18 @@ fun AppContainer.voiceController(
     medicines = medicines,
     glucose = glucose,
     contextFor = contextFor,
+    session = session,
     onMeal = onMeal,
 )
 
 /** Log by voice from Home: a meal said goes to a new review page; everything else is logged here. */
 class VoiceLogViewModel(container: AppContainer, context: Context) : ViewModel() {
-    val controller = container.voiceController(viewModelScope, context) { command ->
+    val controller = container.voiceController(viewModelScope, context) { said, command ->
         container.voiceMeal = VoiceMeal(
             items = command.items.filterIsInstance<ItemChange.Add>().map { it.item },
             eatenAt = command.mealTime,
+            said = said,
         )
-        emptyList()
+        MealOutcome()
     }
 }

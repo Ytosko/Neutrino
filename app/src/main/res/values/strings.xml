@@ -256,6 +256,7 @@
     <string name="voice_medicine_unknown">%1$s isn\'t in your medicines.</string>
     <string name="voice_medicine_off">The medicine log is off, so no medicine was logged. Turn it on in Settings to log medicines.</string>
     <string name="voice_medicine_empty">Your medicine list is empty, so nothing was logged. Add your medicines in Settings.</string>
+    <string name="voice_too_long">That\'s too much to process at once. Please say it in a shorter way.</string>
     <string name="voice_change_failed">I couldn\'t change %1$s. Tap it to edit.</string>
     <string name="voice_confirm_glucose">Please confirm your glucose reading.</string>
     <string name="voice_which_medicine">Which %1$s did you take?</string>
@@ -295,6 +296,7 @@
     <string name="ai_error_network">Couldn\'t reach the provider. Check your internet connection.</string>
     <string name="ai_error_unexpected">The provider returned an error (%1$d). Try again in a moment.</string>
     <string name="ai_error_no_result">The model didn\'t return a usable answer. Try again, or pick a different model.</string>
+    <string name="ai_error_too_large">That\'s more than this model or plan takes in one request. Try Low photo detail, or a different model.</string>
     <string name="ai_photo_detail">Photo detail</string>
     <string name="ai_photo_standard">Standard</string>
     <string name="ai_photo_low">Low (cheapest)</string>

@@ -198,13 +198,7 @@ private fun CustomFoodRow(query: String, state: CustomFoodState, onCreate: () ->
         val error = when (state) {
             CustomFoodState.NeedsAi -> stringResource(R.string.food_custom_needs_ai)
             CustomFoodState.NotFound -> stringResource(R.string.food_not_found, query)
-            is CustomFoodState.Failed -> when (val e = state.error) {
-                is AiException.InvalidKey -> stringResource(R.string.ai_error_invalid_key)
-                is AiException.RateLimited -> stringResource(if (e.provider == dev.ytosko.neutrino.data.ai.AiProvider.Groq) R.string.ai_error_rate_limited_groq else R.string.ai_error_rate_limited)
-                is AiException.Network -> stringResource(R.string.ai_error_network)
-                is AiException.Unexpected -> stringResource(R.string.ai_error_unexpected, e.code)
-                is AiException.NoResult -> stringResource(R.string.ai_error_no_result)
-            }
+            is CustomFoodState.Failed -> dev.ytosko.neutrino.ui.ai.aiErrorMessage(state.error)
             else -> null
         }
         if (error != null) {

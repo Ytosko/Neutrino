@@ -1,5 +1,8 @@
 package dev.ytosko.neutrino.ui.review
 
+import dev.ytosko.neutrino.ui.voice.MealOutcome
+import dev.ytosko.neutrino.domain.voice.SpokenCount
+import dev.ytosko.neutrino.domain.voice.VoiceSession
 import dev.ytosko.neutrino.data.ai.AiChain
 import android.net.Uri
 import androidx.lifecycle.ViewModel
@@ -136,7 +139,7 @@ class ReviewViewModel(
     /** A meal said with Log by voice, to open with its foods and time. */
     voiceMeal: VoiceMeal? = null,
     /** Builds the page's voice assistant when voice is on; null hides the mic. */
-    voiceFactory: ((CoroutineScope, () -> VoiceContext, suspend (VoiceCommand) -> List<String>) -> VoiceController)? = null,
+    voiceFactory: ((CoroutineScope, () -> VoiceContext, VoiceSession, suspend (String, VoiceCommand) -> MealOutcome) -> VoiceController)? = null,
 ) : ViewModel() {
 
     private val pastDay: LocalDate? = logDate?.takeIf { it != LocalDate.now(zone) }
@@ -159,8 +162,13 @@ class ReviewViewModel(
     private var job: Job? = null
     private var nextKey = 0L
 
+    /** This page's conversation with the voice assistant; forgotten on Save or when the page closes. */
+    private val session = VoiceSession()
+    /** The lines as the last voice turn left them, to notice changes made by hand in between. */
+    private var afterVoice: List<ReviewItem>? = null
+
     /** The mic on this page; null when voice isn't set up. */
-    val voice: VoiceController? = voiceFactory?.invoke(viewModelScope, ::voiceContext, ::applyVoice)
+    val voice: VoiceController? = voiceFactory?.invoke(viewModelScope, ::voiceContext, session, ::applyVoice)
 
     init {
         // Use the user's meal times once settings load (the default guess shows until then).
@@ -177,10 +185,12 @@ class ReviewViewModel(
         }
     }
 
-    /** Fills a new meal from Log by voice: its foods, and the time the user said. */
+    /** Fills a new meal from Log by voice: its foods, and the time the user said. The session starts with it. */
     private fun openVoiceMeal(meal: VoiceMeal) {
         viewModelScope.launch {
             val items = meal.items.take(MAX_ITEMS).map { ScanFoods.resolve(it, foods.findByName(it.name)) }.map { newItem(it.food, it.portion) }
+            if (meal.said.isNotBlank()) session.said(meal.said, items.map { "Added: ${describe(it)}" })
+            afterVoice = items
             val at = meal.eatenAt?.atZone(zone) ?: now
             _state.update {
                 it.copy(
@@ -193,8 +203,9 @@ class ReviewViewModel(
         }
     }
 
-    /** What the assistant sees: the meal's lines as on screen, and its time. */
+    /** What the assistant sees: the meal's lines as on screen, and its time. Hand edits since the last turn go into the session. */
     private fun voiceContext(): VoiceContext {
+        noteHandEdits()
         val snapshot = _state.value
         val lines = snapshot.items.map { item ->
             val grams = item.grams?.let { " (${it.roundToInt()} g)" }.orEmpty()
@@ -207,9 +218,10 @@ class ReviewViewModel(
      * Applies what the user asked for by voice: new foods, changed amounts, removed lines, a new time.
      * Returns the names of lines that couldn't be changed, so the reply can say so.
      */
-    private suspend fun applyVoice(command: VoiceCommand): List<String> {
+    private suspend fun applyVoice(said: String, command: VoiceCommand): MealOutcome {
         val before = _state.value.items
         val unchanged = mutableListOf<String>()
+        val changes = mutableListOf<String>()
         val changed = mutableSetOf<Long>()
         val removed = mutableSetOf<Long>()
         var items = before
@@ -220,18 +232,23 @@ class ReviewViewModel(
                     val line = newItem(resolved.food, resolved.portion)
                     items = items + line
                     changed += line.key
+                    changes += "Added: ${describe(line)}"
                 }
                 is ItemChange.Set -> {
                     val target = before.getOrNull(change.index) ?: return@forEach
-                    val updated = withAmount(target, change.item)
+                    val updated = withAmount(target, keepCount(target, change.item, said))
                     if (updated == null) {
                         unchanged += target.food.name
                         return@forEach
                     }
                     items = items.map { if (it.key == target.key) updated else it }
                     changed += target.key
+                    changes += "Changed: ${describe(target)} → ${amount(updated)}"
                 }
-                is ItemChange.Remove -> before.getOrNull(change.index)?.let { removed += it.key }
+                is ItemChange.Remove -> before.getOrNull(change.index)?.let {
+                    removed += it.key
+                    changes += "Removed: ${describe(it)}"
+                }
             }
         }
         if (changed.isNotEmpty() || removed.isNotEmpty()) updateItems { items.filterNot { it.key in removed }.take(MAX_ITEMS) }
@@ -240,7 +257,9 @@ class ReviewViewModel(
             _state.update {
                 it.copy(eatenAt = at, mealType = if (it.mealTypeChosenByUser) it.mealType else mealWindows.mealAt(at.toLocalTime()), changed = true)
             }
+            changes += "Meal time: ${time.toLocalTime()}"
         }
+        afterVoice = _state.value.items
         if (changed.isNotEmpty()) {
             viewModelScope.launch {
                 _state.update { it.copy(highlighted = changed) }
@@ -248,7 +267,43 @@ class ReviewViewModel(
                 _state.update { it.copy(highlighted = emptySet()) }
             }
         }
-        return unchanged
+        return MealOutcome(changes, unchanged)
+    }
+
+    /**
+     * The AI may only change a line's count when the user said a new one. "Those three were maximum
+     * 100 grams" keeps three, so the weight is used instead of a count the AI made up.
+     */
+    private fun keepCount(line: ReviewItem, said: ScannedItem, words: String): ScannedItem {
+        val current = line.quantity ?: return said
+        val household = !line.unit.isMass && !line.unit.isVolume
+        val newCount = said.quantity
+        if (!household || newCount == current || SpokenCount.allows(words, newCount)) return said
+        return if (said.grams > 0) said.copy(quantity = said.grams, unit = "g") else said.copy(quantity = current, unit = line.unit.key)
+    }
+
+    /** Lines changed by hand since the last voice turn, told to the session so the assistant knows. */
+    private fun noteHandEdits() {
+        val last = afterVoice ?: return
+        val now = _state.value.items
+        now.forEach { item ->
+            val was = last.firstOrNull { it.key == item.key }
+            when {
+                was == null -> session.byHand("Added: ${describe(item)}")
+                was.food.id != item.food.id || was.quantityText != item.quantityText || was.unit != item.unit ->
+                    session.byHand("Changed: ${describe(was)} → ${describe(item)}")
+            }
+        }
+        last.filter { old -> now.none { it.key == old.key } }.forEach { session.byHand("Removed: ${describe(it)}") }
+        afterVoice = now
+    }
+
+    /** "Hamburger, 3 piece (330 g)". */
+    private fun describe(item: ReviewItem) = "${item.food.name}, ${amount(item)}"
+
+    private fun amount(item: ReviewItem): String {
+        val grams = item.grams?.takeIf { !item.unit.isMass }?.let { " (${it.roundToInt()} g)" }.orEmpty()
+        return "${item.quantityText.ifBlank { "?" }} ${item.unit.key}$grams"
     }
 
     /** The line with the amount the user said; see [voiceAmount]. */
@@ -401,6 +456,7 @@ class ReviewViewModel(
     fun save() {
         val snapshot = _state.value
         if (!snapshot.canSave) return
+        session.clear()
         viewModelScope.launch {
             _state.update { it.copy(phase = ReviewPhase.Saving) }
             val draft =

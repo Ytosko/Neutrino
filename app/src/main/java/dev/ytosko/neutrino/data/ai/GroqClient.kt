@@ -45,7 +45,7 @@ class GroqClient(
     override suspend fun listModels(apiKey: String): ModelChoices {
         val request = Request.Builder().url("$baseUrl/models").header("Authorization", "Bearer $apiKey").build()
         val (code, body) = http.call(request)
-        if (code !in 200..299) throw error(code)
+        if (code !in 200..299) throw error(code, body)
         val ids = json.decodeFromString<GroqModelList>(body).data.filter { it.active }.map { it.id }
         return ModelCatalog.fromGroq(ids)
     }
@@ -67,8 +67,8 @@ class GroqClient(
             }
             when {
                 code in 200..299 -> return parse(body)
-                code == 400 && withSchema -> continue
-                else -> throw error(code)
+                code == 400 && withSchema && !tooLarge(body) -> continue
+                else -> throw error(code, body)
             }
         }
         throw AiException.NoResult()
@@ -138,11 +138,15 @@ class GroqClient(
         return JsonReply(text, usage)
     }
 
-    private fun error(code: Int): AiException = when (code) {
-        401, 403 -> AiException.InvalidKey()
-        413, 429 -> AiException.RateLimited(AiProvider.Groq)
+    /** 413 is "request larger than your per-minute limit": one request too big, not too many. */
+    private fun error(code: Int, body: String): AiException = when {
+        code == 401 || code == 403 -> AiException.InvalidKey()
+        code == 413 || tooLarge(body) -> AiException.TooLarge()
+        code == 429 -> AiException.RateLimited(AiProvider.Groq)
         else -> AiException.Unexpected(code)
     }
+
+    private fun tooLarge(body: String) = "context_length_exceeded" in body || "Request too large" in body
 
     private companion object {
         val JSON_MEDIA = "application/json".toMediaType()
