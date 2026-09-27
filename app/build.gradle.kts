@@ -31,8 +31,8 @@ android {
         targetSdk = 36
         // Bumped with every release (here and in wear/build.gradle.kts). F-Droid reads them from
         // here to spot new versions; the release workflow checks they match the tag.
-        versionCode = 10008
-        versionName = "1.0.8"
+        versionCode = 10009
+        versionName = "1.0.9"
         check(versionCode == versionCodeFor(versionName!!)) { "versionCode must be major × 10000 + minor × 100 + patch" }
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

@@ -41,7 +41,9 @@ based on your local time, so they show up in Google Health, Fitbit and any other
 - **Food search:** your foods first, ~750 built-in foods (USDA plus a big South Asian list, searchable in Bangla), Open Food Facts for packaged
   products, or AI for anything new
 - **Everyday units:** plate, bowl, piece, cup, glass, can as well as g, kg, ml, L
-- **Your AI:** Gemini, OpenAI or Groq with your own key; pick any vision model your key can use
+- **Your AI:** Gemini, OpenAI or Groq with your own key; up to 4 models, a Primary with fallbacks if it fails
+- **Voice (optional):** log meals, water, glucose and medicine by speaking, and change a meal on the review page by
+  talking; any speech-to-text model your key can use, replies spoken by your phone's own voice
 - **Days:** browse any day, edit past meals, delete with undo, log water
 - **Health:** one day, week, month or year at a time (‹ › to step back), 6-hour blocks or hour by hour, goal lines,
   touch-to-read charts, and an estimated A1c (GMI) from 90 days of readings
@@ -218,4 +220,4 @@ Icons are from [Lucide](https://lucide.dev) (ISC). Food data: USDA FoodData Cent
 Open Food Facts (ODbL).
 
 Health Connect, Google Health, Fitbit and Gemini are trademarks of Google LLC. OpenAI is a
-trademark of OpenAI. Neutrino is not affiliated with or endorsed by either.
+trademark of OpenAI. Groq is a trademark of Groq, Inc. Neutrino is not affiliated with or endorsed by any of them.

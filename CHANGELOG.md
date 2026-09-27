@@ -2,9 +2,25 @@
 
 Every release has a section here, headed `## [x.y.z] - YYYY-MM-DD` with an optional ` · Release name`. The release workflow publishes the section as the GitHub release notes (and the name as its title), and refuses to release a version that has none.
 
-## [Unreleased]
+## [1.0.9] - 2026-09-28 · v1.8-NeutrinoBuddy
 
-- **Groq as a third AI provider:** use Groq with your own key, next to Google Gemini and OpenAI. Groq has a free plan and answers in under a second; Neutrino uses its photo model (Qwen 3.8 27B). On the free plan it allows about one photo a minute: Neutrino waits a few seconds by itself when Groq asks, and says so clearly when it's longer.
+Talk to Neutrino, Groq, and several AI models with fallbacks.
+
+### Voice (off until you turn it on)
+- **Log by voice:** say what you had, e.g. "rice and chicken curry at 2 pm, a glass of water, and I took Metformin". Meals open on the review page with the time you said; water and medicine are logged; a glucose reading is only saved after you confirm it.
+- **Your medicines, exactly:** with the medicine log on, the assistant picks from your own medicine list by brand or generic name ("Metformin 500" finds Oramet SR 500). It never logs a medicine that isn't in your list, and tells you when the medicine log is off or empty.
+- **Change a meal by talking:** on the review page, tap or hold the mic: "I had three burgers", "remove the Coke", "those were only 100 grams", "change the time to 2 pm". Changed lines light up for a moment. If you only say it was smaller, it asks how much.
+- **It follows the conversation:** while a meal is open, the assistant remembers the last few things you said about it, so "no, I said three" and "undo that" work. It's forgotten when you save or leave.
+- **Your choice of voice model:** Google Gemini, OpenAI (Whisper or Transcribe) or Groq Whisper, with your own key, reusing a key you already added. Replies are spoken with your phone's own voice (turn that off in AI models); glucose values are never read out.
+- **Private by design:** Neutrino listens only while you tap or hold the mic. The recording stays in memory, is sent once to your voice model, and is never saved on your phone.
+
+### AI models
+- **Several models with fallbacks:** set up to 4 models, from any provider and even the same provider twice. Photos go to your Primary; if it fails (limit, key, network), Neutrino asks Fallback 1, then 2. Press and hold a model to make it Primary, a fallback or unset it, and drag to change the order.
+- **Groq as a third provider:** a free plan that answers in under a second, using its photo model (Qwen 3.8 27B). On the free plan it allows about one photo a minute; Neutrino waits a few seconds by itself when Groq asks.
+- **Clearer errors:** a request that's too big for your model or plan now says so, instead of looking like a rate limit.
+
+### Also
+- **Widget:** the glucose corner shows only today's latest reading, as "6.2 · 5:30 PM", and stays empty when there's none today.
 
 ## [1.0.8] - 2026-09-27 · v1.7-NeutrinoBuddy
 

@@ -1,0 +1,1 @@
+Talk to Neutrino (optional): log meals, water, glucose and medicine by voice, and change a meal on the review page by talking. Up to 4 AI models with fallbacks, and Groq as a third provider. The widget shows only today's latest glucose.
