@@ -498,8 +498,8 @@ private fun ProviderPickerSheet(voice: Boolean, onPick: (AiProvider) -> Unit, on
 private val ROW_HEIGHT = 72.dp
 
 /**
- * Voice: off by default. On, it offers one voice model (speech to text), whether replies are read
- * aloud, and says plainly where the words go.
+ * Voice: off by default. On, it offers one voice model (speech to text) and whether replies are read
+ * aloud, in one card like the Settings groups, and says plainly where the words go.
  */
 @Composable
 private fun VoiceSection(
@@ -513,79 +513,102 @@ private fun VoiceSection(
 ) {
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(bottom = Spacing.xs))
-        SwitchLine(
-            title = stringResource(R.string.voice_switch_title),
-            body = stringResource(R.string.voice_switch_body),
-            checked = settings.voiceEnabled,
-            onChange = onEnabledChange,
-        )
-        if (!settings.voiceEnabled) return@Column
-        val voice = settings.voiceConfig
-        if (voice == null) {
-            OutlinedButton(onClick = onConfigure, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
-                Icon(painterResource(R.drawable.ic_mic), contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.size(Spacing.xs))
-                Text(stringResource(R.string.voice_configure))
-            }
-        } else {
-            val provider = voice.providerEnum ?: AiProvider.Gemini
-            Card(
-                shape = MaterialTheme.shapes.large,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
-                elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(ROW_HEIGHT)
-                        .clickable(role = Role.Button, onClick = onOpen)
-                        .padding(start = Spacing.md),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(Spacing.md),
-                ) {
-                    ProviderLogo(provider, size = 40.dp)
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(voice.name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(
-                            "${provider.displayName} · ${voice.model}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
+        Card(
+            shape = MaterialTheme.shapes.large,
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
+            elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            SwitchLine(
+                title = stringResource(R.string.voice_switch_title),
+                body = stringResource(R.string.voice_switch_body),
+                checked = settings.voiceEnabled,
+                onChange = onEnabledChange,
+            )
+            if (settings.voiceEnabled) {
+                CardDivider()
+                val voice = settings.voiceConfig
+                if (voice == null) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = ROW_HEIGHT)
+                            .clickable(role = Role.Button, onClick = onConfigure)
+                            .padding(horizontal = Spacing.md, vertical = Spacing.sm),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+                    ) {
+                        IconBadge(R.drawable.ic_mic, container = NeutrinoTheme.colors.teal.container, content = NeutrinoTheme.colors.teal.content, size = 40.dp)
+                        Text(stringResource(R.string.voice_configure), style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                        Icon(painterResource(R.drawable.ic_chevron_right), contentDescription = null, tint = MaterialTheme.colorScheme.outline)
                     }
-                    IconButton(onClick = onDelete) {
-                        Icon(painterResource(R.drawable.ic_trash), contentDescription = stringResource(R.string.ai_delete), tint = MaterialTheme.colorScheme.outline)
+                } else {
+                    val provider = voice.providerEnum ?: AiProvider.Gemini
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(ROW_HEIGHT)
+                            .clickable(role = Role.Button, onClick = onOpen)
+                            .padding(start = Spacing.md, end = Spacing.xs),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+                    ) {
+                        ProviderLogo(provider, size = 40.dp)
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(voice.name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(
+                                "${provider.displayName} · ${voice.model}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                        IconButton(onClick = onDelete) {
+                            Icon(painterResource(R.drawable.ic_trash), contentDescription = stringResource(R.string.ai_delete), tint = MaterialTheme.colorScheme.outline)
+                        }
                     }
                 }
+                CardDivider()
+                SwitchLine(
+                    title = stringResource(R.string.voice_speak_title),
+                    body = stringResource(R.string.voice_speak_body),
+                    checked = settings.speakReplies,
+                    onChange = onSpeakChange,
+                )
             }
         }
-        if (!settings.aiReady) {
+        if (settings.voiceEnabled && !settings.aiReady) {
             Text(stringResource(R.string.voice_needs_primary), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
         }
-        SwitchLine(
-            title = stringResource(R.string.voice_speak_title),
-            body = stringResource(R.string.voice_speak_body),
-            checked = settings.speakReplies,
-            onChange = onSpeakChange,
-        )
-        Text(
-            stringResource(R.string.voice_privacy_note),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        if (settings.voiceEnabled) {
+            Text(
+                stringResource(R.string.voice_privacy_note),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 
+/** A row divider inside the card, starting after the icons like the model list's. */
+@Composable
+private fun CardDivider() =
+    HorizontalDivider(modifier = Modifier.padding(start = Spacing.md), color = MaterialTheme.colorScheme.outlineVariant)
+
+/** A switch row inside a card: the whole row toggles, with room around the text like Settings. */
 @Composable
 private fun SwitchLine(title: String, body: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+    val haptics = LocalHapticFeedback.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(MaterialTheme.shapes.medium)
-            .toggleable(value = checked, role = Role.Switch, onValueChange = onChange)
-            .padding(vertical = Spacing.xs),
+            .heightIn(min = ROW_HEIGHT)
+            .toggleable(value = checked, role = Role.Switch) { on ->
+                haptics.performHapticFeedback(if (on) HapticFeedbackType.ToggleOn else HapticFeedbackType.ToggleOff)
+                onChange(on)
+            }
+            .padding(horizontal = Spacing.md, vertical = Spacing.sm),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {

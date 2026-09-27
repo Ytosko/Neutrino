@@ -125,7 +125,8 @@ private fun GoalCard(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
         elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
     ) {
-        Column(Modifier.fillMaxWidth().padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+        Column(Modifier.fillMaxWidth()) {
+            // The switch row spans the card with its padding inside, so the pressed highlight has room.
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -133,14 +134,19 @@ private fun GoalCard(
                     .toggleable(value = value != null, role = Role.Switch) { on ->
                         haptics.performHapticFeedback(if (on) HapticFeedbackType.ToggleOn else HapticFeedbackType.ToggleOff)
                         onChange(if (on) default else null)
-                    },
+                    }
+                    .padding(horizontal = Spacing.md, vertical = Spacing.md),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
                 Switch(checked = value != null, onCheckedChange = null)
             }
             if (value != null) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                Row(
+                    modifier = Modifier.padding(start = Spacing.md, end = Spacing.md, bottom = Spacing.md),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                ) {
                     Text(stringResource(R.string.goals_per_day), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
                     FilledTonalIconButton(onClick = { onChange((value - step).coerceIn(range)) }, enabled = value - step >= range.first) {
                         Icon(painterResource(R.drawable.ic_minus), contentDescription = stringResource(R.string.review_less))
