@@ -40,6 +40,10 @@ data class GlucoseEntity(
     val createdAtEpochMs: Long = 0,
     /** Package of the app it was imported from through Health Connect (e.g. a CGM app); null for Neutrino's own. */
     @androidx.room.ColumnInfo(defaultValue = "NULL") val importedFrom: String? = null,
+    /** The meal the user linked this reading to; it then always counts for that meal. */
+    @androidx.room.ColumnInfo(defaultValue = "NULL") val linkedMealId: String? = null,
+    /** False when the user unlinked it: it's then never matched to a meal by time. */
+    @androidx.room.ColumnInfo(defaultValue = "1") val autoMatch: Boolean = true,
 )
 
 /** How a reading relates to eating. "General" is what unmarked meter readings get. */

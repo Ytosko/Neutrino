@@ -263,7 +263,7 @@ fun NeutrinoNavHost(startDestination: Route, modifier: Modifier = Modifier) {
         composable<Route.GlucoseDay> { entry ->
             val container = LocalContext.current.appContainer
             val date = java.time.LocalDate.ofEpochDay(entry.toRoute<Route.GlucoseDay>().epochDay)
-            val dayViewModel: GlucoseDayViewModel = viewModel { GlucoseDayViewModel(container.glucose, container.settings, date) }
+            val dayViewModel: GlucoseDayViewModel = viewModel { GlucoseDayViewModel(container.glucose, container.settings, date, container.meals) }
             GlucoseDayScreen(viewModel = dayViewModel, onBack = navController::popBackStack)
         }
         composable<Route.SettingsGoals> {

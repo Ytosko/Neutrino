@@ -1,5 +1,8 @@
 package dev.ytosko.neutrino.ui.home
 
+import dev.ytosko.neutrino.domain.insights.MealTime
+import dev.ytosko.neutrino.data.glucose.MealLinkChoice
+import dev.ytosko.neutrino.data.glucose.toTimed
 import dev.ytosko.neutrino.data.medicine.MedicineKind
 import dev.ytosko.neutrino.data.medicine.DoseEntity
 import dev.ytosko.neutrino.data.medicine.MedicineEntity
@@ -106,8 +109,8 @@ class HomeViewModel(
         .flatMapLatest { date ->
             // A late dinner's "after" reading can fall on the next day.
             combine(meals.observeDay(date, zone), glucose.observeBetween(date, date.plusDays(1), zone)) { day, readings ->
-                val timed = readings.map { TimedReading(Instant.ofEpochMilli(it.measuredAtEpochMs), it.mmolPerL) }.sortedBy { it.at }
-                day.meals.associate { it.id to MealGlucose.match(it.eatenAt, timed) }.filterValues { !it.isEmpty }
+                MealGlucose.matchAll(day.meals.map { MealTime(it.id, it.eatenAt) }, readings.map { it.toTimed() })
+                    .filterValues { !it.isEmpty }
             }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
@@ -143,16 +146,26 @@ class HomeViewModel(
         return if (shown == today.value) Instant.now() else shown.atTime(LocalTime.now(zone)).atZone(zone).toInstant()
     }
 
-    fun addGlucose(mmolPerL: Double, relation: GlucoseRelation, time: Instant) {
-        viewModelScope.launch { glucose.addManual(mmolPerL, time, relation, zone) }
+    fun addGlucose(mmolPerL: Double, relation: GlucoseRelation, time: Instant, link: MealLinkChoice = MealLinkChoice.Auto) {
+        viewModelScope.launch {
+            val added = glucose.addManual(mmolPerL, time, relation, zone)
+            if (link != MealLinkChoice.Auto) glucose.setMealLink(added.id, link)
+        }
     }
 
     val glucoseRange: StateFlow<ClosedFloatingPointRange<Double>> = settings.settings
         .map { it.glucoseLow..it.glucoseHigh }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 4.0..10.0)
 
-    fun editGlucose(id: String, relation: GlucoseRelation, time: Instant, mmolPerL: Double? = null) {
-        viewModelScope.launch { glucose.edit(id, relation, time, mmolPerL) }
+    fun editGlucose(id: String, relation: GlucoseRelation, time: Instant, mmolPerL: Double? = null, link: MealLinkChoice? = null) {
+        viewModelScope.launch {
+            glucose.edit(id, relation, time, mmolPerL)
+            if (link != null) glucose.setMealLink(id, link)
+        }
+    }
+
+    fun setMealLink(id: String, link: MealLinkChoice) {
+        viewModelScope.launch { glucose.setMealLink(id, link) }
     }
 
     /** Deletes right away and returns what Undo needs. */

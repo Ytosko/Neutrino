@@ -154,7 +154,7 @@ class MealRepository(
             toInclusive.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli(),
         ).map { rows ->
             rows.groupBy { it.mealId }.values.map { foods ->
-                MealFoods(Instant.ofEpochMilli(foods.first().eatenAtEpochMs), foods.map { it.foodId to it.name })
+                MealFoods(Instant.ofEpochMilli(foods.first().eatenAtEpochMs), foods.map { it.foodId to it.name }, foods.first().mealId)
             }
         }
 

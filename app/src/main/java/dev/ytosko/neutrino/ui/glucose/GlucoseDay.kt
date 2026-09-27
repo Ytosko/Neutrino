@@ -1,5 +1,7 @@
 package dev.ytosko.neutrino.ui.glucose
 
+import dev.ytosko.neutrino.data.glucose.mealLink
+import dev.ytosko.neutrino.data.glucose.MealLinkChoice
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.draw.alpha
@@ -279,7 +281,9 @@ fun GlucoseEditDialog(
     range: ClosedFloatingPointRange<Double>,
     /** Where a new reading starts: now, or the same time of day on a past day. */
     newReadingTime: Instant = Instant.now(),
-    onSave: (mmolPerL: Double?, GlucoseRelation, Instant) -> Unit,
+    /** That day's meals, to link the reading to one. */
+    meals: List<MealOption> = emptyList(),
+    onSave: (mmolPerL: Double?, GlucoseRelation, Instant, MealLinkChoice) -> Unit,
     onDelete: () -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -290,6 +294,9 @@ fun GlucoseEditDialog(
     val original = remember(key) { Instant.ofEpochMilli(reading?.measuredAtEpochMs ?: newReadingTime.toEpochMilli()).atZone(zone) }
     val originalRelation = reading?.relationEnum ?: GlucoseRelation.General
     var relation by remember(key) { mutableStateOf(originalRelation) }
+    val originalLink = reading?.mealLink ?: MealLinkChoice.Auto
+    var link by remember(key) { mutableStateOf(originalLink) }
+    var linkMenu by remember { mutableStateOf(false) }
     var at by remember(key) { mutableStateOf(original) }
     var relationMenu by remember { mutableStateOf(false) }
     var pickDate by remember { mutableStateOf(false) }
@@ -303,7 +310,7 @@ fun GlucoseEditDialog(
     // Only the minute is shown, so an untouched time keeps its seconds.
     val timeChanged = at.withSecond(0).withNano(0) != original.withSecond(0).withNano(0)
     val valueChanged = valueEditable && typedMmol != null && (reading == null || kotlin.math.abs(typedMmol - reading.mmolPerL) > 1e-6)
-    val changed = reading == null || relation != originalRelation || timeChanged || valueChanged
+    val changed = reading == null || relation != originalRelation || timeChanged || valueChanged || link != originalLink
     val canSave = changed && !inFuture && (!valueEditable || typedMmol != null)
 
     AlertDialog(
@@ -373,6 +380,53 @@ fun GlucoseEditDialog(
                         }
                     }
                 }
+                // Which meal it belongs to: by time (default), a meal picked here, or none.
+                val linkedMeal = (link as? MealLinkChoice.Meal)?.let { l -> meals.firstOrNull { it.id == l.mealId } }
+                if (meals.isNotEmpty() || link != MealLinkChoice.Auto) {
+                    ExposedDropdownMenuBox(expanded = linkMenu, onExpandedChange = { linkMenu = it }) {
+                        OutlinedTextField(
+                            value = when (link) {
+                                MealLinkChoice.Auto -> stringResource(R.string.glucose_link_auto)
+                                MealLinkChoice.None -> stringResource(R.string.glucose_link_none)
+                                is MealLinkChoice.Meal -> linkedMeal?.label ?: stringResource(R.string.glucose_link_other_day)
+                            },
+                            onValueChange = {},
+                            readOnly = true,
+                            singleLine = true,
+                            label = { Text(stringResource(R.string.glucose_link_label)) },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = linkMenu) },
+                            modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
+                        )
+                        ExposedDropdownMenu(expanded = linkMenu, onDismissRequest = { linkMenu = false }) {
+                            val options = listOf<Pair<MealLinkChoice, String>>(
+                                MealLinkChoice.Auto to stringResource(R.string.glucose_link_auto),
+                            ) + meals.map { MealLinkChoice.Meal(it.id) to it.label } +
+                                (MealLinkChoice.None to stringResource(R.string.glucose_link_none))
+                            options.forEach { (choice, label) ->
+                                DropdownMenuItem(
+                                    text = { Text(label) },
+                                    onClick = {
+                                        link = choice
+                                        linkMenu = false
+                                    },
+                                    contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding,
+                                )
+                            }
+                        }
+                    }
+                    if (linkedMeal != null) {
+                        val minutes = java.time.Duration.between(linkedMeal.at, at.toInstant()).toMinutes()
+                        Text(
+                            stringResource(
+                                if (minutes >= 0) R.string.glucose_link_after else R.string.glucose_link_before,
+                                durationText(kotlin.math.abs(minutes)),
+                                linkedMeal.name,
+                            ),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
                 Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
                     WhenTile(R.drawable.ic_calendar, stringResource(R.string.glucose_date), at.format(DateTimeFormatter.ofPattern("EEE, d MMM")), { pickDate = true }, Modifier.weight(1f))
                     WhenTile(R.drawable.ic_clock, stringResource(R.string.glucose_time), at.format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)), { pickTime = true }, Modifier.weight(1f))
@@ -391,7 +445,7 @@ fun GlucoseEditDialog(
         },
         confirmButton = {
             TextButton(
-                onClick = { onSave(if (valueEditable) typedMmol else null, relation, if (timeChanged) at.toInstant() else original.toInstant()) },
+                onClick = { onSave(if (valueEditable) typedMmol else null, relation, if (timeChanged) at.toInstant() else original.toInstant(), link) },
                 enabled = canSave,
             ) { Text(stringResource(R.string.glucose_save)) }
         },
@@ -463,6 +517,21 @@ private fun WhenTile(icon: Int, label: String, value: String, onClick: () -> Uni
 }
 
 private const val COLLAPSED_COUNT = 3
+
+/** A meal a reading can be linked to: "Lunch · 1:42 PM". [name] is how it reads in a sentence ("lunch"). */
+data class MealOption(val id: String, val label: String, val name: String, val at: Instant)
+
+/** "35 min", "2 h", "2 h 5 min". */
+@Composable
+fun durationText(minutes: Long): String {
+    val h = minutes / 60
+    val m = minutes % 60
+    return when {
+        h == 0L -> stringResource(R.string.duration_minutes, m.toInt())
+        m == 0L -> stringResource(R.string.duration_hours, h.toInt())
+        else -> stringResource(R.string.duration_hours_minutes, h.toInt(), m.toInt())
+    }
+}
 
 private fun shortTime(epochMs: Long): String =
     Instant.ofEpochMilli(epochMs).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT))

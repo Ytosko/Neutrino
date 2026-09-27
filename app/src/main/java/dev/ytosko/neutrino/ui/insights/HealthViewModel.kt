@@ -1,5 +1,6 @@
 package dev.ytosko.neutrino.ui.insights
 
+import dev.ytosko.neutrino.data.glucose.toTimed
 import dev.ytosko.neutrino.domain.insights.FoodGlucoseInsights
 import dev.ytosko.neutrino.domain.insights.DosePoint
 import dev.ytosko.neutrino.domain.insights.DoseSummary
@@ -133,7 +134,7 @@ class HealthViewModel(
                 // One extra day, for "after" readings of late dinners.
                 glucose.observeBetween(period.start, period.end, zone),
             ) { mealFoods, readings ->
-                val timed = readings.map { TimedReading(Instant.ofEpochMilli(it.measuredAtEpochMs), it.mmolPerL) }
+                val timed = readings.map { it.toTimed() }
                 period to FoodGlucoseInsights.rises(mealFoods, timed, minTimes = 1).map { MealRise(it.name, it.averageRise, it.times) }
             }
         }

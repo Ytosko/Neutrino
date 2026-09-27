@@ -51,7 +51,7 @@ based on your local time, so they show up in Google Health, Fitbit and any other
 - **Glucose meter:** pair a Bluetooth blood glucose meter (Bluetooth SIG Glucose Profile, e.g. CONTOUR PLUS ELITE);
   readings sync in the background after each test, in mmol/L, with meal marks, a target range, time in range, and the
   meter's clock kept correct
-- **Glucose extras:** readings typed in by hand, mg/dL or mmol/L, glucose before and 2 h after each meal, your usual
+- **Glucose extras:** readings typed in by hand, mg/dL or mmol/L, glucose before and after each meal (link a reading to a meal yourself), your usual
   change after each food, optional "time to test" reminder, and optional import from CGM apps through Health Connect
 - **Medicines and insulin (optional):** your list with MedEx name suggestions, one-tap dose logging, reminders with a
   "Taken" button, and doses in reports; records only, never dose advice

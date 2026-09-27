@@ -1,5 +1,8 @@
 package dev.ytosko.neutrino.ui.home
 
+import dev.ytosko.neutrino.ui.glucose.durationText
+import dev.ytosko.neutrino.data.glucose.MealLinkChoice
+import dev.ytosko.neutrino.ui.glucose.MealOption
 import androidx.compose.material3.rememberModalBottomSheetState
 import dev.ytosko.neutrino.ui.medicine.dosesTitle
 import dev.ytosko.neutrino.ui.medicine.DosesDayCard
@@ -222,6 +225,11 @@ fun HomeScreen(
     val glucoseReadings by viewModel.glucoseReadings.collectAsStateWithLifecycle()
     val glucoseLeftOut by viewModel.glucoseLeftOut.collectAsStateWithLifecycle()
     val doses by viewModel.doses.collectAsStateWithLifecycle()
+    val mealOptions = day?.meals.orEmpty().sortedBy { it.eatenAt }.map { meal ->
+        val time = meal.eatenAt.atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT))
+        val type = mealTypeLabel(meal.mealType)
+        MealOption(meal.id, "$type · $time", type.lowercase(), meal.eatenAt)
+    }
     val medicineList by viewModel.medicineList.collectAsStateWithLifecycle()
     val homeSettings by viewModel.appSettings.collectAsStateWithLifecycle()
     val medicinesOn = homeSettings?.medicinesOn == true
@@ -716,6 +724,21 @@ fun HomeScreen(
                     contextReading = null
                     editingGlucose = reading
                 },
+                MenuAction(stringResource(R.string.glucose_link_to_meal), R.drawable.ic_utensils) {
+                    contextReading = null
+                    editingGlucose = reading
+                },
+            ) + listOfNotNull(
+                // Counts for a meal on this day (linked or matched by time): offer to unlink it.
+                if (mealGlucose.values.any { it.before?.id == reading.id || it.after?.id == reading.id }) {
+                    MenuAction(stringResource(R.string.glucose_unlink), R.drawable.ic_x) {
+                        contextReading = null
+                        viewModel.setMealLink(reading.id, MealLinkChoice.None)
+                    }
+                } else {
+                    null
+                },
+            ) + listOf(
                 MenuAction(stringResource(R.string.glucose_delete), R.drawable.ic_trash, destructive = true) {
                     contextReading = null
                     deleteGlucoseWithUndo(reading)
@@ -750,8 +773,9 @@ fun HomeScreen(
             reading = null,
             range = glucoseRange,
             newReadingTime = remember { viewModel.timeOnShownDay() },
-            onSave = { mmol, relation, time ->
-                if (mmol != null) viewModel.addGlucose(mmol, relation, time)
+            meals = mealOptions,
+            onSave = { mmol, relation, time, link ->
+                if (mmol != null) viewModel.addGlucose(mmol, relation, time, link)
                 addingGlucose = false
             },
             onDelete = {},
@@ -763,8 +787,9 @@ fun HomeScreen(
         GlucoseEditDialog(
             reading = reading,
             range = glucoseRange,
-            onSave = { mmol, relation, time ->
-                viewModel.editGlucose(reading.id, relation, time, mmol)
+            meals = mealOptions,
+            onSave = { mmol, relation, time, link ->
+                viewModel.editGlucose(reading.id, relation, time, mmol, link)
                 editingGlucose = null
             },
             onDelete = {
@@ -1168,11 +1193,13 @@ private fun MealGroupHeader(type: MealType, kcal: Double, modifier: Modifier = M
 @Composable
 private fun MealGlucoseLine(glucose: MealGlucose) {
     val unit = LocalGlucoseUnit.current
+    val after = glucose.afterMinutes?.let { durationText(it.coerceAtLeast(0)) }
     val text = when {
         glucose.before != null && glucose.after != null ->
-            stringResource(R.string.home_meal_glucose_both, unit.format(glucose.before.mmolPerL), unit.format(glucose.after.mmolPerL), unit.label)
+            stringResource(R.string.home_meal_glucose_both, unit.format(glucose.before.mmolPerL), unit.format(glucose.after.mmolPerL), unit.label) +
+                (after?.let { " · " + stringResource(R.string.home_meal_glucose_when, it) } ?: "")
         glucose.before != null -> stringResource(R.string.home_meal_glucose_before, unit.format(glucose.before.mmolPerL), unit.label)
-        else -> stringResource(R.string.home_meal_glucose_after, unit.format(glucose.after!!.mmolPerL), unit.label)
+        else -> stringResource(R.string.home_meal_glucose_after_at, unit.format(glucose.after!!.mmolPerL), unit.label, after ?: "")
     }
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.padding(top = 2.dp)) {
         Icon(painterResource(R.drawable.ic_activity), contentDescription = null, tint = NeutrinoTheme.colors.glucose, modifier = Modifier.size(14.dp))

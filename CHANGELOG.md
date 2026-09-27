@@ -2,6 +2,15 @@
 
 Every release has a section here, headed `## [x.y.z] - YYYY-MM-DD` with an optional ` · Release name`. The release workflow publishes the section as the GitHub release notes (and the name as its title), and refuses to release a version that has none.
 
+## [1.0.8] - 2026-09-27 · v1.7-NeutrinoBuddy
+
+Link your glucose readings to meals.
+
+- **Link a reading to a meal:** when you add or edit a reading, choose which meal it belongs to (or "Not linked to a meal"), and Neutrino shows how long before or after it was, e.g. "35 min after lunch". Press and hold any reading, meter readings too, for "Link to a meal" or "Unlink from meal".
+- **Early readings count:** a meal card now shows a reading from 30 minutes to 3 hours after eating, with how long after, e.g. "Glucose 6.4 → 8.4 mmol/L · 35 min after".
+- **Fair averages:** "your usual change after this food" and the Health page's "Foods and glucose" only use readings 1 to 3 hours after a meal, so an early reading doesn't skew them.
+- **The right meal:** a reading taken after your next meal has started now counts for that meal, not the one before it.
+
 ## [1.0.7] - 2026-09-27 · v1.6-NeutrinoBuddy
 
 Getting ready for F-Droid.

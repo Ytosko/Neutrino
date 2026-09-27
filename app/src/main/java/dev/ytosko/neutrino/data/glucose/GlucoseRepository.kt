@@ -221,6 +221,23 @@ class GlucoseRepository(
         onChanged()
     }
 
+    /**
+     * Links a reading to a meal ([mealId]), puts it back to matching by time ([MealLinkChoice.Auto]),
+     * or keeps it away from meals ([MealLinkChoice.None]). Only Neutrino's own record changes; Health
+     * Connect has no field for it.
+     */
+    suspend fun setMealLink(id: String, choice: MealLinkChoice) {
+        val current = db.glucose().get(id) ?: return
+        val updated = when (choice) {
+            MealLinkChoice.Auto -> current.copy(linkedMealId = null, autoMatch = true)
+            MealLinkChoice.None -> current.copy(linkedMealId = null, autoMatch = false)
+            is MealLinkChoice.Meal -> current.copy(linkedMealId = choice.mealId, autoMatch = true)
+        }
+        if (updated == current) return
+        db.glucose().update(updated)
+        onChanged()
+    }
+
     suspend fun delete(id: String): GlucoseEntity? {
         val current = db.glucose().get(id) ?: return null
         db.glucose().delete(id)
@@ -428,6 +445,24 @@ class GlucoseRepository(
 
 /** Typed in by hand rather than downloaded from a meter or imported from another app. */
 val GlucoseEntity.isManual: Boolean get() = meterSequence == null && meterSerial == null && importedFrom == null
+
+/** How a reading is tied to meals: by time, to one meal, or to none. */
+sealed interface MealLinkChoice {
+    data object Auto : MealLinkChoice
+    data object None : MealLinkChoice
+    data class Meal(val mealId: String) : MealLinkChoice
+}
+
+val GlucoseEntity.mealLink: MealLinkChoice
+    get() = when {
+        linkedMealId != null -> MealLinkChoice.Meal(linkedMealId)
+        !autoMatch -> MealLinkChoice.None
+        else -> MealLinkChoice.Auto
+    }
+
+/** For matching readings to meals. */
+fun GlucoseEntity.toTimed(): dev.ytosko.neutrino.domain.insights.TimedReading =
+    dev.ytosko.neutrino.domain.insights.TimedReading(Instant.ofEpochMilli(measuredAtEpochMs), mmolPerL, id, linkedMealId, autoMatch)
 
 /** Brought in from another app (e.g. a CGM app) through Health Connect. */
 val GlucoseEntity.isImported: Boolean get() = importedFrom != null

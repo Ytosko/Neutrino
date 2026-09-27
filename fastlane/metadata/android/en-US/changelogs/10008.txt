@@ -1,0 +1,1 @@
+Link a glucose reading to a meal when you add or edit it, or press and hold a reading. Meal cards show readings from 30 minutes after eating with how long after; averages still use readings 1 to 3 hours after.

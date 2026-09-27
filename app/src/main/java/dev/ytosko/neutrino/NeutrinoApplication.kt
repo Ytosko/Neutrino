@@ -1,5 +1,6 @@
 package dev.ytosko.neutrino
 
+import dev.ytosko.neutrino.data.glucose.toTimed
 import java.time.ZoneId
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
@@ -186,7 +187,7 @@ class AppContainer(application: Application) {
             combine(meals.observeMealFoods(from, today, zone), glucose.observeBetween(from, today.plusDays(1), zone)) { mealFoods, readings ->
                 dev.ytosko.neutrino.domain.insights.FoodGlucoseInsights.rises(
                     mealFoods,
-                    readings.map { dev.ytosko.neutrino.domain.insights.TimedReading(java.time.Instant.ofEpochMilli(it.measuredAtEpochMs), it.mmolPerL) },
+                    readings.map { it.toTimed() },
                 ).associateBy { it.key }
             }
         }

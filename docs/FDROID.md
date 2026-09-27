@@ -58,9 +58,9 @@ RepoType: git
 Repo: https://github.com/Ytosko/Neutrino.git
 
 Builds:
-  - versionName: 1.0.7
-    versionCode: 10007
-    commit: <full commit hash of the v1.0.7 tag>
+  - versionName: 1.0.8
+    versionCode: 10008
+    commit: <full commit hash of the v1.0.8 tag>
     subdir: app
     rm:
       - wear
@@ -69,15 +69,15 @@ Builds:
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags ^v[0-9.]+$
-CurrentVersion: 1.0.7
-CurrentVersionCode: 10007
+CurrentVersion: 1.0.8
+CurrentVersionCode: 10008
 ```
 
 Notes for the review:
 
 - The version is written in `app/build.gradle.kts` (`versionCode`, `versionName`), so F-Droid's
   update check reads it from each tag; the release workflow checks the tag matches it.
-- `commit` must be the full hash, not the tag (fdroiddata's rule): `git rev-parse "v1.0.7^{commit}"`.
+- `commit` must be the full hash, not the tag (fdroiddata's rule): `git rev-parse "v1.0.8^{commit}"`.
 - Not reproducible: F-Droid signs its build with its own key (the GitHub release is the `full`
   flavour, so the APKs couldn't match anyway).
 - F-Droid signs with its own key, so the F-Droid and GitHub versions can't be installed over each

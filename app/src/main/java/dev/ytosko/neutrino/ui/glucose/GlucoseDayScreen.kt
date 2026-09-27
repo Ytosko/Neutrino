@@ -1,5 +1,6 @@
 package dev.ytosko.neutrino.ui.glucose
 
+import dev.ytosko.neutrino.data.glucose.MealLinkChoice
 import dev.ytosko.neutrino.ui.components.MenuAction
 import dev.ytosko.neutrino.ui.components.LiftedContextMenu
 import androidx.compose.animation.core.tween
@@ -78,6 +79,7 @@ class GlucoseDayViewModel(
     private val glucose: GlucoseRepository,
     settings: SettingsRepository,
     val date: LocalDate,
+    meals: dev.ytosko.neutrino.data.meal.MealRepository? = null,
     private val zone: ZoneId = ZoneId.systemDefault(),
 ) : ViewModel() {
     val readings: StateFlow<List<GlucoseEntity>?> = glucose.observeBetween(date, date, zone)
@@ -88,16 +90,31 @@ class GlucoseDayViewModel(
         .map { it.glucoseLow..it.glucoseHigh }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 4.0..10.0)
 
+    /** The day's meals, to link a reading to one. */
+    val meals: StateFlow<List<dev.ytosko.neutrino.data.meal.LoggedMeal>> =
+        (meals?.observeDay(date, zone)?.map { it.meals.sortedBy { m -> m.eatenAt } } ?: kotlinx.coroutines.flow.flowOf(emptyList()))
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    fun setMealLink(id: String, link: MealLinkChoice) {
+        viewModelScope.launch { glucose.setMealLink(id, link) }
+    }
+
     /** Now on today; the current time of day on a past day. */
     fun newReadingTime(): Instant =
         if (date == LocalDate.now(zone)) Instant.now() else date.atTime(LocalTime.now(zone)).atZone(zone).toInstant()
 
-    fun add(mmolPerL: Double, relation: GlucoseRelation, time: Instant) {
-        viewModelScope.launch { glucose.addManual(mmolPerL, time, relation, zone) }
+    fun add(mmolPerL: Double, relation: GlucoseRelation, time: Instant, link: MealLinkChoice = MealLinkChoice.Auto) {
+        viewModelScope.launch {
+            val added = glucose.addManual(mmolPerL, time, relation, zone)
+            if (link != MealLinkChoice.Auto) glucose.setMealLink(added.id, link)
+        }
     }
 
-    fun edit(id: String, relation: GlucoseRelation, time: Instant, mmolPerL: Double?) {
-        viewModelScope.launch { glucose.edit(id, relation, time, mmolPerL) }
+    fun edit(id: String, relation: GlucoseRelation, time: Instant, mmolPerL: Double?, link: MealLinkChoice? = null) {
+        viewModelScope.launch {
+            glucose.edit(id, relation, time, mmolPerL)
+            if (link != null) glucose.setMealLink(id, link)
+        }
     }
 
     suspend fun delete(id: String): GlucoseEntity? = glucose.delete(id)
@@ -111,6 +128,12 @@ class GlucoseDayViewModel(
 @Composable
 fun GlucoseDayScreen(viewModel: GlucoseDayViewModel, onBack: () -> Unit) {
     val readings by viewModel.readings.collectAsStateWithLifecycle()
+    val dayMeals by viewModel.meals.collectAsStateWithLifecycle()
+    val mealOptions = dayMeals.map { meal ->
+        val time = meal.eatenAt.atZone(java.time.ZoneId.systemDefault()).format(java.time.format.DateTimeFormatter.ofLocalizedTime(java.time.format.FormatStyle.SHORT))
+        val type = dev.ytosko.neutrino.ui.components.mealTypeLabel(meal.mealType)
+        MealOption(meal.id, "$type · $time", type.lowercase(), meal.eatenAt)
+    }
     val range by viewModel.range.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -217,6 +240,20 @@ fun GlucoseDayScreen(viewModel: GlucoseDayViewModel, onBack: () -> Unit) {
                     lifted = null
                     editing = reading
                 },
+                MenuAction(stringResource(R.string.glucose_link_to_meal), R.drawable.ic_utensils) {
+                    lifted = null
+                    editing = reading
+                },
+            ) + listOfNotNull(
+                if (reading.linkedMealId != null) {
+                    MenuAction(stringResource(R.string.glucose_unlink), R.drawable.ic_x) {
+                        lifted = null
+                        viewModel.setMealLink(reading.id, MealLinkChoice.None)
+                    }
+                } else {
+                    null
+                },
+            ) + listOf(
                 MenuAction(stringResource(R.string.glucose_delete), R.drawable.ic_trash, destructive = true) {
                     lifted = null
                     scope.launch {
@@ -237,8 +274,9 @@ fun GlucoseDayScreen(viewModel: GlucoseDayViewModel, onBack: () -> Unit) {
             reading = null,
             range = range,
             newReadingTime = remember { viewModel.newReadingTime() },
-            onSave = { mmol, relation, time ->
-                if (mmol != null) viewModel.add(mmol, relation, time)
+            meals = mealOptions,
+            onSave = { mmol, relation, time, link ->
+                if (mmol != null) viewModel.add(mmol, relation, time, link)
                 adding = false
             },
             onDelete = {},
@@ -249,8 +287,9 @@ fun GlucoseDayScreen(viewModel: GlucoseDayViewModel, onBack: () -> Unit) {
         GlucoseEditDialog(
             reading = reading,
             range = range,
-            onSave = { mmol, relation, time ->
-                viewModel.edit(reading.id, relation, time, mmol)
+            meals = mealOptions,
+            onSave = { mmol, relation, time, link ->
+                viewModel.edit(reading.id, relation, time, mmol, link)
                 editing = null
             },
             onDelete = {
