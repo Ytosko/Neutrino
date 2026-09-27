@@ -32,8 +32,8 @@ android {
         minSdk = 30
         targetSdk = 36
         // Same as the phone app (app/build.gradle.kts); bumped together with every release.
-        versionCode = 10009
-        versionName = "1.0.9"
+        versionCode = 10010
+        versionName = "1.0.10"
         check(versionCode == versionCodeFor(versionName!!)) { "versionCode must be major × 10000 + minor × 100 + patch" }
     }
 

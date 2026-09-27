@@ -714,6 +714,8 @@ fun HomeScreen(
                 tiles.chunked(2).forEach { row ->
                     Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                         row.forEach { tile -> tile(Modifier.weight(1f)) }
+                        // A lone last tile keeps the same size as the others instead of stretching.
+                        if (row.size == 1) Spacer(Modifier.weight(1f))
                     }
                 }
             }

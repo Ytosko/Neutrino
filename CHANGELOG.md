@@ -2,6 +2,12 @@
 
 Every release has a section here, headed `## [x.y.z] - YYYY-MM-DD` with an optional ` · Release name`. The release workflow publishes the section as the GitHub release notes (and the name as its title), and refuses to release a version that has none.
 
+## [1.0.10] - 2026-09-28 · v1.9-NeutrinoBuddy
+
+A layout fix.
+
+- **Log a meal sheet:** with voice off and the medicine log on, "Log a dose" stretched across the whole row. It's now the same size as the other tiles.
+
 ## [1.0.9] - 2026-09-28 · v1.8-NeutrinoBuddy
 
 Talk to Neutrino, Groq, and several AI models with fallbacks.
