@@ -271,11 +271,37 @@ class AppContainer(application: Application) {
         MeterScan.start(context)
     }
 
+    val openRouter = dev.ytosko.neutrino.data.ai.OpenRouterClient(http, json)
+
+    /** Online or not, live; photos, voice and new-food estimates need the internet. */
+    val network = dev.ytosko.neutrino.data.net.NetworkMonitor(application)
+
     val aiClients: Map<AiProvider, AiClient> = mapOf(
         AiProvider.Gemini to GeminiClient(http, json),
         AiProvider.OpenAi to OpenAiClient(http, json),
         AiProvider.Groq to dev.ytosko.neutrino.data.ai.GroqClient(http, json),
+        AiProvider.OpenRouter to openRouter,
     )
+
+    init {
+        // A model OpenRouter removed is swapped for its suggested replacement, saved, and said once.
+        dev.ytosko.neutrino.data.ai.AiChain.repair = { config, gone ->
+            gone.replacement?.let { replacement ->
+                val all = settings.settings.first().aiConfigs
+                val name = if (config.customName) config.name else dev.ytosko.neutrino.data.ai.AiLineup.autoName(all, replacement.displayName, config.id)
+                val updated = config.copy(model = replacement.id, name = name)
+                settings.saveAiConfig(updated, null)
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    android.widget.Toast.makeText(
+                        application,
+                        application.getString(R.string.openrouter_switched, config.name, replacement.displayName),
+                        android.widget.Toast.LENGTH_LONG,
+                    ).show()
+                }
+                updated
+            }
+        }
+    }
 
     /** Speech-to-text for the voice model, per provider. */
     val speechClients: Map<AiProvider, dev.ytosko.neutrino.data.voice.SpeechClient> = mapOf(

@@ -1,5 +1,7 @@
 package dev.ytosko.neutrino.ui.home
 
+import androidx.compose.foundation.layout.IntrinsicSize
+import android.widget.Toast
 import dev.ytosko.neutrino.ui.glucose.durationText
 import dev.ytosko.neutrino.data.glucose.MealLinkChoice
 import dev.ytosko.neutrino.ui.glucose.MealOption
@@ -236,6 +238,12 @@ fun HomeScreen(
     val homeSettings by viewModel.appSettings.collectAsStateWithLifecycle()
     val medicinesOn = homeSettings?.medicinesOn == true
     val voiceOn = homeSettings?.voiceEnabled == true
+    val online by context.appContainer.network.online.collectAsStateWithLifecycle()
+    val offlineMessage = stringResource(R.string.offline_needs_internet_message)
+    /** Photos and voice need the AI; offline, their tiles are dimmed and say why when tapped. */
+    fun needsInternet(action: () -> Unit) {
+        if (online) action() else Toast.makeText(context, offlineMessage, Toast.LENGTH_LONG).show()
+    }
     val glucoseVisible by viewModel.glucoseVisible.collectAsStateWithLifecycle()
     val glucoseRange by viewModel.glucoseRange.collectAsStateWithLifecycle()
     val mealGlucose by viewModel.mealGlucose.collectAsStateWithLifecycle()
@@ -672,12 +680,12 @@ fun HomeScreen(
                 verticalArrangement = Arrangement.spacedBy(Spacing.sm),
             ) {
                 Text(stringResource(R.string.home_log_meal_title), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(bottom = Spacing.xs))
-                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    SheetTile(R.drawable.ic_camera, stringResource(R.string.home_take_photo), NeutrinoTheme.colors.coral, Modifier.weight(1f)) {
-                        withAi { openCamera() }
+                Row(modifier = Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    SheetTile(R.drawable.ic_camera, stringResource(R.string.home_take_photo), NeutrinoTheme.colors.coral, Modifier.weight(1f), online = online) {
+                        needsInternet { withAi { openCamera() } }
                     }
-                    SheetTile(R.drawable.ic_image, stringResource(R.string.home_choose_photo), NeutrinoTheme.colors.sky, Modifier.weight(1f)) {
-                        withAi { gallery.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
+                    SheetTile(R.drawable.ic_image, stringResource(R.string.home_choose_photo), NeutrinoTheme.colors.sky, Modifier.weight(1f), online = online) {
+                        needsInternet { withAi { gallery.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) } }
                     }
                 }
                 // In order, two to a row: manual, voice (if on), glucose, dose (if on). A tile left
@@ -691,9 +699,11 @@ fun HomeScreen(
                     }
                     if (voiceOn) {
                         add { m, _ ->
-                            SheetTile(R.drawable.ic_mic, stringResource(R.string.voice_log_title), NeutrinoTheme.colors.teal, m) {
-                                showSheet = false
-                                onLogByVoice()
+                            SheetTile(R.drawable.ic_mic, stringResource(R.string.voice_log_title), NeutrinoTheme.colors.teal, m, online = online) {
+                                needsInternet {
+                                    showSheet = false
+                                    onLogByVoice()
+                                }
                             }
                         }
                     }
@@ -719,7 +729,7 @@ fun HomeScreen(
                     }
                 }
                 tiles.chunked(2).forEach { row ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    Row(modifier = Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                         row.forEach { tile -> tile(Modifier.weight(1f), row.size == 1) }
                     }
                 }
@@ -933,10 +943,13 @@ private fun SheetTile(
     tint: Tint,
     modifier: Modifier = Modifier,
     subtitle: String? = null,
+    /** False for tiles that need the internet while offline: dimmed, with "Needs internet". */
+    online: Boolean = true,
     onClick: () -> Unit,
 ) {
     val press = remember { MutableInteractionSource() }
     val base = modifier
+        .alpha(if (online) 1f else 0.45f)
         .pressScale(press)
         .clip(MaterialTheme.shapes.large)
         .background(MaterialTheme.colorScheme.surfaceContainerLowest)
@@ -959,11 +972,16 @@ private fun SheetTile(
     Column(
         modifier = base
             .heightIn(min = 112.dp)
+            // Tiles in a row share one height, even when one says "Needs internet".
+            .fillMaxHeight()
             .padding(Spacing.md),
         verticalArrangement = Arrangement.spacedBy(Spacing.sm),
     ) {
         IconBadge(icon = icon, container = tint.container, content = tint.content, size = 44.dp)
         Text(label, style = MaterialTheme.typography.titleSmall, maxLines = 2)
+        if (!online) {
+            Text(stringResource(R.string.offline_needs_internet), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
 }
 

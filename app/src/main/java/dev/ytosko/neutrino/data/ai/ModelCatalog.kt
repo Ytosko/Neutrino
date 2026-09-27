@@ -97,6 +97,48 @@ object ModelCatalog {
     private fun whisperName(id: String): String =
         id.split('-').joinToString(" ") { part -> if (part.matches(Regex("""v\d+"""))) part else part.replaceFirstChar(Char::uppercase) }
 
+    /**
+     * OpenRouter's photo models: they take images and answer in text only, with a real price (routers
+     * that pick a model themselves have none and might pick one that can't see), and aren't safety
+     * filters, test models or expired. Free ones first.
+     */
+    fun fromOpenRouter(models: List<OpenRouterModel>, nowEpochSeconds: Long = System.currentTimeMillis() / 1000): List<AiModel> =
+        models
+            .filter { m ->
+                "image" in m.architecture.inputModalities && m.architecture.outputModalities == listOf("text") &&
+                    m.promptPrice != null && m.completionPrice != null &&
+                    !m.id.startsWith("openrouter/") && !m.id.startsWith("stealth/") &&
+                    !openRouterExclude.containsMatchIn(m.id) &&
+                    (m.expiresEpochSeconds?.let { it > nowEpochSeconds } ?: true)
+            }
+            .map { m ->
+                val free = m.promptPrice == 0.0 && m.completionPrice == 0.0
+                AiModel(
+                    id = m.id,
+                    displayName = m.name.ifBlank { m.id },
+                    free = free,
+                    price = if (free) null else "$${perMillion(m.promptPrice!!)} / $${perMillion(m.completionPrice!!)} per 1M tokens",
+                )
+            }
+            .sortedWith(compareBy<AiModel> { !it.free }.thenBy { it.displayName.lowercase() })
+
+    private val openRouterExclude = Regex("guard|safety|moderation|embed|tts|whisper|lyria|image-gen", RegexOption.IGNORE_CASE)
+
+    /** Well-known models that read meals well, in order of preference. */
+    private val openRouterPreferred = listOf("qwen/qwen3", "google/gemma", "meta-llama/llama-4", "mistralai/", "google/gemini", "openai/gpt")
+
+    /** The suggested OpenRouter model among [models]; free only when [freeOnly]. Null if none fits. */
+    fun openRouterPick(models: List<AiModel>, freeOnly: Boolean): AiModel? {
+        val allowed = if (freeOnly) models.filter { it.free } else models
+        val stable = allowed.filterNot { "preview" in it.id || "beta" in it.id }.ifEmpty { allowed }
+        return openRouterPreferred.firstNotNullOfOrNull { prefix -> stable.firstOrNull { it.id.startsWith(prefix) } } ?: stable.firstOrNull()
+    }
+
+    private fun perMillion(perToken: Double): String {
+        val value = perToken * 1_000_000
+        return if (value >= 10) "%.0f".format(java.util.Locale.US, value) else "%.2f".format(java.util.Locale.US, value)
+    }
+
     /** "qwen/qwen3.8-27b" → "Qwen 3.8 27B". */
     private fun groqName(id: String): String = when {
         id.startsWith("qwen/qwen") -> id.removePrefix("qwen/qwen").let { rest ->

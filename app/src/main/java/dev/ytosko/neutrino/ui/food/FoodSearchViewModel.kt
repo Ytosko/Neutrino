@@ -43,6 +43,8 @@ sealed interface CustomFoodState {
     data object NeedsAi : CustomFoodState
     /** The AI didn't recognise the text as a food or drink. */
     data object NotFound : CustomFoodState
+    /** No internet: new foods can't be estimated now. */
+    data object Offline : CustomFoodState
     data class Failed(val error: AiException) : CustomFoodState
 }
 
@@ -52,6 +54,8 @@ data class FoodSearchUiState(
     val local: List<RankedFood> = emptyList(),
     val packaged: PackagedResults = PackagedResults.Idle,
     val custom: CustomFoodState = CustomFoodState.Idle,
+    /** No internet: only your foods and the built-in list are searched. */
+    val offline: Boolean = false,
 )
 
 /** A food chosen in the search sheet, with the amount to start from. */
@@ -63,6 +67,7 @@ class FoodSearchViewModel(
     private val settings: SettingsRepository,
     private val clients: Map<AiProvider, AiClient>,
     mealType: MealType,
+    private val online: StateFlow<Boolean> = MutableStateFlow(true),
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(FoodSearchUiState(mealType = mealType))
@@ -77,6 +82,13 @@ class FoodSearchViewModel(
 
     init {
         refreshLocal("")
+        // Packaged products come back as soon as the connection does.
+        viewModelScope.launch {
+            online.collect { isOnline ->
+                _state.update { it.copy(offline = !isOnline) }
+                searchPackaged(_state.value.query)
+            }
+        }
     }
 
     fun onQueryChange(query: String) {
@@ -96,6 +108,10 @@ class FoodSearchViewModel(
     fun createCustom() {
         val name = _state.value.query.trim()
         if (name.isEmpty() || _state.value.custom == CustomFoodState.Estimating) return
+        if (!online.value) {
+            _state.update { it.copy(custom = CustomFoodState.Offline) }
+            return
+        }
         viewModelScope.launch {
             val current = settings.settings.first()
             val chain = settings.aiChain()
@@ -135,7 +151,8 @@ class FoodSearchViewModel(
 
     private fun searchPackaged(query: String) {
         remoteJob?.cancel()
-        if (query.trim().length < MIN_REMOTE_CHARS) {
+        // Offline: skipped quietly; the sheet says it's showing your foods and the built-in list.
+        if (query.trim().length < MIN_REMOTE_CHARS || !online.value) {
             _state.update { it.copy(packaged = PackagedResults.Idle) }
             return
         }

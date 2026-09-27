@@ -1,5 +1,6 @@
 package dev.ytosko.neutrino.ui.voice
 
+import androidx.compose.ui.draw.alpha
 import android.Manifest
 import android.content.pm.PackageManager
 import android.widget.Toast
@@ -258,7 +259,7 @@ fun voiceErrorMessage(error: Exception): String = when (error) {
  * is spoken, and the changed lines light up for a moment.
  */
 @Composable
-fun ReviewVoiceMic(controller: VoiceController, modifier: Modifier = Modifier) {
+fun ReviewVoiceMic(controller: VoiceController, modifier: Modifier = Modifier, online: Boolean = true) {
     val phase by controller.phase.collectAsState()
     val context = LocalContext.current
     val failed = (phase as? VoicePhase.Failed)?.let { voiceErrorMessage(it.error) }
@@ -288,7 +289,26 @@ fun ReviewVoiceMic(controller: VoiceController, modifier: Modifier = Modifier) {
                 )
             }
         }
-        MicButton(controller, size = 72.dp)
+        if (online) {
+            MicButton(controller, size = 72.dp)
+        } else {
+            // Offline: the mic can't reach the voice model; dimmed, and tapping says why.
+            val message = stringResource(R.string.offline_needs_internet_message)
+            Box(
+                modifier = Modifier
+                    .size(72.dp)
+                    .alpha(0.45f)
+                    .clip(CircleShape)
+                    .clickable(role = Role.Button) { Toast.makeText(context, message, Toast.LENGTH_LONG).show() },
+                contentAlignment = Alignment.Center,
+            ) {
+                Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.size(56.dp)) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(painterResource(R.drawable.ic_mic), contentDescription = message, tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                    }
+                }
+            }
+        }
     }
 }
 

@@ -3,6 +3,8 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- To dim photo and voice while offline (no prompt; a normal permission). -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <!-- Health Connect: writes meals, water and glucose. Reads nothing, unless the user turns on
          glucose import (Settings): then blood glucose only, from other apps such as CGM apps. -->

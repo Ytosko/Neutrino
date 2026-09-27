@@ -23,6 +23,11 @@ data class AiConfig(
     val inUse: Boolean = true,
     /** Last characters of the key, to tell keys apart ("…k6a"); never the key itself. */
     val keyTail: String = "",
+    /**
+     * OpenRouter: "I'm on a free plan". Only free models are offered, and requests stop before the
+     * daily free limit instead of failing.
+     */
+    val freePlan: Boolean = true,
 ) {
     val providerEnum: AiProvider? get() = AiProvider.fromId(provider)
     val detail: PhotoDetail get() = PhotoDetail.fromId(photoDetail)

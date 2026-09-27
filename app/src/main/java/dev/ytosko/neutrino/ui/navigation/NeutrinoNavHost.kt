@@ -1,5 +1,7 @@
 package dev.ytosko.neutrino.ui.navigation
 
+import dev.ytosko.neutrino.ui.ai.OpenRouterGoneDialog
+import dev.ytosko.neutrino.ui.ai.OpenRouterCheckViewModel
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -211,6 +213,9 @@ fun NeutrinoNavHost(startDestination: Route, modifier: Modifier = Modifier) {
                 savedResult = savedResult,
                 onSavedResultShown = { entry.savedStateHandle[KEY_SAVED_RESULT] = null },
             )
+            // An OpenRouter model that's gone: offer its replacement, or open its setup page.
+            val openRouterCheck: OpenRouterCheckViewModel = viewModel { OpenRouterCheckViewModel(container.settings, container.openRouter) }
+            OpenRouterGoneDialog(openRouterCheck, onChoose = { id -> navController.navigate(Route.AiConfigEdit(configId = id)) })
             if (voiceOpen) LogByVoiceSheet(voiceViewModel.controller, onDismiss = { voiceOpen = false })
             VoiceDialogs(voiceViewModel.controller, (appSettings?.glucoseLow ?: 4.0)..(appSettings?.glucoseHigh ?: 10.0))
         }
@@ -239,7 +244,7 @@ fun NeutrinoNavHost(startDestination: Route, modifier: Modifier = Modifier) {
                 viewModel = reviewViewModel,
                 searchViewModel = { key, mealType ->
                     viewModel(key = key) {
-                        FoodSearchViewModel(container.foods, container.openFoodFacts, container.settings, container.aiClients, mealType)
+                        FoodSearchViewModel(container.foods, container.openFoodFacts, container.settings, container.aiClients, mealType, container.network.online)
                     }
                 },
                 onSaved = { synced ->
@@ -464,6 +469,7 @@ private fun AiScreen(
                 onModelChange = viewModel::selectModel,
                 onPhotoDetailChange = viewModel::selectPhotoDetail,
                 voice = voice,
+                onFreePlanChange = viewModel::setFreePlan,
             )
         }
     }

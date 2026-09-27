@@ -13,10 +13,21 @@ enum class AiProvider(
     val keyUrl: String,
     /** Typical key prefix, shown as a placeholder. */
     val keyPrefix: String,
+    /** Short label where space is tight (onboarding's provider switch). */
+    val shortName: String = displayName,
+    /** Offers speech-to-text for the voice model. */
+    val hasVoice: Boolean = true,
+    /** Only one model of this provider can be set up. */
+    val single: Boolean = false,
 ) {
-    Gemini(id = "gemini", displayName = "Google Gemini", keyUrl = "https://aistudio.google.com/apikey", keyPrefix = "AIza…"),
+    Gemini(id = "gemini", displayName = "Google Gemini", keyUrl = "https://aistudio.google.com/apikey", keyPrefix = "AIza…", shortName = "Gemini"),
     OpenAi(id = "openai", displayName = "OpenAI", keyUrl = "https://platform.openai.com/api-keys", keyPrefix = "sk-…"),
     Groq(id = "groq", displayName = "Groq", keyUrl = "https://console.groq.com/keys", keyPrefix = "gsk_…"),
+    /** Many providers' models behind one key, several of them free. Photos only; one at most. */
+    OpenRouter(
+        id = "openrouter", displayName = "OpenRouter", keyUrl = "https://openrouter.ai/settings/keys", keyPrefix = "sk-or-…",
+        hasVoice = false, single = true,
+    ),
     ;
 
     companion object {
@@ -40,7 +51,8 @@ enum class PhotoDetail(val id: String, val maxEdgePx: Int) {
     }
 }
 
-data class AiModel(val id: String, val displayName: String)
+/** [free] and [price] ("$0.10 / $0.40 per 1M tokens") are known only for OpenRouter. */
+data class AiModel(val id: String, val displayName: String, val free: Boolean = false, val price: String? = null)
 
 /** Models a key can use, plus the one Neutrino suggests by default. */
 data class ModelChoices(val models: List<AiModel>, val recommended: String?)
@@ -57,6 +69,13 @@ sealed class AiException(message: String, cause: Throwable? = null) : Exception(
      * "context length exceeded"). Waiting won't help; a shorter request will.
      */
     class TooLarge : AiException("Request too large for the model or plan")
+    /**
+     * The model isn't offered anymore (OpenRouter removes models, free ones especially).
+     * [replacement] is the suggested model of the same kind (free or not), if there is one.
+     */
+    class ModelGone(val model: String, val replacement: AiModel?) : AiException("Model $model is no longer available")
+    /** OpenRouter's privacy settings block every provider of this (free) model. */
+    class DataPolicy : AiException("Blocked by the account's data policy")
     /** The model answered but gave no usable result (blocked, refused, or unparseable). */
     class NoResult : AiException("No usable answer in the response")
 }

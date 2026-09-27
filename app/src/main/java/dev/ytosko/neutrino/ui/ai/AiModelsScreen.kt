@@ -219,9 +219,12 @@ fun AiModelsScreen(
     if (picking) {
         ProviderPickerSheet(
             voice = false,
+            // Only one OpenRouter model: picking it again opens the one there is.
+            added = configs.mapNotNull { it.providerEnum }.filter { it.single }.toSet(),
             onPick = { provider ->
                 picking = false
-                onAdd(provider)
+                val existing = configs.firstOrNull { it.providerEnum == provider && provider.single }
+                if (existing != null) onOpen(existing.id) else onAdd(provider)
             },
             onDismiss = { picking = false },
         )
@@ -450,7 +453,7 @@ private fun RoleBadge(role: AiRole) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ProviderPickerSheet(voice: Boolean, onPick: (AiProvider) -> Unit, onDismiss: () -> Unit) {
+private fun ProviderPickerSheet(voice: Boolean, onPick: (AiProvider) -> Unit, onDismiss: () -> Unit, added: Set<AiProvider> = emptySet()) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
@@ -461,7 +464,7 @@ private fun ProviderPickerSheet(voice: Boolean, onPick: (AiProvider) -> Unit, on
             verticalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
             Text(stringResource(if (voice) R.string.voice_pick_provider else R.string.ai_pick_provider), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(bottom = Spacing.xs))
-            AiProvider.entries.forEach { provider ->
+            AiProvider.entries.filter { !voice || it.hasVoice }.forEach { provider ->
                 Card(
                     shape = MaterialTheme.shapes.large,
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
@@ -481,6 +484,7 @@ private fun ProviderPickerSheet(voice: Boolean, onPick: (AiProvider) -> Unit, on
                                         AiProvider.Gemini -> if (voice) R.string.voice_provider_gemini_note else R.string.ai_provider_gemini_note
                                         AiProvider.OpenAi -> if (voice) R.string.voice_provider_openai_note else R.string.ai_provider_openai_note
                                         AiProvider.Groq -> if (voice) R.string.voice_provider_groq_note else R.string.ai_provider_groq_note
+                                        AiProvider.OpenRouter -> if (provider in added) R.string.openrouter_already_added else R.string.ai_provider_openrouter_note
                                     },
                                 ),
                                 style = MaterialTheme.typography.bodySmall,

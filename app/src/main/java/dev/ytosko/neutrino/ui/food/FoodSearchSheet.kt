@@ -105,6 +105,7 @@ fun FoodSearchSheet(
                     return@LazyColumn
                 }
 
+                if (state.offline) item(key = "offline") { Hint(stringResource(R.string.food_offline_hint)) }
                 if (mine.isNotEmpty()) {
                     header(R.string.food_section_yours, state = state)
                     items(mine, key = { "mine-${it.food.id}" }) { FoodRow(it.food, viewModel::pick) }
@@ -114,7 +115,9 @@ fun FoodSearchSheet(
                     items(builtin, key = { "cat-${it.food.id}" }) { FoodRow(it.food, viewModel::pick) }
                 }
 
-                item(key = "custom") { CustomFoodRow(query, state.custom, viewModel::createCustom) }
+                item(key = "custom") {
+                    CustomFoodRow(query, if (state.offline) CustomFoodState.Offline else state.custom, viewModel::createCustom)
+                }
 
                 when (val packaged = state.packaged) {
                     PackagedResults.Loading -> item { Progress(stringResource(R.string.food_packaged_loading)) }
@@ -197,6 +200,7 @@ private fun CustomFoodRow(query: String, state: CustomFoodState, onCreate: () ->
         }
         val error = when (state) {
             CustomFoodState.NeedsAi -> stringResource(R.string.food_custom_needs_ai)
+            CustomFoodState.Offline -> stringResource(R.string.food_custom_offline)
             CustomFoodState.NotFound -> stringResource(R.string.food_not_found, query)
             is CustomFoodState.Failed -> dev.ytosko.neutrino.ui.ai.aiErrorMessage(state.error)
             else -> null

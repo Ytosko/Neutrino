@@ -1,5 +1,9 @@
 package dev.ytosko.neutrino.ui.ai
 
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.material3.Checkbox
+import dev.ytosko.neutrino.data.ai.AiModel
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.clickable
 import androidx.compose.material3.AlertDialog
@@ -74,6 +78,8 @@ fun AiSetupForm(
     modifier: Modifier = Modifier,
     /** A voice model: no photo detail to choose. */
     voice: Boolean = false,
+    /** OpenRouter's "I'm on a free plan". */
+    onFreePlanChange: (Boolean) -> Unit = {},
 ) {
     val uriHandler = LocalUriHandler.current
     var choosingKey by remember { mutableStateOf(false) }
@@ -81,7 +87,7 @@ fun AiSetupForm(
         if (showProviderSwitch) {
             Text(stringResource(R.string.ai_provider), style = MaterialTheme.typography.titleSmall)
             SegmentedControl(
-                options = AiProvider.entries.map { it.displayName },
+                options = AiProvider.entries.map { it.shortName },
                 selected = AiProvider.entries.indexOf(state.provider),
                 onSelect = { onProviderChange(AiProvider.entries[it]) },
             )
@@ -173,15 +179,25 @@ fun AiSetupForm(
 
         KeyCheckStatus(state.check)
 
+        if (state.isOpenRouter) OpenRouterPlan(state, onFreePlanChange)
+
         AnimatedVisibility(visible = state.check is KeyCheck.Valid) {
-            val valid = state.check as? KeyCheck.Valid
-            if (valid != null && valid.models.isNotEmpty()) {
+            if (state.models.isNotEmpty()) {
                 ModelPicker(
-                    valid = valid,
+                    models = state.models,
+                    recommended = state.recommended,
                     selected = state.selectedModel,
                     onSelect = onModelChange,
-                    voice = voice,
+                    helper = stringResource(
+                        when {
+                            voice -> R.string.voice_model_helper
+                            state.isOpenRouter -> R.string.openrouter_model_helper
+                            else -> R.string.ai_model_helper
+                        },
+                    ),
                 )
+            } else if (state.isOpenRouter) {
+                Text(stringResource(R.string.openrouter_no_free_models), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
             }
         }
 
@@ -249,6 +265,7 @@ fun ProviderLogo(provider: AiProvider, size: androidx.compose.ui.unit.Dp = 40.dp
                 AiProvider.Gemini -> R.drawable.ai_logo_gemini
                 AiProvider.OpenAi -> R.drawable.ai_logo_openai
                 AiProvider.Groq -> R.drawable.ai_logo_groq
+                AiProvider.OpenRouter -> R.drawable.ai_logo_openrouter
             },
         ),
         contentDescription = provider.displayName,
@@ -278,7 +295,15 @@ private fun KeyCheckStatus(check: KeyCheck) {
 @Composable
 internal fun aiErrorMessage(error: AiException): String = when (error) {
     is AiException.InvalidKey -> stringResource(R.string.ai_error_invalid_key)
-    is AiException.RateLimited -> stringResource(if (error.provider == dev.ytosko.neutrino.data.ai.AiProvider.Groq) R.string.ai_error_rate_limited_groq else R.string.ai_error_rate_limited)
+    is AiException.RateLimited -> stringResource(
+        when (error.provider) {
+            dev.ytosko.neutrino.data.ai.AiProvider.Groq -> R.string.ai_error_rate_limited_groq
+            dev.ytosko.neutrino.data.ai.AiProvider.OpenRouter -> R.string.ai_error_rate_limited_openrouter
+            else -> R.string.ai_error_rate_limited
+        },
+    )
+    is AiException.ModelGone -> stringResource(R.string.ai_error_model_gone, error.model)
+    is AiException.DataPolicy -> stringResource(R.string.ai_error_data_policy)
     is AiException.Network -> stringResource(R.string.ai_error_network)
     is AiException.Unexpected -> stringResource(R.string.ai_error_unexpected, error.code)
     is AiException.NoResult -> stringResource(R.string.ai_error_no_result)
@@ -287,33 +312,70 @@ internal fun aiErrorMessage(error: AiException): String = when (error) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ModelPicker(valid: KeyCheck.Valid, selected: String?, onSelect: (String) -> Unit, voice: Boolean = false) {
+private fun ModelPicker(
+    models: List<AiModel>,
+    recommended: String?,
+    selected: String?,
+    onSelect: (String) -> Unit,
+    helper: String,
+) {
     var expanded by remember { mutableStateOf(false) }
+    // Long lists (OpenRouter) can be searched: type in the field to narrow them down.
+    val searchable = models.size > SEARCH_FROM
+    var query by remember { mutableStateOf("") }
     val recommendedLabel = stringResource(R.string.ai_recommended)
-    fun label(id: String?): String {
-        val model = valid.models.firstOrNull { it.id == id } ?: return ""
-        return if (model.id == valid.recommended) "${model.displayName} · $recommendedLabel" else model.displayName
+    val freeLabel = stringResource(R.string.openrouter_free)
+    fun label(model: AiModel): String = buildString {
+        append(model.displayName)
+        if (model.id == recommended) append(" · ").append(recommendedLabel)
+        model.price?.let { append(" · ").append(it) }
+    }
+    val chosen = models.firstOrNull { it.id == selected }
+    val shown = if (searchable && query.isNotBlank()) {
+        models.filter { query.lowercase() in it.displayName.lowercase() || query.lowercase() in it.id.lowercase() }
+    } else {
+        models
     }
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
         ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
             OutlinedTextField(
-                value = label(selected),
-                onValueChange = {},
-                readOnly = true,
+                value = if (searchable && expanded) query else chosen?.let(::label).orEmpty(),
+                onValueChange = { query = it; expanded = true },
+                readOnly = !searchable,
                 label = { Text(stringResource(R.string.ai_model)) },
+                placeholder = if (searchable) {
+                    { Text(stringResource(R.string.openrouter_search_models)) }
+                } else {
+                    null
+                },
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
                 singleLine = true,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
+                    .menuAnchor(if (searchable) ExposedDropdownMenuAnchorType.PrimaryEditable else ExposedDropdownMenuAnchorType.PrimaryNotEditable),
             )
-            ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                valid.models.forEach { model ->
+            ExposedDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = {
+                    expanded = false
+                    query = ""
+                },
+            ) {
+                shown.forEach { model ->
                     DropdownMenuItem(
-                        text = { Text(label(model.id)) },
+                        text = {
+                            Column {
+                                Text(model.displayName + if (model.id == recommended) " · $recommendedLabel" else "")
+                                val detail = model.price ?: freeLabel.takeIf { model.free }
+                                if (detail != null) {
+                                    Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                        },
                         onClick = {
                             onSelect(model.id)
                             expanded = false
+                            query = ""
                         },
                         contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding,
                     )
@@ -321,10 +383,60 @@ private fun ModelPicker(valid: KeyCheck.Valid, selected: String?, onSelect: (Str
             }
         }
         Text(
-            stringResource(if (voice) R.string.voice_model_helper else R.string.ai_model_helper),
+            helper,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = Spacing.md),
         )
+    }
+}
+
+private const val SEARCH_FROM = 8
+
+/**
+ * OpenRouter's plan: "I'm on a free plan" shows only free models and keeps requests within the
+ * daily free limit; off, every photo model is offered with its price. Plus what's left today, and
+ * where to control whether free providers may learn from requests.
+ */
+@Composable
+private fun OpenRouterPlan(state: AiSetupUiState, onFreePlanChange: (Boolean) -> Unit) {
+    val uriHandler = LocalUriHandler.current
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(MaterialTheme.shapes.medium)
+                .toggleable(value = state.freePlan, role = Role.Checkbox, onValueChange = onFreePlanChange)
+                .padding(horizontal = Spacing.sm, vertical = Spacing.xs),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+        ) {
+            Checkbox(checked = state.freePlan, onCheckedChange = null)
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(R.string.openrouter_free_plan), style = MaterialTheme.typography.titleSmall)
+                Text(
+                    stringResource(if (state.freePlan) R.string.openrouter_free_plan_on else R.string.openrouter_free_plan_off),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        state.freeQuota?.let { quota ->
+            Text(
+                stringResource(R.string.openrouter_free_left, quota.remaining, quota.limit),
+                style = MaterialTheme.typography.bodySmall,
+                color = if (quota.remaining == 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = Spacing.sm),
+            )
+        }
+        Text(
+            stringResource(R.string.openrouter_privacy),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = Spacing.sm),
+        )
+        TextButton(onClick = { uriHandler.openUri("https://openrouter.ai/settings/privacy") }) {
+            Text(stringResource(R.string.openrouter_privacy_settings))
+        }
     }
 }

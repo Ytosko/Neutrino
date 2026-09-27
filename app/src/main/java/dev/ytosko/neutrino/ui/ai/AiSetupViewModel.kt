@@ -1,5 +1,8 @@
 package dev.ytosko.neutrino.ui.ai
 
+import dev.ytosko.neutrino.data.ai.OpenRouterClient
+import dev.ytosko.neutrino.data.ai.ModelCatalog
+import dev.ytosko.neutrino.data.ai.FreeQuota
 import dev.ytosko.neutrino.data.voice.SpeechClient
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -49,7 +52,24 @@ data class AiSetupUiState(
     val selectedModel: String? = null,
     val saving: Boolean = false,
     val photoDetail: PhotoDetail = PhotoDetail.Standard,
+    /** OpenRouter: "I'm on a free plan" (free models only, and the daily free limit is respected). */
+    val freePlan: Boolean = true,
+    /** OpenRouter: today's free requests on this key, when known. */
+    val freeQuota: FreeQuota? = null,
 ) {
+    val isOpenRouter: Boolean get() = provider == AiProvider.OpenRouter
+
+    /** The models to choose from: for OpenRouter on a free plan, only free ones. */
+    val models: List<AiModel>
+        get() {
+            val all = (check as? KeyCheck.Valid)?.models.orEmpty()
+            return if (isOpenRouter && freePlan) all.filter { it.free } else all
+        }
+
+    /** The suggested model among [models]. */
+    val recommended: String?
+        get() = if (isOpenRouter) ModelCatalog.openRouterPick(models, freeOnly = freePlan)?.id else (check as? KeyCheck.Valid)?.recommended
+
     val canCheck: Boolean get() = keyInput.isNotBlank() && check !is KeyCheck.Checking
     val canSave: Boolean get() = check is KeyCheck.Valid && selectedModel != null && !saving
 
@@ -127,6 +147,22 @@ class AiSetupViewModel(
 
     fun selectPhotoDetail(detail: PhotoDetail) = _state.update { it.copy(photoDetail = detail) }
 
+    /** OpenRouter's "I'm on a free plan": on, a paid model chosen before is swapped for the suggested free one. */
+    fun setFreePlan(on: Boolean) = _state.update { state ->
+        val next = state.copy(freePlan = on)
+        val keep = next.selectedModel?.takeIf { id -> next.models.any { it.id == id } }
+        val picked = next.copy(selectedModel = keep ?: next.recommended)
+        if (picked.customName) picked else picked.copy(nameInput = picked.modelDisplayName.orEmpty())
+    }
+
+    private fun refreshQuota(key: String) {
+        val client = clients[AiProvider.OpenRouter] as? OpenRouterClient ?: return
+        viewModelScope.launch {
+            val quota = runCatching { client.freeQuota(key) }.getOrNull()
+            _state.update { it.copy(freeQuota = quota) }
+        }
+    }
+
     fun checkKey() {
         val snapshot = _state.value
         if (!snapshot.canCheck) return
@@ -140,13 +176,12 @@ class AiSetupViewModel(
                     clients.getValue(snapshot.provider).listModels(snapshot.keyInput)
                 }
                 _state.update { state ->
-                    val keep = state.selectedModel?.takeIf { id -> choices.models.any { it.id == id } }
-                    val checked = state.copy(
-                        check = KeyCheck.Valid(choices.models, choices.recommended),
-                        selectedModel = keep ?: choices.recommended,
-                    )
+                    val valid = state.copy(check = KeyCheck.Valid(choices.models, choices.recommended))
+                    val keep = state.selectedModel?.takeIf { id -> valid.models.any { it.id == id } }
+                    val checked = valid.copy(selectedModel = keep ?: valid.recommended)
                     if (checked.customName) checked else checked.copy(nameInput = checked.modelDisplayName.orEmpty())
                 }
+                if (snapshot.provider == AiProvider.OpenRouter) refreshQuota(snapshot.keyInput)
             } catch (e: AiException) {
                 _state.update { it.copy(check = KeyCheck.Failed(e)) }
             }
@@ -174,6 +209,7 @@ class AiSetupViewModel(
                 name = name,
                 customName = snapshot.customName && snapshot.nameInput.isNotBlank(),
                 photoDetail = snapshot.photoDetail.id,
+                freePlan = snapshot.freePlan,
             )
             if (voice) settings.saveVoiceConfig(config, snapshot.keyInput) else settings.saveAiConfig(config, snapshot.keyInput)
             _state.update { it.copy(saving = false, keyVisible = false, configId = id) }
@@ -209,6 +245,7 @@ class AiSetupViewModel(
             existingKeys = existingKeys(chosen, existing.id),
             selectedModel = existing.model,
             photoDetail = existing.detail,
+            freePlan = existing.freePlan,
         )
         // Re-check the stored key so the model list is ready without re-typing it.
         if (_state.value.keyInput.isNotBlank()) checkKey()

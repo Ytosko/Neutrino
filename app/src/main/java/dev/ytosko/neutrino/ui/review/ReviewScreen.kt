@@ -165,11 +165,12 @@ fun ReviewScreen(
 
     val voice = viewModel.voice
     val appSettings by LocalContext.current.appContainer.settings.settings.collectAsStateWithLifecycle(initialValue = null)
+    val online by LocalContext.current.appContainer.network.online.collectAsStateWithLifecycle()
     val showMic = voice != null && appSettings?.voiceReady == true && (phase == ReviewPhase.Ready || phase == ReviewPhase.Saving)
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         floatingActionButton = {
-            if (showMic && voice != null) ReviewVoiceMic(voice, Modifier.navigationBarsPadding())
+            if (showMic && voice != null) ReviewVoiceMic(voice, Modifier.navigationBarsPadding(), online = online)
         },
         topBar = {
             ReviewHeader(
