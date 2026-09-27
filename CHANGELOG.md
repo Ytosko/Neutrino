@@ -2,6 +2,23 @@
 
 Every release has a section here, headed `## [x.y.z] - YYYY-MM-DD` with an optional ` · Release name`. The release workflow publishes the section as the GitHub release notes (and the name as its title), and refuses to release a version that has none.
 
+## [1.0.11] - 2026-09-28 · v1.10-NeutrinoBuddy
+
+OpenRouter, and Neutrino without internet.
+
+### OpenRouter for photos
+- **Many models with one key, several free:** add OpenRouter in AI models (one at most). Only models that can read photos are listed, and you can search them. OpenRouter is for photos only, not voice.
+- **"I'm on a free plan" (on by default):** only free models are shown, with how many free requests are left today. Neutrino stops before the daily free limit and lets your next model answer instead. Free models never cost anything. Untick it to see paid models with their prices.
+- **When OpenRouter removes a model:** Neutrino notices when you open the app and offers the closest free model (Confirm), or takes you to its setup page (Choose manually). If it happens while reading a photo, it switches to a similar free model by itself and tells you. It never switches you to a paid model.
+
+### Without internet
+- **Clear, not broken:** Take a photo, Choose from gallery, Log by voice and the review page's mic are dimmed with "Needs internet", and come back by themselves when you're online.
+- **Still works offline:** adding foods by search (your foods and about 750 built-in foods), water, glucose, medicines, the Health page and reports. Adding a brand-new food explains that it needs the internet.
+
+### Look and feel
+- **Log a meal sheet:** a tile alone in the last row now spans it, with a short explanation; tiles in a row always share one height.
+- **Switches with room to breathe:** the Voice section in AI models is one card like Settings, and the Goals switches have padding, so the pressed highlight no longer touches the text.
+
 ## [1.0.10] - 2026-09-28 · v1.9-NeutrinoBuddy
 
 A layout fix.

@@ -1,0 +1,1 @@
+OpenRouter for photos, with a free plan option that stays within the daily free limit. Without internet, photo and voice are dimmed with "Needs internet"; food search, water, glucose and medicines keep working.
