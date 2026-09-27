@@ -1,5 +1,9 @@
 package dev.ytosko.neutrino.data.settings
 
+import kotlinx.serialization.json.Json
+import dev.ytosko.neutrino.data.backup.AiConfigBackup
+import dev.ytosko.neutrino.data.ai.AiLineup
+import dev.ytosko.neutrino.data.ai.AiConfig
 import java.time.LocalTime
 import dev.ytosko.neutrino.domain.MealWindows
 import dev.ytosko.neutrino.data.ai.PromptHints
@@ -29,12 +33,8 @@ private val Context.settingsStore: DataStore<Preferences> by preferencesDataStor
 
 data class AppSettings(
     val onboardingComplete: Boolean = false,
-    val activeProvider: AiProvider? = null,
-    /** Chosen model per provider. */
-    val models: Map<AiProvider, String> = emptyMap(),
-    /** Providers that have an (encrypted) API key stored. */
-    val providersWithKey: Set<AiProvider> = emptySet(),
-    val photoDetail: PhotoDetail = PhotoDetail.Standard,
+    /** The AI models set up, in answering order for those in use (see [AiLineup]). Keys aren't here. */
+    val aiConfigs: List<AiConfig> = emptyList(),
     /** Breakfast, lunch and dinner reminders (10 AM, 2 PM, 6 PM). */
     val remindersEnabled: Boolean = true,
     /** Neutrino already asked for notification permission once (Android 13+). */
@@ -84,8 +84,8 @@ data class AppSettings(
     val medicinesOn: Boolean get() = takesMedicine || usesInsulin
 
     val promptHints: PromptHints get() = PromptHints(cuisine, aiNotes.takeIf { it.isNotBlank() })
-    val aiReady: Boolean
-        get() = activeProvider != null && activeProvider in providersWithKey && models[activeProvider] != null
+    /** A Primary model is set, so photos can be analysed. */
+    val aiReady: Boolean get() = aiConfigs.any { it.inUse }
 }
 
 /**
@@ -132,6 +132,8 @@ class SettingsRepository(context: Context, private val cipher: SecretCipher) {
         val mealTipDone = booleanPreferencesKey("meal_tip_done")
         fun model(provider: AiProvider) = stringPreferencesKey("ai_model_${provider.id}")
         fun apiKey(provider: AiProvider) = stringPreferencesKey("ai_key_${provider.id}")
+        val aiConfigs = stringPreferencesKey("ai_configs")
+        fun configKey(id: String) = stringPreferencesKey("ai_cfg_key_$id")
     }
 
     private val preferences: Flow<Preferences> = store.data.catch { e ->
@@ -141,10 +143,7 @@ class SettingsRepository(context: Context, private val cipher: SecretCipher) {
     val settings: Flow<AppSettings> = preferences.map { p ->
         AppSettings(
             onboardingComplete = p[Keys.onboardingComplete] ?: false,
-            activeProvider = AiProvider.fromId(p[Keys.activeProvider]),
-            models = AiProvider.entries.mapNotNull { provider -> p[Keys.model(provider)]?.let { provider to it } }.toMap(),
-            providersWithKey = AiProvider.entries.filter { p[Keys.apiKey(it)] != null }.toSet(),
-            photoDetail = PhotoDetail.fromId(p[Keys.photoDetail]),
+            aiConfigs = decodeConfigs(p[Keys.aiConfigs]),
             remindersEnabled = p[Keys.reminders] ?: true,
             notificationsAsked = p[Keys.notificationsAsked] ?: false,
             cuisine = p[Keys.cuisine],
@@ -183,42 +182,119 @@ class SettingsRepository(context: Context, private val cipher: SecretCipher) {
         )
     }
 
-    suspend fun apiKey(provider: AiProvider): String? {
-        val encrypted = preferences.first()[Keys.apiKey(provider)] ?: return null
+    private val configJson = Json { ignoreUnknownKeys = true }
+
+    private fun decodeConfigs(raw: String?): List<AiConfig> =
+        raw?.let { runCatching { configJson.decodeFromString<List<AiConfig>>(it) }.getOrNull() }.orEmpty()
+
+    /** The decrypted key of one model, only when making a call. */
+    suspend fun aiKey(configId: String): String? {
+        val encrypted = preferences.first()[Keys.configKey(configId)] ?: return null
         return withContext(Dispatchers.IO) { cipher.decrypt(encrypted) }
     }
 
-    /** Makes [provider] active with [model]. A null [apiKey] keeps the key already stored. */
-    suspend fun saveAiProvider(provider: AiProvider, apiKey: String?, model: String) {
-        val encrypted = apiKey?.let { withContext(Dispatchers.IO) { cipher.encrypt(it) } }
-        store.edit {
-            it[Keys.activeProvider] = provider.id
-            it[Keys.model(provider)] = model
-            if (encrypted != null) it[Keys.apiKey(provider)] = encrypted
+    /** Models to ask with their keys, in order: Primary, then Fallback 1, 2, … */
+    suspend fun aiChain(): List<Pair<AiConfig, String>> {
+        val configs = AiLineup.answeringOrder(settings.first().aiConfigs)
+        return configs.mapNotNull { config -> aiKey(config.id)?.let { config to it } }
+    }
+
+    /**
+     * Adds or updates a model. [key] null keeps the stored key. A new model becomes the Primary only
+     * when no other model is in use.
+     */
+    suspend fun saveAiConfig(config: AiConfig, key: String?) {
+        val encrypted = key?.let { withContext(Dispatchers.IO) { cipher.encrypt(it) } }
+        store.edit { p ->
+            val stored = config.copy(keyTail = key?.let(::tailOf) ?: config.keyTail)
+            p[Keys.aiConfigs] = configJson.encodeToString(AiLineup.upsert(decodeConfigs(p[Keys.aiConfigs]), stored))
+            if (encrypted != null) p[Keys.configKey(config.id)] = encrypted
         }
     }
 
-    suspend fun setPhotoDetail(detail: PhotoDetail) {
-        store.edit { it[Keys.photoDetail] = detail.id }
+    /** Applies an ordering change (make primary, drag…) to the stored list. */
+    suspend fun updateAiLineup(change: (List<AiConfig>) -> List<AiConfig>) {
+        store.edit { p -> p[Keys.aiConfigs] = configJson.encodeToString(change(decodeConfigs(p[Keys.aiConfigs]))) }
     }
+
+    suspend fun deleteAiConfig(id: String) {
+        store.edit { p ->
+            p[Keys.aiConfigs] = configJson.encodeToString(AiLineup.delete(decodeConfigs(p[Keys.aiConfigs]), id))
+            p.remove(Keys.configKey(id))
+        }
+    }
+
+    /**
+     * Once, for installs from before several models: each provider that had a key becomes a model,
+     * the one that was active as the Primary. The encrypted keys move over as they are.
+     */
+    suspend fun migrateAi() {
+        val p = preferences.first()
+        if (p[Keys.aiConfigs] != null) return
+        val active = AiProvider.fromId(p[Keys.activeProvider])
+        val detail = PhotoDetail.fromId(p[Keys.photoDetail]).id
+        val legacy = AiProvider.entries.mapNotNull { provider ->
+            val encrypted = p[Keys.apiKey(provider)] ?: return@mapNotNull null
+            val model = p[Keys.model(provider)] ?: return@mapNotNull null
+            Triple(provider, model, encrypted)
+        }.sortedByDescending { it.first == active }
+        var configs = emptyList<AiConfig>()
+        val keys = mutableMapOf<String, String>()
+        legacy.forEach { (provider, model, encrypted) ->
+            val id = java.util.UUID.randomUUID().toString()
+            val tail = withContext(Dispatchers.IO) { cipher.decrypt(encrypted)?.let(::tailOf).orEmpty() }
+            configs = configs + AiConfig(
+                id = id, provider = provider.id, model = model, name = AiLineup.autoName(configs, prettyModel(model)),
+                photoDetail = detail, inUse = provider == active, keyTail = tail,
+            )
+            keys[id] = encrypted
+        }
+        store.edit { e ->
+            e[Keys.aiConfigs] = configJson.encodeToString(configs)
+            keys.forEach { (id, encrypted) -> e[Keys.configKey(id)] = encrypted }
+            AiProvider.entries.forEach { e.remove(Keys.apiKey(it)); e.remove(Keys.model(it)) }
+            e.remove(Keys.activeProvider)
+        }
+    }
+
+    private fun tailOf(key: String) = key.takeLast(3)
+
+    /** "gemini-3.8-flash" → "Gemini 3.8 Flash", "gpt-5-mini" → "GPT-5 Mini", for names made without the model list. */
+    private fun prettyModel(model: String): String =
+        model.substringAfterLast('/').split('-').joinToString(" ") { part ->
+            if (part.equals("gpt", ignoreCase = true)) "GPT" else part.replaceFirstChar(Char::uppercase)
+        }.replace("GPT ", "GPT-")
 
     /** Everything a backup needs, including decrypted API keys (the backup itself is encrypted). */
     suspend fun snapshot(): SettingsSnapshot {
         val p = preferences.first()
         return SettingsSnapshot(
-            activeProvider = p[Keys.activeProvider],
-            models = AiProvider.entries.mapNotNull { provider -> p[Keys.model(provider)]?.let { provider.id to it } }.toMap(),
-            apiKeys = AiProvider.entries.mapNotNull { provider -> apiKey(provider)?.let { provider.id to it } }.toMap(),
-            photoDetail = p[Keys.photoDetail],
+            aiConfigs = decodeConfigs(p[Keys.aiConfigs]).mapNotNull { config -> aiKey(config.id)?.let { AiConfigBackup(config, it) } },
         )
     }
 
-    /** Replaces AI settings with a backup's, re-encrypting keys for this install, and finishes onboarding. */
+    /**
+     * Replaces AI settings with a backup's, re-encrypting keys for this install, and finishes
+     * onboarding. Backups from before several models carry one key per provider; those are migrated.
+     */
     suspend fun restore(snapshot: SettingsSnapshot) {
+        val current = decodeConfigs(preferences.first()[Keys.aiConfigs])
+        if (snapshot.aiConfigs.isNotEmpty()) {
+            val encrypted = withContext(Dispatchers.IO) { snapshot.aiConfigs.associate { it.config.id to cipher.encrypt(it.key) } }
+            store.edit { p ->
+                current.forEach { p.remove(Keys.configKey(it.id)) }
+                p[Keys.aiConfigs] = configJson.encodeToString(snapshot.aiConfigs.map { it.config })
+                encrypted.forEach { (id, key) -> p[Keys.configKey(id)] = key }
+                p[Keys.onboardingComplete] = true
+            }
+            return
+        }
         val encrypted = withContext(Dispatchers.IO) {
             snapshot.apiKeys.mapNotNull { (id, key) -> AiProvider.fromId(id)?.let { it to cipher.encrypt(key) } }.toMap()
         }
         store.edit { p ->
+            current.forEach { p.remove(Keys.configKey(it.id)) }
+            p.remove(Keys.aiConfigs)
             AiProvider.entries.forEach { provider ->
                 p.remove(Keys.model(provider))
                 p.remove(Keys.apiKey(provider))
@@ -230,6 +306,7 @@ class SettingsRepository(context: Context, private val cipher: SecretCipher) {
             snapshot.photoDetail?.let { p[Keys.photoDetail] = it }
             p[Keys.onboardingComplete] = true
         }
+        migrateAi()
     }
 
     suspend fun setCuisine(cuisine: String?) {

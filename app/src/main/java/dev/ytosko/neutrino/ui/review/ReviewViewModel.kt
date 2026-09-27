@@ -1,5 +1,6 @@
 package dev.ytosko.neutrino.ui.review
 
+import dev.ytosko.neutrino.data.ai.AiChain
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -192,15 +193,16 @@ class ReviewViewModel(
         job?.cancel()
         job = viewModelScope.launch {
             val current = settings.settings.first()
-            val activeProvider = current.activeProvider
-            val model = activeProvider?.let { current.models[it] }
-            if (!current.aiReady || activeProvider == null || model == null) {
+            // Primary first, then each fallback if one fails.
+            val chain = settings.aiChain()
+            val primary = chain.firstOrNull()?.first
+            if (primary == null) {
                 fail(FailureReason.AiNotSetUp)
                 return@launch
             }
-            provider = activeProvider
+            provider = primary.providerEnum
 
-            val photo = prepared ?: runCatching { photos.prepare(uri, current.photoDetail.maxEdgePx) }
+            val photo = prepared ?: runCatching { photos.prepare(uri, primary.detail.maxEdgePx) }
                 .onSuccess { onPhotoConsumed() }
                 .getOrElse {
                     fail(FailureReason.PhotoUnreadable)
@@ -213,17 +215,24 @@ class ReviewViewModel(
                     photo = photo.jpeg,
                     eatenAt = eatenAt,
                     mealType = if (it.mealTypeChosenByUser) it.mealType else mealWindows.mealAt(eatenAt.toLocalTime()),
-                    phase = ReviewPhase.Analyzing(model),
-                    model = model,
+                    phase = ReviewPhase.Analyzing(primary.name),
+                    model = primary.model,
                 )
             }
 
-            val apiKey = settings.apiKey(activeProvider) ?: run {
-                fail(FailureReason.AiNotSetUp)
-                return@launch
-            }
             try {
-                val result = clients.getValue(activeProvider).analyzeMeal(apiKey, model, photo.jpeg, current.photoDetail, current.promptHints)
+                val (answered, result) = AiChain.run(
+                    chain,
+                    clients,
+                    onAttempt = { config -> _state.update { it.copy(phase = ReviewPhase.Analyzing(config.name), model = config.model) } },
+                ) { client, apiKey, config ->
+                    client.analyzeMeal(apiKey, config.model, photo.jpeg, config.detail, current.promptHints)
+                } ?: run {
+                    fail(FailureReason.AiNotSetUp)
+                    return@launch
+                }
+                provider = answered.providerEnum
+                _state.update { it.copy(model = answered.model) }
                 val resolved = result.items
                     .filter { !it.nutrition.isEmpty }
                     .map { ScanFoods.resolve(it, foods.findByName(it.name)) }

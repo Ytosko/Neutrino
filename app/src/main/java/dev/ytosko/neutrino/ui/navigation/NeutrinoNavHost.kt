@@ -1,5 +1,7 @@
 package dev.ytosko.neutrino.ui.navigation
 
+import dev.ytosko.neutrino.ui.ai.AiModelsViewModel
+import dev.ytosko.neutrino.ui.ai.AiModelsScreen
 import dev.ytosko.neutrino.ui.medicine.MedicinesViewModel
 import dev.ytosko.neutrino.ui.medicine.MedicinesScreen
 import dev.ytosko.neutrino.ui.glucose.MeterViewModel
@@ -94,6 +96,8 @@ sealed interface Route {
     @Serializable data object Restore : Route
     @Serializable data object RestoreHealth : Route
     @Serializable data object Medicines : Route
+    /** One AI model's setup: an existing one ([configId]) or a new one of [provider]. */
+    @Serializable data class AiConfigEdit(val configId: String? = null, val provider: String? = null) : Route
 }
 
 private const val KEY_SAVED_RESULT = "meal_saved_synced"
@@ -313,7 +317,24 @@ fun NeutrinoNavHost(startDestination: Route, modifier: Modifier = Modifier) {
             BackupSettingsScreen(viewModel = backupViewModel(), onBack = navController::popBackStack)
         }
         composable<Route.SettingsAi> {
-            AiScreen(onBack = navController::popBackStack, onboarding = false, onSaved = navController::popBackStack)
+            val container = LocalContext.current.appContainer
+            val modelsViewModel: AiModelsViewModel = viewModel { AiModelsViewModel(container.settings) }
+            AiModelsScreen(
+                viewModel = modelsViewModel,
+                onBack = navController::popBackStack,
+                onAdd = { provider -> navController.navigate(Route.AiConfigEdit(provider = provider.id)) },
+                onOpen = { id -> navController.navigate(Route.AiConfigEdit(configId = id)) },
+            )
+        }
+        composable<Route.AiConfigEdit> { entry ->
+            val route = entry.toRoute<Route.AiConfigEdit>()
+            AiScreen(
+                onBack = navController::popBackStack,
+                onboarding = false,
+                configId = route.configId,
+                provider = dev.ytosko.neutrino.data.ai.AiProvider.fromId(route.provider),
+                onSaved = navController::popBackStack,
+            )
         }
         composable<Route.SettingsHealth> {
             HealthConnectScreen(
@@ -350,21 +371,27 @@ private fun healthConnectViewModel(): HealthConnectViewModel {
 }
 
 @Composable
-private fun AiScreen(onBack: () -> Unit, onboarding: Boolean, onSaved: () -> Unit) {
+private fun AiScreen(
+    onBack: () -> Unit,
+    onboarding: Boolean,
+    onSaved: () -> Unit,
+    configId: String? = null,
+    provider: dev.ytosko.neutrino.data.ai.AiProvider? = null,
+) {
     val container = LocalContext.current.appContainer
     val viewModel: AiSetupViewModel = viewModel {
-        AiSetupViewModel(
-            settings = container.settings,
-            clients = container.aiClients,
-            // During setup, onboarding finishes after the backup step.
-        )
+        AiSetupViewModel(settings = container.settings, clients = container.aiClients, configId = configId, provider = provider)
     }
     val state by viewModel.state.collectAsStateWithLifecycle()
     LaunchedEffect(viewModel) { viewModel.saved.collect { onSaved() } }
 
     SetupScaffold(
-        title = stringResource(R.string.ai_title),
-        subtitle = stringResource(R.string.ai_body),
+        title = when {
+            onboarding -> stringResource(R.string.ai_title)
+            configId != null -> stringResource(R.string.ai_config_edit_title)
+            else -> stringResource(R.string.ai_config_add_title, state.provider.displayName)
+        },
+        subtitle = if (onboarding) stringResource(R.string.ai_body) else null,
         onBack = onBack,
         step = if (onboarding) 2 to SETUP_STEPS else null,
         bottomBar = {
@@ -388,22 +415,16 @@ private fun AiScreen(onBack: () -> Unit, onboarding: Boolean, onSaved: () -> Uni
         if (state.loaded) {
             AiSetupForm(
                 state = state,
+                showProviderSwitch = onboarding,
                 onProviderChange = viewModel::selectProvider,
+                onNameChange = viewModel::onNameChange,
+                onUseExistingKey = viewModel::useExistingKey,
                 onKeyChange = viewModel::onKeyChange,
                 onToggleKeyVisibility = viewModel::toggleKeyVisibility,
                 onCheckKey = viewModel::checkKey,
                 onModelChange = viewModel::selectModel,
                 onPhotoDetailChange = viewModel::selectPhotoDetail,
             )
-            if (!onboarding) {
-                AiPreferences(
-                    cuisine = state.cuisine,
-                    notes = state.notes,
-                    onCuisineChange = viewModel::selectCuisine,
-                    onNotesChange = viewModel::onNotesChange,
-                    modifier = Modifier.padding(top = Spacing.lg),
-                )
-            }
         }
     }
 }

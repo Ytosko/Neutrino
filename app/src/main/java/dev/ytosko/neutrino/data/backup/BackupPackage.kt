@@ -27,8 +27,14 @@ data class BackupData(
     val doses: List<DoseEntity> = emptyList(),
 )
 
+/** One AI model and its key, as a backup carries it (the whole backup is encrypted). */
+@Serializable
+data class AiConfigBackup(val config: dev.ytosko.neutrino.data.ai.AiConfig, val key: String)
+
 @Serializable
 data class SettingsSnapshot(
+    /** The AI models set up; empty in backups from before several models (see the fields below). */
+    val aiConfigs: List<AiConfigBackup> = emptyList(),
     val activeProvider: String? = null,
     /** Provider id → model. */
     val models: Map<String, String> = emptyMap(),

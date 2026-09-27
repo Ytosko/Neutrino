@@ -70,6 +70,7 @@ class NeutrinoApplication : Application() {
         // Keep the daily backup scheduled once backups are set up (a no-op if already queued).
         appScope.launch {
             container.chooseGlucoseUnitOnce()
+            runCatching { container.settings.migrateAi() }
             if (container.backups.state.first().passwordSet) container.backups.schedule()
             if (container.settings.settings.first().remindersEnabled) MealReminders.scheduleAll(this@NeutrinoApplication)
             runCatching { DoseReminders.sync(this@NeutrinoApplication) }

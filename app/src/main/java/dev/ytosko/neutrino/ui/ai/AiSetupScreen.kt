@@ -1,5 +1,8 @@
 package dev.ytosko.neutrino.ui.ai
 
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.clickable
+import androidx.compose.material3.AlertDialog
 import dev.ytosko.neutrino.ui.components.SegmentedControl
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
@@ -52,11 +55,17 @@ import dev.ytosko.neutrino.data.ai.AiProvider
 import dev.ytosko.neutrino.data.ai.PhotoDetail
 import dev.ytosko.neutrino.ui.theme.Spacing
 
-/** Provider, key and model form. Hosted by onboarding and by Settings. */
+/**
+ * One AI model's form: (provider,) name, key, model and photo detail. The provider switch shows only
+ * while adding one from onboarding; in Settings the provider was picked with +.
+ */
 @Composable
 fun AiSetupForm(
     state: AiSetupUiState,
+    showProviderSwitch: Boolean,
     onProviderChange: (AiProvider) -> Unit,
+    onNameChange: (String) -> Unit,
+    onUseExistingKey: (String) -> Unit,
     onKeyChange: (String) -> Unit,
     onToggleKeyVisibility: () -> Unit,
     onCheckKey: () -> Unit,
@@ -65,12 +74,31 @@ fun AiSetupForm(
     modifier: Modifier = Modifier,
 ) {
     val uriHandler = LocalUriHandler.current
+    var choosingKey by remember { mutableStateOf(false) }
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
-        Text(stringResource(R.string.ai_provider), style = MaterialTheme.typography.titleSmall)
-        SegmentedControl(
-            options = AiProvider.entries.map { it.displayName },
-            selected = AiProvider.entries.indexOf(state.provider),
-            onSelect = { onProviderChange(AiProvider.entries[it]) },
+        if (showProviderSwitch) {
+            Text(stringResource(R.string.ai_provider), style = MaterialTheme.typography.titleSmall)
+            SegmentedControl(
+                options = AiProvider.entries.map { it.displayName },
+                selected = AiProvider.entries.indexOf(state.provider),
+                onSelect = { onProviderChange(AiProvider.entries[it]) },
+            )
+        } else {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                ProviderLogo(state.provider, size = 36.dp)
+                Text(state.provider.displayName, style = MaterialTheme.typography.titleMedium)
+            }
+        }
+
+        OutlinedTextField(
+            value = state.nameInput,
+            onValueChange = onNameChange,
+            label = { Text(stringResource(R.string.ai_config_name)) },
+            placeholder = { Text(state.modelDisplayName ?: stringResource(R.string.ai_config_name_hint)) },
+            supportingText = { Text(stringResource(if (state.customName) R.string.ai_config_name_custom else R.string.ai_config_name_auto)) },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Words),
+            modifier = Modifier.fillMaxWidth(),
         )
 
         TextButton(
@@ -104,11 +132,28 @@ fun AiSetupForm(
                 }
             },
             supportingText = {
-                Text(stringResource(R.string.ai_key_helper, state.provider.displayName))
+                Text(
+                    state.keyFrom?.let { stringResource(R.string.ai_key_from, it) }
+                        ?: stringResource(R.string.ai_key_helper, state.provider.displayName),
+                )
             },
             isError = state.check is KeyCheck.Failed,
             modifier = Modifier.fillMaxWidth(),
         )
+
+        if (state.existingKeys.isNotEmpty()) {
+            TextButton(
+                onClick = {
+                    // One other key: use it straight away. Several: let the user pick.
+                    if (state.existingKeys.size == 1) onUseExistingKey(state.existingKeys.first().configId) else choosingKey = true
+                },
+                modifier = Modifier.heightIn(min = 48.dp),
+            ) {
+                Icon(painterResource(R.drawable.ic_key), contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.size(Spacing.xs))
+                Text(stringResource(R.string.ai_use_existing_key, state.provider.displayName))
+            }
+        }
 
         OutlinedButton(
             onClick = onCheckKey,
@@ -149,6 +194,61 @@ fun AiSetupForm(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
+
+    if (choosingKey) {
+        AlertDialog(
+            onDismissRequest = { choosingKey = false },
+            title = { Text(stringResource(R.string.ai_choose_key, state.provider.displayName)) },
+            text = {
+                Column {
+                    state.existingKeys.forEach { key ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(MaterialTheme.shapes.small)
+                                .clickable {
+                                    choosingKey = false
+                                    onUseExistingKey(key.configId)
+                                }
+                                .padding(vertical = Spacing.sm, horizontal = Spacing.xs),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                        ) {
+                            ProviderLogo(state.provider, size = 28.dp)
+                            Column(Modifier.weight(1f)) {
+                                Text(key.name, style = MaterialTheme.typography.bodyLarge)
+                                if (key.tail.isNotEmpty()) {
+                                    Text(
+                                        stringResource(R.string.ai_key_ending, key.tail),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = { TextButton(onClick = { choosingKey = false }) { Text(stringResource(R.string.home_cancel)) } },
+        )
+    }
+}
+
+/** The provider's logo in a circle. */
+@Composable
+fun ProviderLogo(provider: AiProvider, size: androidx.compose.ui.unit.Dp = 40.dp) {
+    androidx.compose.foundation.Image(
+        painter = painterResource(
+            when (provider) {
+                AiProvider.Gemini -> R.drawable.ai_logo_gemini
+                AiProvider.OpenAi -> R.drawable.ai_logo_openai
+                AiProvider.Groq -> R.drawable.ai_logo_groq
+            },
+        ),
+        contentDescription = provider.displayName,
+        modifier = Modifier.size(size).clip(androidx.compose.foundation.shape.CircleShape),
+    )
 }
 
 @Composable

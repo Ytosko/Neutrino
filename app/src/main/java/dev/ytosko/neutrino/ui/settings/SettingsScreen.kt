@@ -129,15 +129,17 @@ fun SettingsScreen(
 
     SetupScaffold(title = stringResource(R.string.settings_title), onBack = onBack) {
         Section(stringResource(R.string.settings_section_ai)) {
-            val provider = appSettings.activeProvider
+            val primary = dev.ytosko.neutrino.data.ai.AiLineup.primary(appSettings.aiConfigs)
+            val count = appSettings.aiConfigs.size
             SettingRow(
                 icon = R.drawable.ic_sparkles,
                 tint = c.violet,
-                title = stringResource(R.string.settings_ai_provider),
-                value = if (provider != null && appSettings.aiReady) {
-                    "${provider.displayName} · ${appSettings.models[provider]}"
-                } else {
-                    stringResource(R.string.settings_ai_not_set)
+                title = stringResource(R.string.ai_models_title),
+                value = when {
+                    primary != null -> stringResource(R.string.settings_ai_primary, primary.name) +
+                        if (count > 1) " · " + pluralStringResource(R.plurals.settings_ai_models, count, count) else ""
+                    count > 0 -> stringResource(R.string.settings_ai_no_primary)
+                    else -> stringResource(R.string.settings_ai_not_set)
                 },
                 onClick = onOpenAi,
             )

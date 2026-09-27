@@ -1,5 +1,6 @@
 package dev.ytosko.neutrino.ui.food
 
+import dev.ytosko.neutrino.data.ai.AiChain
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.ytosko.neutrino.data.ai.AiClient
@@ -97,16 +98,21 @@ class FoodSearchViewModel(
         if (name.isEmpty() || _state.value.custom == CustomFoodState.Estimating) return
         viewModelScope.launch {
             val current = settings.settings.first()
-            val provider = current.activeProvider
-            val model = provider?.let { current.models[it] }
-            val key = provider?.let { settings.apiKey(it) }
-            if (!current.aiReady || provider == null || model == null || key == null) {
+            val chain = settings.aiChain()
+            if (chain.isEmpty()) {
                 _state.update { it.copy(custom = CustomFoodState.NeedsAi) }
                 return@launch
             }
             _state.update { it.copy(custom = CustomFoodState.Estimating) }
             try {
-                val (estimate, _) = clients.getValue(provider).estimateFood(key, model, name, current.promptHints)
+                // "Couldn't estimate that" is an answer; only failures move on to a fallback.
+                val (_, reply) = AiChain.run(chain, clients, shouldFallBack = { it !is AiException.NoResult }) { client, key, config ->
+                    client.estimateFood(key, config.model, name, current.promptHints)
+                } ?: run {
+                    _state.update { it.copy(custom = CustomFoodState.NeedsAi) }
+                    return@launch
+                }
+                val (estimate, _) = reply
                 val food = estimate.toFood(fallbackName = name)
                 _state.update { it.copy(custom = CustomFoodState.Idle) }
                 _picked.send(FoodPick(food, food.suggestedPortion))
