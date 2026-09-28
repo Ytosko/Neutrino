@@ -1,6 +1,5 @@
 package dev.ytosko.neutrino.ui.export
 
-import dev.ytosko.neutrino.ui.components.NeutrinoSnackbarHost
 import dev.ytosko.neutrino.ui.components.SegmentedControl
 import dev.ytosko.neutrino.ui.theme.Tint
 import dev.ytosko.neutrino.ui.theme.NeutrinoTheme
@@ -129,7 +128,7 @@ fun ExportScreen(export: DataExport, onBack: () -> Unit) {
         title = stringResource(R.string.export_title),
         subtitle = stringResource(R.string.export_body),
         onBack = onBack,
-        bottomBar = { NeutrinoSnackbarHost(snackbar) },
+        snackbar = snackbar,
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
             ExportCard(

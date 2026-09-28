@@ -1,7 +1,7 @@
 package dev.ytosko.neutrino.data.settings
 
 import dev.ytosko.neutrino.domain.RamadanDay
-import dev.ytosko.neutrino.domain.RamadanCities
+import dev.ytosko.neutrino.domain.RamadanPlaces
 import dev.ytosko.neutrino.domain.RamadanCity
 import java.time.LocalDate
 import dev.ytosko.neutrino.domain.RamadanTimes
@@ -93,6 +93,8 @@ data class AppSettings(
      */
     val ramadan: Boolean = false,
     val ramadanCity: RamadanCity? = null,
+    /** Follow the phone's location (checked when Neutrino opens and hourly while open) instead of a picked city. */
+    val ramadanUsesLocation: Boolean = false,
     /** Each Ramadan day's Sehri end and Iftar, from Ummah API; [ramadanCityOfDays] is the city they're for. */
     val ramadanDays: List<RamadanDay> = emptyList(),
     val ramadanCityOfDays: String? = null,
@@ -171,6 +173,7 @@ class SettingsRepository(context: Context, private val cipher: SecretCipher) {
         val recapDay = androidx.datastore.preferences.core.longPreferencesKey("recap_day")
         val recapGlucose = booleanPreferencesKey("recap_glucose")
         val ramadanCity = stringPreferencesKey("ramadan_city")
+        val ramadanLocation = booleanPreferencesKey("ramadan_location")
         /** "2027-02-08|05:19|17:49;…" */
         val ramadanDays = stringPreferencesKey("ramadan_days")
         val ramadanDaysCity = stringPreferencesKey("ramadan_days_city")
@@ -236,7 +239,8 @@ class SettingsRepository(context: Context, private val cipher: SecretCipher) {
             recapText = p[Keys.recapText].orEmpty(),
             recapDate = p[Keys.recapDay]?.let(LocalDate::ofEpochDay),
             recapGlucose = p[Keys.recapGlucose] ?: false,
-            ramadanCity = RamadanCities.byId(p[Keys.ramadanCity]),
+            ramadanCity = RamadanPlaces.decode(p[Keys.ramadanCity]),
+            ramadanUsesLocation = p[Keys.ramadanLocation] ?: false,
             ramadanDays = decodeRamadan(p[Keys.ramadanDays]),
             ramadanCityOfDays = p[Keys.ramadanDaysCity],
             sehriEnds = decodeRamadan(p[Keys.ramadanDays]).todayTimes()?.sehriEnds ?: LocalTime.of(4, 40),
@@ -258,7 +262,9 @@ class SettingsRepository(context: Context, private val cipher: SecretCipher) {
         it[Keys.recapDay] = day.toEpochDay()
     }
 
-    suspend fun setRamadanCity(city: RamadanCity) = store.edit { it[Keys.ramadanCity] = city.id }
+    suspend fun setRamadanCity(city: RamadanCity) = store.edit { it[Keys.ramadanCity] = RamadanPlaces.encode(city) }
+
+    suspend fun setRamadanUsesLocation(on: Boolean) = store.edit { it[Keys.ramadanLocation] = on }
 
     suspend fun saveRamadanDays(cityId: String, days: List<RamadanDay>) = store.edit {
         it[Keys.ramadanDays] = days.joinToString(";") { d -> "${d.date}|${d.sehriEnds}|${d.iftar}" }

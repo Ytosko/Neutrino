@@ -30,6 +30,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -56,6 +57,8 @@ fun SetupScaffold(
     subtitle: String? = null,
     /** Buttons pinned to the bottom; null (most settings pages) means no bar at all. */
     bottomBar: (@Composable ColumnScope.() -> Unit)? = null,
+    /** Messages float over the page above the gesture bar; they take no room while hidden. */
+    snackbar: SnackbarHostState? = null,
     actions: @Composable RowScope.() -> Unit = {},
     content: @Composable ColumnScope.() -> Unit,
 ) {
@@ -69,6 +72,9 @@ fun SetupScaffold(
         // The page scrolls under the gesture bar instead of stopping above an empty strip;
         // the list's own bottom padding keeps its last row clear of it.
         contentWindowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal),
+        snackbarHost = {
+            if (snackbar != null) NeutrinoSnackbarHost(snackbar, Modifier.windowInsetsPadding(WindowInsets.navigationBars))
+        },
         topBar = {
             // Back, title and actions share one row, with no empty bar above the title.
             Surface(color = MaterialTheme.colorScheme.background) {

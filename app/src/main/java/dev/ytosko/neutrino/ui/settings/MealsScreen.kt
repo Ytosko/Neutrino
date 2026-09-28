@@ -7,8 +7,8 @@ import java.time.LocalDate
 import dev.ytosko.neutrino.data.reminders.DoseReminders
 import dev.ytosko.neutrino.domain.RamadanCities
 import dev.ytosko.neutrino.domain.RamadanCity
+import dev.ytosko.neutrino.domain.RamadanPlaces
 import dev.ytosko.neutrino.appContainer
-import dev.ytosko.neutrino.ui.components.NeutrinoSnackbarHost
 import dev.ytosko.neutrino.ui.theme.NeutrinoTheme
 import android.Manifest
 import android.content.Intent
@@ -63,6 +63,7 @@ import dev.ytosko.neutrino.ui.components.mealTypeColors
 import dev.ytosko.neutrino.ui.components.mealTypeIcon
 import dev.ytosko.neutrino.ui.components.mealTypeLabel
 import dev.ytosko.neutrino.ui.theme.Spacing
+import androidx.compose.runtime.LaunchedEffect
 import kotlinx.coroutines.launch
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
@@ -110,11 +111,41 @@ fun MealsScreen(settings: SettingsRepository, onBack: () -> Unit) {
         }
     }
 
+    val locator = context.appContainer.ramadanLocator
+    var locating by remember { mutableStateOf(false) }
+    val locationDenied = stringResource(R.string.ramadan_location_denied)
+    /** Follows the phone's place: finds it now and fetches its times. */
+    fun useLocation() {
+        scope.launch {
+            settings.setRamadanUsesLocation(true)
+            locating = true
+            runCatching { locator.refresh() }
+            locating = false
+            loadRamadan(force = false)
+        }
+    }
+    // Each visit to this page checks where the phone is first, so the times shown are for here.
+    LaunchedEffect(Unit) {
+        val now = settings.settings.first()
+        if (now.ramadan && now.ramadanUsesLocation && locator.allowed()) useLocation()
+    }
+    val locationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) {
+            useLocation()
+        } else {
+            scope.launch {
+                settings.setRamadanUsesLocation(false)
+                if (settings.settings.first().ramadanCity == null) choosingCity = true
+                snackbar.showSnackbar(locationDenied)
+            }
+        }
+    }
+
     SetupScaffold(
         title = stringResource(R.string.meals_title),
         subtitle = stringResource(R.string.meals_body),
         onBack = onBack,
-        bottomBar = { NeutrinoSnackbarHost(snackbar) },
+        snackbar = snackbar,
     ) {
         val s = current ?: return@SetupScaffold
         Column(verticalArrangement = Arrangement.spacedBy(Spacing.lg)) {
@@ -202,8 +233,12 @@ fun MealsScreen(settings: SettingsRepository, onBack: () -> Unit) {
                         .toggleable(value = s.ramadan, role = Role.Switch) { on ->
                             scope.launch {
                                 settings.setRamadan(on)
-                                // A city is needed for the times: ask for it the first time.
-                                if (on && s.ramadanCity == null) choosingCity = true else if (on) loadRamadan(force = false)
+                                // A place is needed for the times: the phone's own the first time (a city if that's refused).
+                                if (on && s.ramadanCity == null) {
+                                    if (locator.allowed()) useLocation() else locationPermission.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
+                                } else if (on) {
+                                    loadRamadan(force = false)
+                                }
                                 if (!on) {
                                     if (s.remindersEnabled) MealReminders.scheduleAll(context)
                                     DoseReminders.sync(context)
@@ -226,24 +261,67 @@ fun MealsScreen(settings: SettingsRepository, onBack: () -> Unit) {
                     Switch(checked = s.ramadan, onCheckedChange = null)
                 }
                 if (s.ramadan) {
+                    val followsPhone = s.ramadanUsesLocation && locator.allowed()
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .heightIn(min = 56.dp)
-                            .clickable(role = Role.Button) { choosingCity = true }
+                            .toggleable(value = followsPhone, role = Role.Switch) { on ->
+                                if (!on) {
+                                    scope.launch {
+                                        settings.setRamadanUsesLocation(false)
+                                        choosingCity = true
+                                    }
+                                } else if (locator.allowed()) {
+                                    useLocation()
+                                } else {
+                                    locationPermission.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
+                                }
+                            }
+                            .padding(horizontal = Spacing.md, vertical = Spacing.sm),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(stringResource(R.string.ramadan_use_location), style = MaterialTheme.typography.bodyLarge)
+                            Text(
+                                stringResource(R.string.ramadan_use_location_body),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Switch(checked = followsPhone, onCheckedChange = null)
+                    }
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    val place = s.ramadanCity
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 56.dp)
+                            .then(if (followsPhone) Modifier else Modifier.clickable(role = Role.Button) { choosingCity = true })
                             .padding(horizontal = Spacing.md, vertical = Spacing.sm),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text(stringResource(R.string.ramadan_city), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
                         Text(
-                            s.ramadanCity?.name ?: stringResource(R.string.ramadan_city_choose),
+                            stringResource(if (followsPhone) R.string.ramadan_place else R.string.ramadan_city),
                             style = MaterialTheme.typography.bodyLarge,
-                            color = if (s.ramadanCity == null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Text(
+                            when {
+                                place == null && (followsPhone || locating) -> stringResource(R.string.ramadan_status_locating)
+                                place == null -> stringResource(R.string.ramadan_city_choose)
+                                RamadanPlaces.isHere(place) && place.name.isNotEmpty() -> stringResource(R.string.ramadan_place_near, place.name)
+                                RamadanPlaces.isHere(place) -> stringResource(R.string.ramadan_place_here)
+                                else -> place.name
+                            },
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = if (place == null && !followsPhone) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                    RamadanStatus(s, ramadanLoading, ramadanFailed, onRetry = { loadRamadan(force = true) })
+                    RamadanStatus(s, ramadanLoading || locating, ramadanFailed, onRetry = { loadRamadan(force = true) })
                 }
             }
         }
@@ -255,6 +333,7 @@ fun MealsScreen(settings: SettingsRepository, onBack: () -> Unit) {
             onPick = { city ->
                 choosingCity = false
                 scope.launch {
+                    settings.setRamadanUsesLocation(false)
                     settings.setRamadanCity(city)
                     loadRamadan(force = true)
                 }

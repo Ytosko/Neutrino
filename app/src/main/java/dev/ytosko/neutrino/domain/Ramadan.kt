@@ -5,8 +5,8 @@ import java.time.LocalTime
 
 /**
  * A city for Ramadan times: where it is, and the prayer-time calculation its region usually uses
- * (Karachi and Hanafi in Bangladesh, India and Pakistan; Umm al-Qura in the Gulf…). Picking a city
- * instead of using GPS keeps Neutrino free of the location permission.
+ * (Karachi and Hanafi in Bangladesh, India and Pakistan; Umm al-Qura in the Gulf…). Either a listed
+ * city or the phone's own place ([RamadanPlaces.here]).
  */
 data class RamadanCity(
     val id: String,
@@ -65,6 +65,50 @@ object RamadanCities {
     )
 
     fun byId(id: String?): RamadanCity? = all.firstOrNull { it.id == id }
+}
+
+/**
+ * The phone's own place for Ramadan times. Coordinates are rounded to 0.1° (about 10 km, well under
+ * a minute of Sehri or Iftar difference) so moving around town doesn't fetch a new schedule; the
+ * calculation method is the nearest listed city's, and the time zone is the phone's.
+ */
+object RamadanPlaces {
+    private const val HERE = "here"
+
+    fun here(lat: Double, lng: Double, zone: String): RamadanCity {
+        val near = nearest(lat, lng)
+        val rLat = round1(lat)
+        val rLng = round1(lng)
+        // Name it after the nearest listed city only when that city is actually close.
+        val name = if (distanceKm(lat, lng, near.lat, near.lng) <= 100) near.name else ""
+        return RamadanCity("$HERE:$rLat,$rLng", name, near.country, rLat, rLng, zone, near.method, near.madhab)
+    }
+
+    fun isHere(city: RamadanCity?): Boolean = city?.id?.startsWith("$HERE:") == true
+
+    fun nearest(lat: Double, lng: Double): RamadanCity = RamadanCities.all.minBy { distanceKm(lat, lng, it.lat, it.lng) }
+
+    /** Saved form: a listed city's id, or the whole place for [here]. */
+    fun encode(city: RamadanCity): String =
+        if (!isHere(city)) city.id else listOf(city.id, city.name, city.country, city.lat, city.lng, city.zone, city.method, city.madhab).joinToString("|")
+
+    fun decode(raw: String?): RamadanCity? {
+        if (raw == null) return null
+        if (!raw.startsWith("$HERE:")) return RamadanCities.byId(raw)
+        val p = raw.split("|")
+        if (p.size != 8) return null
+        return runCatching { RamadanCity(p[0], p[1], p[2], p[3].toDouble(), p[4].toDouble(), p[5], p[6], p[7]) }.getOrNull()
+    }
+
+    private fun round1(v: Double) = Math.round(v * 10) / 10.0
+
+    private fun distanceKm(lat1: Double, lng1: Double, lat2: Double, lng2: Double): Double {
+        val dLat = Math.toRadians(lat2 - lat1)
+        val dLng = Math.toRadians(lng2 - lng1)
+        val a = Math.sin(dLat / 2).let { it * it } +
+            Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) * Math.sin(dLng / 2).let { it * it }
+        return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+    }
 }
 
 /** One day of Ramadan: when Sehri ends (Fajr) and Iftar (Maghrib), in the city's time. */

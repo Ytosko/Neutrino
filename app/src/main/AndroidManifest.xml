@@ -51,6 +51,9 @@
 
     <!-- Voice: only while the user taps or holds the mic; nothing is recorded to storage. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- Ramadan mode's Sehri and Iftar times for where the phone is; approximate is plenty, and only
+         while Neutrino is open. -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
     <queries>
         <package android:name="com.google.android.apps.healthdata" />

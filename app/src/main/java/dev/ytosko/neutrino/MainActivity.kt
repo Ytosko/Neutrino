@@ -97,6 +97,16 @@ class MainActivity : FragmentActivity() {
         val splash = installSplashScreen()
         super.onCreate(savedInstanceState)
         if (savedInstanceState == null) handleLaunchAction(intent)
+        // Ramadan mode with "Use my location": check where the phone is each time Neutrino opens and
+        // every hour while it stays open; a new place fetches that place's times and re-books reminders.
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                while (true) {
+                    runCatching { appContainer.ramadanLocator.refresh() }
+                    kotlinx.coroutines.delay(60 * 60 * 1000L)
+                }
+            }
+        }
         enableEdgeToEdge()
         splash.setKeepOnScreenCondition { startDestination.value == null }
 

@@ -1,6 +1,5 @@
 package dev.ytosko.neutrino.ui.glucose
 
-import dev.ytosko.neutrino.ui.components.NeutrinoSnackbarHost
 import dev.ytosko.neutrino.ui.components.AlertStyle
 import dev.ytosko.neutrino.ui.components.AlertButton
 import dev.ytosko.neutrino.ui.components.IosAlert
@@ -101,7 +100,7 @@ fun MeterScreen(viewModel: MeterViewModel, onBack: () -> Unit, onPairAgain: (Met
         title = model.displayName,
         subtitle = meter.serial?.let { stringResource(R.string.meter_serial, it) },
         onBack = onBack,
-        bottomBar = { NeutrinoSnackbarHost(snackbar) },
+        snackbar = snackbar,
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
             Hero(meter, context)

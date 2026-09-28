@@ -279,6 +279,9 @@ class AppContainer(application: Application) {
     /** Ramadan's dates and daily Sehri and Iftar times for the chosen city (Ummah API), kept on the phone. */
     val ramadanSync by lazy { dev.ytosko.neutrino.data.ramadan.RamadanSync(settings, dev.ytosko.neutrino.data.ramadan.RamadanClient(http, json)) }
 
+    /** Ramadan mode's "Use my location": moves the schedule to where the phone is. */
+    val ramadanLocator by lazy { dev.ytosko.neutrino.data.ramadan.RamadanLocator(context, settings, ramadanSync) }
+
     /** Online or not, live; photos, voice and new-food estimates need the internet. */
     val network = dev.ytosko.neutrino.data.net.NetworkMonitor(application)
 
