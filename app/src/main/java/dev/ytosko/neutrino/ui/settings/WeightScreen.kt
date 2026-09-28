@@ -40,6 +40,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -78,7 +82,8 @@ import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.floor
 
-private enum class WeightRange(val months: Long) { Month(1), HalfYear(6), Year(12) }
+/** How far back the chart goes. [Week] is offered only when there are several weigh-ins that week. */
+private enum class WeightRange(val days: Long) { Week(7), Month(30), HalfYear(182), Year(365) }
 
 /** One bar: its label, its weight (the last weigh-in in that slot) and the day it's from. */
 private data class Slot(val label: String?, val kg: Double?, val date: LocalDate?)
@@ -88,6 +93,10 @@ private fun slots(entries: List<WeightEntry>, range: WeightRange, today: LocalDa
     val byDate = entries.groupBy { it.date }.mapValues { (_, list) -> list.maxBy { it.epochMs } }
     fun lastIn(from: LocalDate, to: LocalDate) = byDate.filterKeys { !it.isBefore(from) && !it.isAfter(to) }.maxByOrNull { it.key }
     return when (range) {
+        WeightRange.Week -> (6 downTo 0).map { back ->
+            val day = today.minusDays(back.toLong())
+            Slot(day.dayOfWeek.getDisplayName(java.time.format.TextStyle.SHORT, locale), byDate[day]?.kg, day)
+        }
         WeightRange.Month -> (29 downTo 0).map { back ->
             val day = today.minusDays(back.toLong())
             Slot(if (back % 7 == 0) day.dayOfMonth.toString() else null, byDate[day]?.kg, day)
@@ -124,11 +133,17 @@ fun WeightScreen(
     val physique by viewModel.physique.collectAsStateWithLifecycle()
     val unit = physique.weightUnit
     val locale = LocalConfiguration.current.locales[0]
-    var range by rememberSaveable { mutableStateOf(WeightRange.Month) }
+    // Nothing picked yet: the shortest range on offer (7 days when there is one, else 1 month).
+    var chosenRange by rememberSaveable { mutableStateOf<WeightRange?>(null) }
+    // 7 days only makes sense with more than one weigh-in in the last week.
+    val weekFrom = LocalDate.now().minusDays(6)
+    val ranges = if (entries.count { !it.date.isBefore(weekFrom) } > 1) WeightRange.entries else WeightRange.entries - WeightRange.Week
+    val range = chosenRange?.takeIf { it in ranges } ?: ranges.first()
     var adding by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf<WeightEntry?>(null) }
     var editingEntry by remember { mutableStateOf<WeightEntry?>(null) }
-    var menuFor by remember { mutableStateOf<String?>(null) }
+    var lifted by remember { mutableStateOf<Pair<WeightEntry, androidx.compose.ui.geometry.Rect>?>(null) }
+    val blur by androidx.compose.animation.core.animateDpAsState(if (lifted != null) 14.dp else 0.dp, androidx.compose.animation.core.tween(200), label = "blur")
     val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
     var selected by remember(range) { mutableStateOf<Int?>(null) }
     val today = LocalDate.now()
@@ -146,6 +161,7 @@ fun WeightScreen(
     SetupScaffold(
         title = stringResource(R.string.weight_title),
         onBack = onBack,
+        modifier = Modifier.blur(blur),
         bottomBar = {
             Button(onClick = { adding = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
                 Icon(painterResource(R.drawable.ic_plus), contentDescription = null, modifier = Modifier.size(20.dp))
@@ -177,7 +193,7 @@ fun WeightScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Text(weightText(latest.kg, unit), style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.SemiBold)
-                    val since = entries.filter { it.epochMs >= Instant.now().minus(range.months * 30, ChronoUnit.DAYS).toEpochMilli() }
+                    val since = entries.filter { it.epochMs >= Instant.now().minus(range.days, ChronoUnit.DAYS).toEpochMilli() }
                     val first = since.minByOrNull { it.epochMs }
                     if (first != null && first.id != latest.id) {
                         val change = latest.kg - first.kg
@@ -207,15 +223,16 @@ fun WeightScreen(
             }
 
             SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                WeightRange.entries.forEachIndexed { index, r ->
+                ranges.forEachIndexed { index, r ->
                     SegmentedButton(
                         selected = r == range,
-                        onClick = { range = r },
-                        shape = SegmentedButtonDefaults.itemShape(index, WeightRange.entries.size),
+                        onClick = { chosenRange = r },
+                        shape = SegmentedButtonDefaults.itemShape(index, ranges.size),
                     ) {
                         Text(
                             stringResource(
                                 when (r) {
+                                    WeightRange.Week -> R.string.weight_range_week
                                     WeightRange.Month -> R.string.weight_range_month
                                     WeightRange.HalfYear -> R.string.weight_range_half
                                     WeightRange.Year -> R.string.weight_range_year
@@ -262,65 +279,22 @@ fun WeightScreen(
                     newestFirst.forEachIndexed { index, e ->
                         if (index > 0) GoalDivider()
                         val previous = newestFirst.getOrNull(index + 1)
-                        // Tap, or touch and hold, for a small menu: Edit or Delete.
-                        androidx.compose.foundation.layout.Box {
+                        // Tap to edit; touch and hold for the iPhone-style menu (Edit, Delete).
+                        var bounds by remember { mutableStateOf(androidx.compose.ui.geometry.Rect.Zero) }
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .heightIn(min = 52.dp)
+                                .onGloballyPositioned { bounds = it.boundsInWindow() }
+                                .graphicsLayer { alpha = if (lifted?.first?.id == e.id) 0f else 1f }
                                 .combinedClickable(
                                     role = Role.Button,
-                                    onClick = { menuFor = e.id },
+                                    onClick = { editingEntry = e },
                                     onLongClick = {
                                         haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
-                                        menuFor = e.id
+                                        lifted = e to bounds
                                     },
-                                )
-                                .padding(horizontal = 14.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(e.date.format(dates), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-                            if (previous != null) {
-                                val d = e.kg - previous.kg
-                                if (abs(d) >= 0.05) {
-                                    Text(
-                                        (if (d > 0) "+" else "−") + weightText(abs(d), unit),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = if (d < 0) NeutrinoTheme.colors.good else MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.padding(end = Spacing.md),
-                                    )
-                                }
-                            }
-                            Text(weightText(e.kg, unit), style = MaterialTheme.typography.titleSmall)
-                        }
-                        androidx.compose.material3.DropdownMenu(
-                            expanded = menuFor == e.id,
-                            onDismissRequest = { menuFor = null },
-                            offset = androidx.compose.ui.unit.DpOffset(x = 200.dp, y = 0.dp),
-                            shape = RoundedCornerShape(14.dp),
-                            containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
-                        ) {
-                            androidx.compose.material3.DropdownMenuItem(
-                                text = { Text(stringResource(R.string.weight_edit)) },
-                                trailingIcon = { Icon(painterResource(R.drawable.ic_pencil), contentDescription = null, modifier = Modifier.size(18.dp)) },
-                                onClick = {
-                                    menuFor = null
-                                    editingEntry = e
-                                },
-                            )
-                            androidx.compose.material3.HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
-                            androidx.compose.material3.DropdownMenuItem(
-                                text = { Text(stringResource(R.string.weight_delete), color = MaterialTheme.colorScheme.error) },
-                                trailingIcon = {
-                                    Icon(painterResource(R.drawable.ic_trash), contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
-                                },
-                                onClick = {
-                                    menuFor = null
-                                    deleting = e
-                                },
-                            )
-                        }
-                        }
+                                ),
+                        ) { WeighInRow(e, previous, unit, dates) }
                     }
                 }
             }
@@ -340,6 +314,24 @@ fun WeightScreen(
             },
             onDismiss = { adding = false },
         )
+    }
+    lifted?.let { (e, rect) ->
+        val previous = entries.sortedByDescending { it.epochMs }.let { list -> list.getOrNull(list.indexOfFirst { it.id == e.id } + 1) }
+        dev.ytosko.neutrino.ui.components.LiftedContextMenu(
+            bounds = rect,
+            shape = RoundedCornerShape(12.dp),
+            actions = listOf(
+                dev.ytosko.neutrino.ui.components.MenuAction(stringResource(R.string.weight_edit), R.drawable.ic_pencil) {
+                    lifted = null
+                    editingEntry = e
+                },
+                dev.ytosko.neutrino.ui.components.MenuAction(stringResource(R.string.weight_delete), R.drawable.ic_trash, destructive = true) {
+                    lifted = null
+                    deleting = e
+                },
+            ),
+            onDismiss = { lifted = null },
+        ) { WeighInRow(e, previous, unit, dates) }
     }
     editingEntry?.let { old ->
         AddWeighInDialog(
@@ -369,6 +361,32 @@ fun WeightScreen(
             },
             dismissButton = { TextButton(onClick = { deleting = null }) { Text(stringResource(R.string.backup_cancel)) } },
         )
+    }
+}
+
+/** One weigh-in: its day, the change from the one before, and the weight. */
+@Composable
+private fun WeighInRow(e: WeightEntry, previous: WeightEntry?, unit: WeightUnit, dates: DateTimeFormatter) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 52.dp)
+            .padding(horizontal = 14.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(e.date.format(dates), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+        if (previous != null) {
+            val d = e.kg - previous.kg
+            if (abs(d) >= 0.05) {
+                Text(
+                    (if (d > 0) "+" else "−") + weightText(abs(d), unit),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (d < 0) NeutrinoTheme.colors.good else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(end = Spacing.md),
+                )
+            }
+        }
+        Text(weightText(e.kg, unit), style = MaterialTheme.typography.titleSmall)
     }
 }
 

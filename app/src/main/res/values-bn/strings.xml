@@ -730,6 +730,7 @@
     <string name="weight_change_up">%2$s থেকে %1$s বেড়েছে</string>
     <string name="weight_to_go">লক্ষ্য %2$s পর্যন্ত আরও %1$s</string>
     <string name="weight_at_target">আপনি লক্ষ্য ওজনে আছেন।</string>
+    <string name="weight_range_week">৭ দিন</string>
     <string name="weight_range_month">১ মাস</string>
     <string name="weight_range_half">৬ মাস</string>
     <string name="weight_range_year">১২ মাস</string>

@@ -760,6 +760,7 @@
     <string name="weight_change_up">Up %1$s since %2$s</string>
     <string name="weight_to_go">%1$s to go to your target of %2$s</string>
     <string name="weight_at_target">You\'re at your target weight.</string>
+    <string name="weight_range_week">7 days</string>
     <string name="weight_range_month">1 month</string>
     <string name="weight_range_half">6 months</string>
     <string name="weight_range_year">12 months</string>
