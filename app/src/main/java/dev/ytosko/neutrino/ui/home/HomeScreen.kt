@@ -682,7 +682,8 @@ fun HomeScreen(
                         modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(bottom = Spacing.xs),
                         horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
                     ) {
-                        usual.forEach { meal ->
+                        // At most two, so the sheet stays tidy.
+                        usual.take(2).forEach { meal ->
                             UsualMealChip(meal) {
                                 showSheet = false
                                 logAgain(meal, onItsDay = false)

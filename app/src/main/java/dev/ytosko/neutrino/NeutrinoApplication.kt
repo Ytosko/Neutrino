@@ -170,6 +170,12 @@ class AppContainer(application: Application) {
     /** A widget or app shortcut asked for something (log a meal, add water); Home handles it. */
     val launchAction = MutableStateFlow<String?>(null)
 
+    /** Set by the weigh-in reminder: Daily goals opens with the weight editor. */
+    val openWeight = MutableStateFlow(false)
+
+    /** Physique, workouts, conditions and the weigh-in for Daily goals. */
+    val goalProfile by lazy { dev.ytosko.neutrino.data.goals.GoalProfileRepository(context) }
+
     val meals = MealRepository(
         database, healthConnect, photos, foods,
         onChanged = ::dataChanged,

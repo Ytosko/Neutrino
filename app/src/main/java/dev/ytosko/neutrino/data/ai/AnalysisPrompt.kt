@@ -127,6 +127,55 @@ object AnalysisPrompt {
         return recap?.takeIf { it.isNotEmpty() }?.take(1_200)
     }
 
+    /**
+     * Daily intake suggestions for one person from plain facts (see GoalFacts): calories, carbs,
+     * protein, fat and water, a short reason for each, and notes on medicines that may affect the
+     * plan. The app keeps the numbers within safe limits afterwards (GoalMath.safe).
+     */
+    fun goalPlan(facts: List<String>, bangla: Boolean): String {
+        val list = facts.joinToString("\n") { "- " + it.replace(Regex("[\"{}]"), " ") }
+        return """
+            You help a person set daily food targets in a food diary app. Their details:
+            @@FACTS@@
+            Suggest daily targets: calories (kcal), carbohydrates (g), protein (g), fat (g) and water (ml).
+            Start from the calories that would reach the target in time, but never below the given minimum, and prefer a safe, steady pace (for most people no more than about 0.5 to 1 kg a week).
+            Take the conditions into account: with diabetes, spread carbohydrates sensibly and do not suggest very low carb; with high blood pressure, mention limiting salt; with thyroid values, consider their effect on metabolism.
+            Look at each medicine: if one can change weight, appetite or metabolism, or makes low blood sugar more likely when eating less (for example insulin or sulfonylureas), say so in a note naming the medicine.
+            Give one short, plain reason for each target (one sentence). Notes are short sentences; always include one saying to check with their doctor before changing their diet.
+            Do not suggest changing any medicine or dose. Write reasons and notes in ${if (bangla) "Bangla" else "English"}.
+            Return ONLY a JSON object: {"kcal": number, "carbs_g": number, "protein_g": number, "fat_g": number, "water_ml": number, "reasons": {"kcal": "string", "carbs": "string", "protein": "string", "fat": "string", "water": "string"}, "notes": ["string"]}
+        """.trimIndent().replace("@@FACTS@@", list)
+    }
+
+    val GOAL_SCHEMA = Obj(
+        "kcal" to Num, "carbs_g" to Num, "protein_g" to Num, "fat_g" to Num, "water_ml" to Num,
+        "reasons" to Obj("kcal" to Str, "carbs" to Str, "protein" to Str, "fat" to Str, "water" to Str),
+        "notes" to Arr(Str),
+    )
+
+    /** The suggestion from the reply; null if the numbers are missing. */
+    fun parseGoalPlan(text: String): dev.ytosko.neutrino.domain.goals.GoalAdvice? {
+        val start = text.indexOf('{')
+        val end = text.lastIndexOf('}')
+        if (start < 0 || end <= start) return null
+        val obj = runCatching { kotlinx.serialization.json.Json.parseToJsonElement(text.substring(start, end + 1)) as? kotlinx.serialization.json.JsonObject }.getOrNull() ?: return null
+        fun num(key: String) = (obj[key] as? kotlinx.serialization.json.JsonPrimitive)?.content?.toDoubleOrNull()?.let { Math.round(it).toInt() }
+        val intakes = dev.ytosko.neutrino.domain.goals.Intakes(
+            kcal = num("kcal") ?: return null,
+            carbsG = num("carbs_g") ?: return null,
+            proteinG = num("protein_g") ?: return null,
+            fatG = num("fat_g") ?: return null,
+            waterMl = num("water_ml") ?: return null,
+        )
+        val reasons = (obj["reasons"] as? kotlinx.serialization.json.JsonObject)?.mapNotNull { (k, v) ->
+            (v as? kotlinx.serialization.json.JsonPrimitive)?.content?.trim()?.takeIf { it.isNotEmpty() }?.let { k to it.take(300) }
+        }?.toMap().orEmpty()
+        val notes = (obj["notes"] as? kotlinx.serialization.json.JsonArray)?.mapNotNull {
+            (it as? kotlinx.serialization.json.JsonPrimitive)?.content?.trim()?.takeIf { t -> t.isNotEmpty() }?.take(300)
+        }.orEmpty().take(6)
+        return dev.ytosko.neutrino.domain.goals.GoalAdvice(intakes, reasons, notes)
+    }
+
     val FOOD_SCHEMA = Obj(
         "name" to Str, "category" to Str,
         "kcal_100g" to Num, "protein_100g" to Num, "carbs_100g" to Num, "fat_100g" to Num,

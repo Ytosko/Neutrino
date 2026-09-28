@@ -57,6 +57,7 @@
           <li><a href="#ai">AI providers</a></li>
           <li><a href="#voice">Voice</a></li>
           <li><a href="#ramadan">Ramadan times</a></li>
+          <li><a href="#goals">Daily goals and suggestions</a></li>
           <li><a href="#glucose-meter">Glucose meter</a></li>
           <li><a href="#glucose-import">Glucose from other apps</a></li>
           <li><a href="#medicines">Medicines and insulin</a></li>
@@ -141,7 +142,13 @@
         <p>When you search for a food and type three or more letters, Neutrino also searches <a href="https://world.openfoodfacts.org" rel="noopener">Open Food Facts</a>, a free, open database of packaged products, so you can log branded items. Only the search text is sent, along with the app's name and version, which Open Food Facts asks apps to identify themselves with. Open Food Facts' own <a href="https://world.openfoodfacts.org/privacy" rel="noopener">privacy policy</a> applies to those requests. Built-in foods and your own food list are searched on your device without any network request.</p>
 
         <h2 id="ramadan">Ramadan times (optional)</h2>
-        <p>If you turn on Ramadan mode and choose your city, Neutrino asks <a href="https://ummahapi.com" rel="noopener">Ummah API</a> (a free prayer-times service) for that year's Ramadan dates and each day's Sehri and Iftar times. Only the city's coordinates, its time zone, the calculation method and the year are sent; no account, meals or health data. The schedule is kept on your device, so it is fetched about once a year. Neutrino does not use your device's location.</p>
+        <p>If you turn on Ramadan mode, Neutrino asks <a href="https://ummahapi.com" rel="noopener">Ummah API</a> (a free prayer-times service) for that year's Ramadan dates and each day's Sehri and Iftar times, for a city you choose or, if you turn on <strong>Use my location</strong>, for where your phone is. Only the coordinates (a listed city's, or your approximate location rounded to about 10 km), the time zone, the calculation method and the year are sent; no account, meals or health data. The schedule is kept on your device and fetched again only for a new place or a new year.</p>
+        <p>Use my location asks for Android's <strong>approximate location</strong> permission and checks it only while Neutrino is open: when you open the app or the Meals and reminders page, and every hour while it stays open. Neutrino never reads your location in the background, keeps only the rounded place, and sends it nowhere except Ummah API as described. Turn the switch off, or pick a city, to stop using location.</p>
+
+        <h2 id="goals">Daily goals and goal suggestions (optional)</h2>
+        <p>In Daily goals you can enter your age, sex, height, current and target weight, a plan length, your regular workouts, and health conditions (diabetes with your average blood sugar, high blood pressure with your usual reading, thyroid with your TSH, FT3 and FT4). All of this is kept on your device only.</p>
+        <p>If you tap <strong>Recalculate my intakes</strong> and then Analyse, Neutrino sends these details, the names, doses and times of the medicines in My medicines, and your meter's 30-day average blood sugar (if you have diabetes on and didn't type your own) to the AI provider you set up, to suggest daily calories, carbohydrates, protein, fat and water. The provider's own privacy terms apply, as for meal photos. Nothing is sent unless you tap Analyse, and the suggestion changes your goals only when you confirm it.</p>
+        <p>The weekly weigh-in reminder (Monday morning unless you change it) is a notification on your device; the weight you enter is saved on your device and, if you allow it, written to Health Connect.</p>
 
         <h2 id="glucose-meter">Bluetooth glucose meter (optional)</h2>
         <p>If you pair a Bluetooth blood glucose meter (for example a CONTOUR PLUS ELITE), Neutrino downloads new readings from it after each test and saves them on your device. Blood glucose is sensitive health data, so Neutrino handles it with extra care:</p>
@@ -180,6 +187,7 @@
           <li><strong>Write nutrition</strong>: to save the meals you approve (food name, carbohydrates, protein, fat, energy and related nutrients, meal type and time).</li>
           <li><strong>Write hydration</strong>: to save water intake you log.</li>
           <li><strong>Write blood glucose</strong>: to save your meter's readings and readings you type in, with the time and meal mark.</li>
+          <li><strong>Write weight</strong>: to save the weight you enter in Daily goals (for example at the weekly weigh-in).</li>
           <li><strong>Read blood glucose</strong> (only if you turn on glucose import): to bring in readings other apps saved, as described above.</li>
         </ul>
         <p>Apart from blood glucose when you turn on import, Neutrino does not read any health data from Health Connect, such as heart rate, sleep or activity. If a future version asks for additional access, for example to read back nutrition records it previously wrote so it can restore your history, the app will ask for your permission first and this policy will be updated beforehand.</p>

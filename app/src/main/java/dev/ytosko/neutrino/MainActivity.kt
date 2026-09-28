@@ -90,6 +90,9 @@ class MainActivity : FragmentActivity() {
         if (action in setOf(LaunchAction.LOG_MEAL, LaunchAction.LOG_MEAL_PHOTO, LaunchAction.ADD_WATER, LaunchAction.LOG_VOICE)) {
             appContainer.launchAction.value = action
             intent.action = null
+        } else if (action == LaunchAction.UPDATE_WEIGHT) {
+            appContainer.openWeight.value = true
+            intent.action = null
         }
     }
 

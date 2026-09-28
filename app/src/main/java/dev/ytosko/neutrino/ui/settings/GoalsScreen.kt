@@ -36,6 +36,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -94,10 +96,36 @@ private fun AppSettings.valueOf(goal: Goal): Int? = when (goal) {
  * a sheet to set it with a big number, hold-to-repeat − and +, and common values.
  */
 @Composable
-fun GoalsScreen(settings: SettingsRepository, onBack: () -> Unit) {
+fun GoalsScreen(
+    settings: SettingsRepository,
+    viewModel: GoalsViewModel,
+    openWeight: kotlinx.coroutines.flow.MutableStateFlow<Boolean>,
+    onOpenWorkouts: () -> Unit,
+    onOpenConditions: () -> Unit,
+    onOpenAi: () -> Unit,
+    onBack: () -> Unit,
+) {
     val s by settings.settings.collectAsStateWithLifecycle(initialValue = AppSettings())
+    val physique by viewModel.physique.collectAsStateWithLifecycle()
+    val workouts by viewModel.workouts.collectAsStateWithLifecycle()
+    val conditions by viewModel.conditions.collectAsStateWithLifecycle()
+    val weighIn by viewModel.weighIn.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     var editing by remember { mutableStateOf<Goal?>(null) }
+    var field by remember { mutableStateOf<PhysiqueField?>(null) }
+    var advising by remember { mutableStateOf(false) }
+    // After "Yes, I work out" with no workouts added: a nudge under the Workouts row.
+    var askAddWorkouts by rememberSaveable { mutableStateOf(false) }
+    if (workouts.any { it.filled }) askAddWorkouts = false
+
+    // The weigh-in reminder opens this page with the weight editor.
+    val wantsWeight by openWeight.collectAsStateWithLifecycle()
+    LaunchedEffect(wantsWeight) {
+        if (wantsWeight) {
+            openWeight.value = false
+            field = PhysiqueField.Weight
+        }
+    }
     fun save(goal: Goal, value: Int?) = scope.launch {
         settings.setGoals(
             if (goal == Goal.Carbs) value else s.carbGoalG,
@@ -114,7 +142,7 @@ fun GoalsScreen(settings: SettingsRepository, onBack: () -> Unit) {
         onBack = onBack,
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(Spacing.lg)) {
-            DaySummary(s)
+            DaySummary(s, onAdvise = { advising = true })
             GoalGroup(stringResource(R.string.goals_section_nutrients)) {
                 GoalRow(Goal.Carbs, s, onClick = { editing = Goal.Carbs })
                 GoalDivider()
@@ -127,6 +155,23 @@ fun GoalsScreen(settings: SettingsRepository, onBack: () -> Unit) {
                 GoalDivider()
                 GoalRow(Goal.Water, s, onClick = { editing = Goal.Water })
             }
+            PhysiqueGroup(
+                physique = physique,
+                workouts = workouts.count { it.filled },
+                askAddWorkouts = askAddWorkouts,
+                weighIn = weighIn,
+                onEdit = { field = it },
+                onOpenWorkouts = onOpenWorkouts,
+            )
+            GoalGroup(stringResource(R.string.conditions_section)) {
+                InfoRow(
+                    icon = R.drawable.ic_heart_pulse,
+                    color = NeutrinoTheme.colors.rose.solid,
+                    title = stringResource(R.string.conditions_title),
+                    value = conditionNames(conditions).ifEmpty { stringResource(R.string.conditions_none) },
+                    onClick = onOpenConditions,
+                )
+            }
             Text(
                 stringResource(R.string.goals_note),
                 style = MaterialTheme.typography.bodySmall,
@@ -138,6 +183,131 @@ fun GoalsScreen(settings: SettingsRepository, onBack: () -> Unit) {
 
     editing?.let { goal ->
         GoalSheet(goal, s.valueOf(goal), onChange = { save(goal, it) }, onDismiss = { editing = null })
+    }
+
+    if (advising) {
+        GoalAdvisorSheet(
+            viewModel = viewModel,
+            onAddWorkouts = {
+                advising = false
+                askAddWorkouts = true
+            },
+            onOpenAi = {
+                advising = false
+                onOpenAi()
+            },
+            onDismiss = { advising = false },
+        )
+    }
+
+    val p = physique
+    when (field) {
+        PhysiqueField.Age -> BirthDateDialog(p.birthDate, onSave = { viewModel.setPhysique(p.copy(birthDate = it)); field = null }, onDismiss = { field = null })
+        PhysiqueField.Sex -> SexDialog(p.sex, onSave = { viewModel.setPhysique(p.copy(sex = it)); field = null }, onDismiss = { field = null })
+        PhysiqueField.Height -> HeightDialog(p.heightCm, p.heightUnit, onSave = { cm, unit ->
+            viewModel.setPhysique(p.copy(heightCm = cm, heightUnit = unit))
+            field = null
+        }, onDismiss = { field = null })
+        PhysiqueField.Weight -> WeightDialog(stringResource(R.string.physique_weight), p.weightKg, p.weightUnit, onSave = { kg, unit ->
+            viewModel.setPhysique(p.copy(weightUnit = unit))
+            viewModel.setWeight(kg)
+            field = null
+        }, onDismiss = { field = null })
+        PhysiqueField.Target -> WeightDialog(stringResource(R.string.physique_target), p.targetKg, p.weightUnit, onSave = { kg, unit ->
+            viewModel.setPhysique(p.copy(targetKg = kg, weightUnit = unit))
+            field = null
+        }, onDismiss = { field = null })
+        PhysiqueField.Plan -> PlanDialog(p.planLength, p.planUnit, onSave = { n, unit ->
+            viewModel.setPhysique(p.copy(planLength = n, planUnit = unit))
+            field = null
+        }, onDismiss = { field = null })
+        PhysiqueField.WeighIn -> WeighInDialog(weighIn, onSave = { viewModel.setWeighIn(it); field = null }, onDismiss = { field = null })
+        null -> {}
+    }
+}
+
+internal enum class PhysiqueField { Age, Sex, Height, Weight, Target, Plan, WeighIn }
+
+@Composable
+private fun PhysiqueGroup(
+    physique: dev.ytosko.neutrino.domain.goals.Physique,
+    workouts: Int,
+    askAddWorkouts: Boolean,
+    weighIn: dev.ytosko.neutrino.data.goals.WeighIn,
+    onEdit: (PhysiqueField) -> Unit,
+    onOpenWorkouts: () -> Unit,
+) {
+    val colors = NeutrinoTheme.colors
+    val notSet = stringResource(R.string.physique_not_set)
+    GoalGroup(stringResource(R.string.physique_section)) {
+        // Shows the age, worked out from the birth date each time.
+        InfoRow(R.drawable.ic_cake_slice, colors.amber.solid, stringResource(R.string.physique_birth_date),
+            physique.age()?.let { pluralStringResource(R.plurals.physique_age_value, it, it) } ?: notSet) { onEdit(PhysiqueField.Age) }
+        GoalDivider()
+        InfoRow(R.drawable.ic_user, colors.indigo.solid, stringResource(R.string.physique_sex),
+            physique.sex?.let { sexLabel(it) } ?: notSet) { onEdit(PhysiqueField.Sex) }
+        GoalDivider()
+        InfoRow(R.drawable.ic_ruler, colors.teal.solid, stringResource(R.string.physique_height),
+            physique.heightCm?.let { heightText(it, physique.heightUnit) } ?: notSet) { onEdit(PhysiqueField.Height) }
+        GoalDivider()
+        InfoRow(R.drawable.ic_scale, colors.sky.solid, stringResource(R.string.physique_weight),
+            physique.weightKg?.let { weightText(it, physique.weightUnit) } ?: notSet) { onEdit(PhysiqueField.Weight) }
+        GoalDivider()
+        InfoRow(R.drawable.ic_flag, colors.green.solid, stringResource(R.string.physique_target),
+            physique.targetKg?.let { weightText(it, physique.weightUnit) } ?: notSet) { onEdit(PhysiqueField.Target) }
+        GoalDivider()
+        InfoRow(R.drawable.ic_calendar, colors.violet.solid, stringResource(R.string.physique_plan),
+            physique.planLength?.let { "$it ${planUnitLabel(physique.planUnit).lowercase()}" } ?: notSet) { onEdit(PhysiqueField.Plan) }
+        GoalDivider()
+        InfoRow(R.drawable.ic_footprints, colors.coral.solid, stringResource(R.string.workouts_title),
+            if (workouts == 0) stringResource(R.string.workouts_none) else pluralStringResource(R.plurals.advisor_workouts_count, workouts, workouts),
+            onClick = onOpenWorkouts)
+        if (askAddWorkouts) {
+            Text(
+                stringResource(R.string.workouts_please_add),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(start = ROW_SIDE + ICON_BOX + ICON_GAP, end = ROW_SIDE, bottom = 10.dp),
+            )
+        }
+        GoalDivider()
+        val time = java.time.LocalTime.of(weighIn.minute / 60, weighIn.minute % 60)
+            .format(java.time.format.DateTimeFormatter.ofLocalizedTime(java.time.format.FormatStyle.SHORT))
+        val day = java.time.DayOfWeek.of(weighIn.day).getDisplayName(java.time.format.TextStyle.SHORT, androidx.compose.ui.platform.LocalConfiguration.current.locales[0])
+        InfoRow(R.drawable.ic_bell, colors.slate.solid, stringResource(R.string.physique_weigh_in),
+            if (weighIn.on) "$day $time" else stringResource(R.string.goals_off)) { onEdit(PhysiqueField.WeighIn) }
+    }
+}
+
+/** A row with a coloured icon, a title, the value on the right and a chevron. */
+@Composable
+internal fun InfoRow(icon: Int, color: Color, title: String, value: String, valueColor: Color? = null, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 52.dp)
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(start = ROW_SIDE, end = Spacing.sm, top = 8.dp, bottom = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(ICON_GAP),
+    ) {
+        ColorIcon(icon, color)
+        Text(title, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(
+            value,
+            style = MaterialTheme.typography.bodyMedium,
+            color = valueColor ?: MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.End,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        Icon(
+            painterResource(R.drawable.ic_chevron_right),
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.outline,
+            modifier = Modifier.size(20.dp),
+        )
     }
 }
 
@@ -181,7 +351,7 @@ private fun goalText(goal: Goal, value: Int): String = when (goal) {
  * the calorie goal.
  */
 @Composable
-private fun DaySummary(s: AppSettings) {
+private fun DaySummary(s: AppSettings, onAdvise: () -> Unit) {
     val colors = NeutrinoTheme.colors
     val number = NumberFormat.getIntegerInstance()
     val parts = listOfNotNull(
@@ -198,11 +368,22 @@ private fun DaySummary(s: AppSettings) {
             .padding(Spacing.md),
         verticalArrangement = Arrangement.spacedBy(Spacing.sm),
     ) {
-        Text(
-            stringResource(R.string.goals_summary_title).uppercase(),
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                stringResource(R.string.goals_summary_title).uppercase(),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f),
+            )
+            // ✨ Recalculate the intakes with AI.
+            androidx.compose.material3.FilledTonalIconButton(onClick = onAdvise, modifier = Modifier.size(40.dp)) {
+                Icon(
+                    painterResource(R.drawable.ic_wand_sparkles),
+                    contentDescription = stringResource(R.string.advisor_title),
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+        }
         val headline = s.kcalGoal ?: macroKcal.takeIf { it > 0 }
         if (headline == null && s.waterGoalMl == null) {
             Text(
@@ -286,7 +467,7 @@ private fun DaySummary(s: AppSettings) {
 }
 
 @Composable
-private fun GoalGroup(title: String, content: @Composable () -> Unit) {
+internal fun GoalGroup(title: String, content: @Composable () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(
             title.uppercase(),
@@ -340,7 +521,7 @@ private fun GoalRow(goal: Goal, s: AppSettings, onClick: () -> Unit) {
 }
 
 @Composable
-private fun GoalDivider() {
+internal fun GoalDivider() {
     HorizontalDivider(
         modifier = Modifier.padding(start = ROW_SIDE + ICON_BOX + ICON_GAP),
         thickness = 0.5.dp,

@@ -115,7 +115,7 @@ class MealRepository(
      * "My usual meals": meals with the same foods logged at least twice in the last [days] days, most
      * often first (the current meal type ahead), as their latest copy (which Log again repeats).
      */
-    fun observeUsualMeals(zone: ZoneId, currentType: () -> MealType, days: Long = 60, limit: Int = 3): Flow<List<LoggedMeal>> {
+    fun observeUsualMeals(zone: ZoneId, currentType: () -> MealType, days: Long = 60, limit: Int = 2): Flow<List<LoggedMeal>> {
         val to = Instant.now().plusSeconds(24 * 3600).toEpochMilli()
         val from = Instant.now().minusSeconds(days * 24 * 3600).toEpochMilli()
         return combine(db.meals().observeBetween(from, to), db.meals().observeMealFoods(from, to)) { meals, foods ->

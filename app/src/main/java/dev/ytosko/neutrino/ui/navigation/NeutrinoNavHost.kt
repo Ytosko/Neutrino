@@ -1,5 +1,8 @@
 package dev.ytosko.neutrino.ui.navigation
 
+import dev.ytosko.neutrino.ui.settings.ConditionsScreen
+import dev.ytosko.neutrino.ui.settings.WorkoutsScreen
+import androidx.navigation.NavDestination.Companion.hasRoute
 import dev.ytosko.neutrino.ui.settings.GlucoseSettingsScreen
 import dev.ytosko.neutrino.ui.ai.OpenRouterGoneDialog
 import dev.ytosko.neutrino.ui.ai.OpenRouterCheckViewModel
@@ -110,6 +113,8 @@ sealed interface Route {
     @Serializable data object RestoreHealth : Route
     @Serializable data object Medicines : Route
     @Serializable data object SettingsGlucose : Route
+    @Serializable data object SettingsWorkouts : Route
+    @Serializable data object SettingsConditions : Route
     /** One AI model's setup: an existing one ([configId]) or a new one of [provider]. */
     @Serializable data class AiConfigEdit(val configId: String? = null, val provider: String? = null, val voice: Boolean = false) : Route
 }
@@ -123,6 +128,14 @@ private const val SETUP_STEPS = 3
 @Composable
 fun NeutrinoNavHost(startDestination: Route, modifier: Modifier = Modifier) {
     val navController = rememberNavController()
+    // The weekly weigh-in reminder: open Daily goals (it then shows the weight editor).
+    val openWeight = LocalContext.current.appContainer.openWeight
+    val wantsWeight by openWeight.collectAsStateWithLifecycle()
+    LaunchedEffect(wantsWeight) {
+        if (wantsWeight && navController.currentDestination?.hasRoute(Route.SettingsGoals::class) != true) {
+            runCatching { navController.navigate(Route.SettingsGoals) }
+        }
+    }
     NavHost(navController = navController, startDestination = startDestination, modifier = modifier) {
         composable<Route.Welcome> {
             WelcomeScreen(
@@ -319,7 +332,22 @@ fun NeutrinoNavHost(startDestination: Route, modifier: Modifier = Modifier) {
             GlucoseDayScreen(viewModel = dayViewModel, onBack = navController::popBackStack)
         }
         composable<Route.SettingsGoals> {
-            GoalsScreen(settings = LocalContext.current.appContainer.settings, onBack = navController::popBackStack)
+            val container = LocalContext.current.appContainer
+            GoalsScreen(
+                settings = container.settings,
+                viewModel = goalsViewModel(),
+                openWeight = container.openWeight,
+                onOpenWorkouts = { navController.navigate(Route.SettingsWorkouts) },
+                onOpenConditions = { navController.navigate(Route.SettingsConditions) },
+                onOpenAi = { navController.navigate(Route.SettingsAi) },
+                onBack = navController::popBackStack,
+            )
+        }
+        composable<Route.SettingsWorkouts> {
+            WorkoutsScreen(viewModel = goalsViewModel(), onBack = navController::popBackStack)
+        }
+        composable<Route.SettingsConditions> {
+            ConditionsScreen(viewModel = goalsViewModel(), onBack = navController::popBackStack)
         }
         composable<Route.AddMeter> {
             AddMeterScreen(
@@ -489,5 +517,22 @@ private fun AiScreen(
                 onFreePlanChange = viewModel::setFreePlan,
             )
         }
+    }
+}
+
+@Composable
+private fun goalsViewModel(): dev.ytosko.neutrino.ui.settings.GoalsViewModel {
+    val context = LocalContext.current
+    val container = context.appContainer
+    return viewModel {
+        dev.ytosko.neutrino.ui.settings.GoalsViewModel(
+            context.applicationContext,
+            container.goalProfile,
+            container.settings,
+            container.medicines,
+            container.glucose,
+            container.healthConnect,
+            container.aiClients,
+        )
     }
 }

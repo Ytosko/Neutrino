@@ -149,6 +149,7 @@ private fun WritesCard(allowed: Set<HealthKind>?, readsGlucose: Boolean) {
             WriteRow(R.drawable.ic_utensils, colors.carbsContainer, colors.carbs, stringResource(R.string.hc_writes_nutrition), allowed?.contains(HealthKind.Nutrition))
             WriteRow(R.drawable.ic_droplet, colors.waterContainer, colors.water, stringResource(R.string.hc_writes_hydration), allowed?.contains(HealthKind.Hydration))
             WriteRow(R.drawable.ic_activity, colors.glucoseContainer, colors.glucose, stringResource(R.string.hc_writes_glucose), allowed?.contains(HealthKind.Glucose))
+            WriteRow(R.drawable.ic_activity, colors.proteinContainer, colors.protein, stringResource(R.string.hc_writes_weight), allowed?.contains(HealthKind.Weight))
             Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs), verticalAlignment = Alignment.CenterVertically) {
                 Icon(painterResource(R.drawable.ic_shield_check), contentDescription = null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(18.dp))
                 Text(

@@ -25,7 +25,7 @@ import java.time.ZoneId
 enum class HealthConnectAvailability { Available, NotInstalled, UpdateRequired, NotSupported }
 
 /** What Neutrino can write to Health Connect; each is allowed (or not) separately. */
-enum class HealthKind { Nutrition, Hydration, Glucose }
+enum class HealthKind { Nutrition, Hydration, Glucose, Weight }
 
 /** A blood glucose record another app saved to Health Connect. */
 data class ImportedGlucose(
@@ -48,6 +48,7 @@ class HealthConnectManager(private val context: Context) {
         HealthKind.Nutrition -> HealthPermission.getWritePermission(NutritionRecord::class)
         HealthKind.Hydration -> HealthPermission.getWritePermission(HydrationRecord::class)
         HealthKind.Glucose -> HealthPermission.getWritePermission(BloodGlucoseRecord::class)
+        HealthKind.Weight -> HealthPermission.getWritePermission(androidx.health.connect.client.records.WeightRecord::class)
     }
 
     /** Everything Neutrino asks for when connecting: meals, water and glucose. */
@@ -203,6 +204,23 @@ class HealthConnectManager(private val context: Context) {
             totalFat = Mass.grams(nutrition.fatG),
         )
         client.insertRecords(listOf(record))
+        return true
+    }
+
+    /** The weight the user just entered in Daily goals; false when weight isn't allowed. */
+    suspend fun writeWeight(id: String, kg: Double, at: Instant, zone: ZoneId): Boolean {
+        val client = client ?: return false
+        if (permissionFor(HealthKind.Weight) !in grantedPermissions()) return false
+        client.insertRecords(
+            listOf(
+                androidx.health.connect.client.records.WeightRecord(
+                    time = at,
+                    zoneOffset = zone.rules.getOffset(at),
+                    weight = androidx.health.connect.client.units.Mass.kilograms(kg),
+                    metadata = Metadata.manualEntry(clientRecordId = id),
+                ),
+            ),
+        )
         return true
     }
 

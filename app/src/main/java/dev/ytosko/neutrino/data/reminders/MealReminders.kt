@@ -172,6 +172,7 @@ class MealReminderReceiver : BroadcastReceiver() {
                 if (intent.getStringExtra(MealReminders.EXTRA_REMINDER) == null) {
                     runCatching { container.watchMeters() }
                     runCatching { WeeklySummary.sync(app) }
+                    runCatching { WeighInReminder.sync(app) }
                     runCatching { DoseReminders.sync(app) }
                 }
                 val settings = container.settings.settings.first()

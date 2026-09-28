@@ -455,4 +455,6 @@ object LaunchAction {
     const val ADD_WATER = "dev.ytosko.neutrino.action.ADD_WATER"
     /** Opens Log by voice, listening straight away. */
     const val LOG_VOICE = "dev.ytosko.neutrino.action.LOG_VOICE"
+    /** From the weekly weigh-in reminder: opens Daily goals with the weight editor. */
+    const val UPDATE_WEIGHT = "dev.ytosko.neutrino.action.UPDATE_WEIGHT"
 }
