@@ -1,5 +1,6 @@
 package dev.ytosko.neutrino.data.reminders
 
+import dev.ytosko.neutrino.domain.RamadanMedicine
 import android.app.AlarmManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -51,14 +52,27 @@ object DoseReminders {
             }
         }
 
-    /** The next moment after [now] any of [medicines] is due. */
-    fun nextTrigger(medicines: List<MedicineEntity>, now: ZonedDateTime): ZonedDateTime? =
-        medicines.flatMap { it.reminders }.distinct().minOfOrNull { MealReminders.nextTrigger(now, it) }
+    /**
+     * The next moment after [now] any of [medicines] is due. On Ramadan days ([ramadanOn]) times move
+     * with the fast (see [RamadanMedicine]): morning to before Sehri ends, midday to Iftar.
+     */
+    fun nextTrigger(
+        medicines: List<MedicineEntity>,
+        now: ZonedDateTime,
+        ramadanOn: (java.time.LocalDate) -> dev.ytosko.neutrino.domain.RamadanTimes? = { null },
+    ): ZonedDateTime? {
+        val times = medicines.flatMap { it.reminders }.distinct()
+        return (0L..2L).firstNotNullOfOrNull { offset ->
+            val date = now.toLocalDate().plusDays(offset)
+            val day = ramadanOn(date)
+            times.map { now.with(date).with(RamadanMedicine.shift(it, day)).withSecond(0).withNano(0) }.filter { it.isAfter(now) }.minOrNull()
+        }
+    }
 
-    /** Medicines due at [at]: a reminder time within the 15 minutes up to it. */
-    fun dueAt(medicines: List<MedicineEntity>, at: LocalTime): List<MedicineEntity> =
+    /** Medicines due at [at]: a reminder time (moved for Ramadan on [day]) within the 15 minutes up to it. */
+    fun dueAt(medicines: List<MedicineEntity>, at: LocalTime, day: dev.ytosko.neutrino.domain.RamadanTimes? = null): List<MedicineEntity> =
         medicines.filter { m ->
-            m.reminders.any { t ->
+            m.reminders.map { RamadanMedicine.shift(it, day) }.any { t ->
                 val minutes = java.time.Duration.between(t, at).toMinutes().let { if (it < -720) it + 1440 else it }
                 minutes in 0..15
             }
@@ -71,7 +85,7 @@ object DoseReminders {
         val pending = alarmIntent(context)
         val settings = container.settings.settings.first()
         val medicines = remindable(container.medicines.activeMedicines(), settings)
-        val next = nextTrigger(medicines, ZonedDateTime.now())
+        val next = nextTrigger(medicines, ZonedDateTime.now(), settings::ramadanOn)
         if (next == null) {
             alarms.cancel(pending)
         } else {
@@ -83,7 +97,7 @@ object DoseReminders {
         val container = context.appContainer
         val settings = container.settings.settings.first()
         val now = ZonedDateTime.now()
-        val due = dueAt(remindable(container.medicines.activeMedicines(), settings), now.toLocalTime())
+        val due = dueAt(remindable(container.medicines.activeMedicines(), settings), now.toLocalTime(), settings.ramadanOn(now.toLocalDate()))
         due.forEach { medicine ->
             if (!container.medicines.takenRecently(medicine.id, now.toInstant())) show(context, medicine)
         }

@@ -1,5 +1,8 @@
 package dev.ytosko.neutrino.data.settings
 
+import dev.ytosko.neutrino.domain.RamadanDay
+import dev.ytosko.neutrino.domain.RamadanCities
+import dev.ytosko.neutrino.domain.RamadanCity
 import java.time.LocalDate
 import dev.ytosko.neutrino.domain.RamadanTimes
 import kotlinx.serialization.json.Json
@@ -84,8 +87,16 @@ data class AppSettings(
     val takesMedicine: Boolean = false,
     /** Turns on the insulin log. */
     val usesInsulin: Boolean = false,
-    /** Ramadan mode: Sehri and Iftar as meals, with their reminders instead of breakfast, lunch and dinner. */
+    /**
+     * Ramadan mode is on: during Ramadan (from the schedule saved for [ramadanCity]) Sehri and Iftar
+     * are meals, with their reminders instead of breakfast, lunch and dinner. Off Ramadan nothing changes.
+     */
     val ramadan: Boolean = false,
+    val ramadanCity: RamadanCity? = null,
+    /** Each Ramadan day's Sehri end and Iftar, from Ummah API; [ramadanCityOfDays] is the city they're for. */
+    val ramadanDays: List<RamadanDay> = emptyList(),
+    val ramadanCityOfDays: String? = null,
+    /** Today's Sehri end and Iftar (when today is a Ramadan day), else typical times. */
     val sehriEnds: LocalTime = LocalTime.of(4, 40),
     val iftar: LocalTime = LocalTime.of(17, 50),
     /** The last weekly recap, the day it was written, and whether glucose goes into it (off by default). */
@@ -98,6 +109,13 @@ data class AppSettings(
     val glucoseImportedUntil: Long = 0,
 ) {
     val medicinesOn: Boolean get() = takesMedicine || usesInsulin
+
+    /** [date]'s Sehri end and Iftar when Ramadan mode is on and [date] is a Ramadan day; else null. */
+    fun ramadanOn(date: LocalDate): RamadanTimes? =
+        if (!ramadan) null else ramadanDays.firstOrNull { it.date == date }?.let { RamadanTimes(it.sehriEnds, it.iftar) }
+
+    /** Today is a Ramadan day (and Ramadan mode is on). */
+    val ramadanToday: Boolean get() = ramadanOn(LocalDate.now()) != null
 
     val promptHints: PromptHints get() = PromptHints(cuisine, aiNotes.takeIf { it.isNotBlank() })
     /** A Primary model is set, so photos can be analysed. */
@@ -152,8 +170,10 @@ class SettingsRepository(context: Context, private val cipher: SecretCipher) {
         val recapText = stringPreferencesKey("recap_text")
         val recapDay = androidx.datastore.preferences.core.longPreferencesKey("recap_day")
         val recapGlucose = booleanPreferencesKey("recap_glucose")
-        val sehriEnds = intPreferencesKey("ramadan_sehri_min")
-        val iftar = intPreferencesKey("ramadan_iftar_min")
+        val ramadanCity = stringPreferencesKey("ramadan_city")
+        /** "2027-02-08|05:19|17:49;…" */
+        val ramadanDays = stringPreferencesKey("ramadan_days")
+        val ramadanDaysCity = stringPreferencesKey("ramadan_days_city")
         fun model(provider: AiProvider) = stringPreferencesKey("ai_model_${provider.id}")
         fun apiKey(provider: AiProvider) = stringPreferencesKey("ai_key_${provider.id}")
         val aiConfigs = stringPreferencesKey("ai_configs")
@@ -185,11 +205,8 @@ class SettingsRepository(context: Context, private val cipher: SecretCipher) {
                     lunch = p[Keys.lunchStart]?.toTime() ?: defaults.lunch,
                     snack = p[Keys.snackStart]?.toTime() ?: defaults.snack,
                     dinner = p[Keys.dinnerStart]?.toTime() ?: defaults.dinner,
-                    ramadan = if (p[Keys.ramadan] == true) {
-                        RamadanTimes(p[Keys.sehriEnds]?.toTime() ?: LocalTime.of(4, 40), p[Keys.iftar]?.toTime() ?: LocalTime.of(17, 50))
-                    } else {
-                        null
-                    },
+                    // Today's Ramadan times, when today is a Ramadan day (worked out each time settings are read).
+                    ramadan = if (p[Keys.ramadan] == true) decodeRamadan(p[Keys.ramadanDays]).todayTimes() else null,
                 )
             }.getOrDefault(MealWindows()),
             breakfastReminder = p[Keys.breakfastReminder]?.toTime() ?: LocalTime.of(10, 0),
@@ -219,8 +236,11 @@ class SettingsRepository(context: Context, private val cipher: SecretCipher) {
             recapText = p[Keys.recapText].orEmpty(),
             recapDate = p[Keys.recapDay]?.let(LocalDate::ofEpochDay),
             recapGlucose = p[Keys.recapGlucose] ?: false,
-            sehriEnds = p[Keys.sehriEnds]?.toTime() ?: LocalTime.of(4, 40),
-            iftar = p[Keys.iftar]?.toTime() ?: LocalTime.of(17, 50),
+            ramadanCity = RamadanCities.byId(p[Keys.ramadanCity]),
+            ramadanDays = decodeRamadan(p[Keys.ramadanDays]),
+            ramadanCityOfDays = p[Keys.ramadanDaysCity],
+            sehriEnds = decodeRamadan(p[Keys.ramadanDays]).todayTimes()?.sehriEnds ?: LocalTime.of(4, 40),
+            iftar = decodeRamadan(p[Keys.ramadanDays]).todayTimes()?.iftar ?: LocalTime.of(17, 50),
         )
     }
 
@@ -238,10 +258,22 @@ class SettingsRepository(context: Context, private val cipher: SecretCipher) {
         it[Keys.recapDay] = day.toEpochDay()
     }
 
-    suspend fun setRamadanTimes(sehriEnds: LocalTime, iftar: LocalTime) = store.edit {
-        it[Keys.sehriEnds] = sehriEnds.hour * 60 + sehriEnds.minute
-        it[Keys.iftar] = iftar.hour * 60 + iftar.minute
+    suspend fun setRamadanCity(city: RamadanCity) = store.edit { it[Keys.ramadanCity] = city.id }
+
+    suspend fun saveRamadanDays(cityId: String, days: List<RamadanDay>) = store.edit {
+        it[Keys.ramadanDays] = days.joinToString(";") { d -> "${d.date}|${d.sehriEnds}|${d.iftar}" }
+        it[Keys.ramadanDaysCity] = cityId
     }
+
+    private fun decodeRamadan(raw: String?): List<RamadanDay> =
+        raw.orEmpty().split(';').mapNotNull { entry ->
+            val parts = entry.split('|')
+            if (parts.size != 3) return@mapNotNull null
+            runCatching { RamadanDay(LocalDate.parse(parts[0]), LocalTime.parse(parts[1]), LocalTime.parse(parts[2])) }.getOrNull()
+        }.sortedBy { it.date }
+
+    private fun List<RamadanDay>.todayTimes(): RamadanTimes? =
+        firstOrNull { it.date == LocalDate.now() }?.let { RamadanTimes(it.sehriEnds, it.iftar) }
 
     private fun decodeVoice(raw: String?): AiConfig? =
         raw?.let { runCatching { configJson.decodeFromString<AiConfig>(it) }.getOrNull() }

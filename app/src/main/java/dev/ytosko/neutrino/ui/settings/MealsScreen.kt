@@ -1,5 +1,13 @@
 package dev.ytosko.neutrino.ui.settings
 
+import kotlinx.coroutines.flow.first
+import androidx.compose.ui.res.painterResource
+import androidx.compose.material3.Icon
+import java.time.LocalDate
+import dev.ytosko.neutrino.data.reminders.DoseReminders
+import dev.ytosko.neutrino.domain.RamadanCities
+import dev.ytosko.neutrino.domain.RamadanCity
+import dev.ytosko.neutrino.appContainer
 import dev.ytosko.neutrino.ui.components.NeutrinoSnackbarHost
 import dev.ytosko.neutrino.ui.theme.NeutrinoTheme
 import android.Manifest
@@ -64,8 +72,6 @@ import java.time.format.FormatStyle
 private sealed interface TimeTarget {
     data class MealStart(val type: MealType) : TimeTarget
     data class Reminder(val type: MealType) : TimeTarget
-    /** Sehri's end or Iftar, in Ramadan mode. */
-    data class Ramadan(val type: MealType) : TimeTarget
 }
 
 /**
@@ -88,6 +94,21 @@ fun MealsScreen(settings: SettingsRepository, onBack: () -> Unit) {
         canNotify = MealReminders.canNotify(context)
     }
     val orderError = stringResource(R.string.meals_order_error)
+    val ramadanSync = context.appContainer.ramadanSync
+    var choosingCity by remember { mutableStateOf(false) }
+    var ramadanLoading by remember { mutableStateOf(false) }
+    var ramadanFailed by remember { mutableStateOf(false) }
+    /** Fetches (or refreshes) the Ramadan schedule, then re-books reminders. */
+    fun loadRamadan(force: Boolean) {
+        scope.launch {
+            ramadanLoading = true
+            ramadanFailed = !runCatching { ramadanSync.ensure(force = force) }.getOrDefault(false)
+            ramadanLoading = false
+            val now = settings.settings.first()
+            if (now.remindersEnabled) MealReminders.scheduleAll(context)
+            DoseReminders.sync(context)
+        }
+    }
 
     SetupScaffold(
         title = stringResource(R.string.meals_title),
@@ -153,7 +174,7 @@ fun MealsScreen(settings: SettingsRepository, onBack: () -> Unit) {
                                 .padding(Spacing.md),
                         )
                     }
-                    if (s.ramadan) {
+                    if (s.ramadanToday) {
                         // In Ramadan the Sehri and Iftar reminders take over (set below).
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                         Text(
@@ -181,7 +202,12 @@ fun MealsScreen(settings: SettingsRepository, onBack: () -> Unit) {
                         .toggleable(value = s.ramadan, role = Role.Switch) { on ->
                             scope.launch {
                                 settings.setRamadan(on)
-                                if (s.remindersEnabled) MealReminders.scheduleAll(context)
+                                // A city is needed for the times: ask for it the first time.
+                                if (on && s.ramadanCity == null) choosingCity = true else if (on) loadRamadan(force = false)
+                                if (!on) {
+                                    if (s.remindersEnabled) MealReminders.scheduleAll(context)
+                                    DoseReminders.sync(context)
+                                }
                             }
                         }
                         .padding(horizontal = Spacing.md, vertical = Spacing.sm),
@@ -201,18 +227,40 @@ fun MealsScreen(settings: SettingsRepository, onBack: () -> Unit) {
                 }
                 if (s.ramadan) {
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                    TimeRow(MealType.Sehri, stringResource(R.string.ramadan_sehri_ends), s.sehriEnds) { editing = TimeTarget.Ramadan(MealType.Sehri) }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 56.dp)
+                            .clickable(role = Role.Button) { choosingCity = true }
+                            .padding(horizontal = Spacing.md, vertical = Spacing.sm),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(stringResource(R.string.ramadan_city), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                        Text(
+                            s.ramadanCity?.name ?: stringResource(R.string.ramadan_city_choose),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = if (s.ramadanCity == null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                    TimeRow(MealType.Iftar, stringResource(R.string.ramadan_iftar_at), s.iftar) { editing = TimeTarget.Ramadan(MealType.Iftar) }
-                    Text(
-                        stringResource(R.string.ramadan_times_note),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.sm),
-                    )
+                    RamadanStatus(s, ramadanLoading, ramadanFailed, onRetry = { loadRamadan(force = true) })
                 }
             }
         }
+    }
+
+    if (choosingCity) {
+        CityDialog(
+            selected = current?.ramadanCity?.id,
+            onPick = { city ->
+                choosingCity = false
+                scope.launch {
+                    settings.setRamadanCity(city)
+                    loadRamadan(force = true)
+                }
+            },
+            onDismiss = { choosingCity = false },
+        )
     }
 
     val target = editing
@@ -221,7 +269,6 @@ fun MealsScreen(settings: SettingsRepository, onBack: () -> Unit) {
         val initial = when (target) {
             is TimeTarget.MealStart -> s.mealWindows.start(target.type)
             is TimeTarget.Reminder -> s.reminder(target.type)
-            is TimeTarget.Ramadan -> if (target.type == MealType.Sehri) s.sehriEnds else s.iftar
         }
         TimeDialog(
             initial = initial,
@@ -239,13 +286,6 @@ fun MealsScreen(settings: SettingsRepository, onBack: () -> Unit) {
                                 breakfast = if (target.type == MealType.Breakfast) time else s.breakfastReminder,
                                 lunch = if (target.type == MealType.Lunch) time else s.lunchReminder,
                                 dinner = if (target.type == MealType.Dinner) time else s.dinnerReminder,
-                            )
-                            if (s.remindersEnabled) MealReminders.scheduleAll(context)
-                        }
-                        is TimeTarget.Ramadan -> {
-                            settings.setRamadanTimes(
-                                sehriEnds = if (target.type == MealType.Sehri) time else s.sehriEnds,
-                                iftar = if (target.type == MealType.Iftar) time else s.iftar,
                             )
                             if (s.remindersEnabled) MealReminders.scheduleAll(context)
                         }
@@ -330,4 +370,63 @@ private fun AppSettings.reminder(type: MealType): LocalTime = when (type) {
     MealType.Breakfast -> breakfastReminder
     MealType.Lunch -> lunchReminder
     else -> dinnerReminder
+}
+
+/** Where the Ramadan schedule stands: loading, the running or next Ramadan with today's times, or a failure. */
+@Composable
+private fun RamadanStatus(s: AppSettings, loading: Boolean, failed: Boolean, onRetry: () -> Unit) {
+    val today = LocalDate.now()
+    val days = s.ramadanDays.takeIf { s.ramadanCityOfDays == s.ramadanCity?.id }.orEmpty()
+    val dates = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)
+    val times = DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)
+    val todayDay = days.firstOrNull { it.date == today }
+    val text = when {
+        s.ramadanCity == null -> stringResource(R.string.ramadan_status_no_city)
+        loading -> stringResource(R.string.ramadan_status_loading)
+        todayDay != null -> stringResource(
+            R.string.ramadan_status_today,
+            days.indexOf(todayDay) + 1,
+            todayDay.sehriEnds.format(times),
+            todayDay.iftar.format(times),
+        )
+        days.isNotEmpty() && days.first().date > today -> stringResource(R.string.ramadan_status_next, days.first().date.format(dates))
+        failed -> stringResource(R.string.ramadan_status_failed)
+        else -> stringResource(R.string.ramadan_status_loading)
+    }
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.md, vertical = Spacing.sm), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+        Text(text, style = MaterialTheme.typography.bodyMedium, color = if (failed && days.isEmpty()) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
+        Text(stringResource(R.string.ramadan_source_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (failed && days.isEmpty()) TextButton(onClick = onRetry) { Text(stringResource(R.string.ramadan_retry)) }
+    }
+}
+
+/** The cities Ramadan times can be worked out for; Bangladesh's first. */
+@Composable
+private fun CityDialog(selected: String?, onPick: (RamadanCity) -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.ramadan_city_title)) },
+        text = {
+            androidx.compose.foundation.lazy.LazyColumn(modifier = Modifier.heightIn(max = 420.dp)) {
+                items(RamadanCities.all.size) { index ->
+                    val city = RamadanCities.all[index]
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onPick(city) }
+                            .padding(vertical = Spacing.sm, horizontal = Spacing.xs),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(city.name, style = MaterialTheme.typography.bodyLarge)
+                            Text(city.country, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        if (city.id == selected) Icon(painterResource(R.drawable.ic_check), contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.backup_cancel)) } },
+    )
 }

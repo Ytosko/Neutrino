@@ -37,18 +37,31 @@ enum class MealReminder(val mealType: MealType, val time: LocalTime, @StringRes 
     Iftar(MealType.Iftar, LocalTime.of(18, 20), R.string.reminder_iftar_title, R.string.reminder_iftar_body),
     ;
 
-    /** The user's chosen time for this reminder. */
-    fun timeIn(settings: AppSettings): LocalTime = when (this) {
-        Breakfast -> settings.breakfastReminder
-        Lunch -> settings.lunchReminder
-        Dinner -> settings.dinnerReminder
-        Sehri -> settings.sehriEnds.minusMinutes(45)
-        Iftar -> settings.iftar.plusMinutes(30)
+    val ramadan: Boolean get() = this == Sehri || this == Iftar
+
+    /**
+     * This reminder's time on [date], or null if it doesn't apply that day: Sehri and Iftar only on
+     * Ramadan days (from that day's times), breakfast, lunch and dinner only on other days.
+     */
+    fun timeOn(settings: AppSettings, date: LocalDate): LocalTime? {
+        val day = settings.ramadanOn(date)
+        if (ramadan != (day != null)) return null
+        return when (this) {
+            Breakfast -> settings.breakfastReminder
+            Lunch -> settings.lunchReminder
+            Dinner -> settings.dinnerReminder
+            Sehri -> day?.sehriReminder
+            Iftar -> day?.iftarReminder
+        }
     }
 
+    /** The user's chosen time for this reminder today (or a typical one when it doesn't apply today). */
+    fun timeIn(settings: AppSettings): LocalTime = timeOn(settings, LocalDate.now()) ?: time
+
     companion object {
-        /** In Ramadan mode Sehri and Iftar; otherwise breakfast, lunch and dinner. */
-        fun active(settings: AppSettings): List<MealReminder> = if (settings.ramadan) listOf(Sehri, Iftar) else listOf(Breakfast, Lunch, Dinner)
+        /** The reminders that apply on [date]: Sehri and Iftar on Ramadan days, otherwise breakfast, lunch and dinner. */
+        fun active(settings: AppSettings, date: LocalDate = LocalDate.now()): List<MealReminder> =
+            entries.filter { (it.ramadan) == (settings.ramadanOn(date) != null) }
     }
 }
 
@@ -71,13 +84,30 @@ object MealReminders {
         return if (today.isAfter(now)) today else today.plusDays(1)
     }
 
-    /** Books the reminders for now (Ramadan's or the usual three) at their times; cancels the others. */
-    suspend fun scheduleAll(context: Context) {
+    /**
+     * Books each reminder for the next day it applies (today, tomorrow or the day after): so the
+     * first Sehri reminder is booked the evening before Ramadan starts, and breakfast comes back the
+     * day after it ends. Reminders that don't apply soon are cancelled.
+     */
+    suspend fun scheduleAll(context: Context, now: ZonedDateTime = ZonedDateTime.now()) {
         val settings = context.appContainer.settings.settings.first()
-        val active = MealReminder.active(settings)
         val alarms = context.getSystemService(AlarmManager::class.java)
-        MealReminder.entries.forEach { if (it in active) schedule(context, it, it.timeIn(settings)) else alarms.cancel(pendingIntent(context, it)) }
+        MealReminder.entries.forEach { reminder ->
+            val next = nextFor(reminder, settings, now)
+            if (next == null) {
+                alarms.cancel(pendingIntent(context, reminder))
+            } else {
+                alarms.setWindow(AlarmManager.RTC_WAKEUP, next.toInstant().toEpochMilli(), WINDOW_MS, pendingIntent(context, reminder))
+            }
+        }
     }
+
+    /** The next time [reminder] should ring after [now], looking up to two days ahead. */
+    fun nextFor(reminder: MealReminder, settings: AppSettings, now: ZonedDateTime): ZonedDateTime? =
+        (0L..2L).firstNotNullOfOrNull { offset ->
+            val date = now.toLocalDate().plusDays(offset)
+            reminder.timeOn(settings, date)?.let { time -> now.with(date).with(time).withSecond(0).withNano(0) }?.takeIf { it.isAfter(now) }
+        }
 
     fun cancelAll(context: Context) {
         val alarms = context.getSystemService(AlarmManager::class.java)
@@ -151,13 +181,14 @@ class MealReminderReceiver : BroadcastReceiver() {
                 when {
                     !enabled -> MealReminders.cancelAll(app)
                     reminder == null -> MealReminders.scheduleAll(app) // boot, time or time zone change, update
-                    reminder !in MealReminder.active(settings) -> MealReminders.scheduleAll(app) // Ramadan mode changed
                     else -> {
-                        MealReminders.schedule(app, reminder, reminder.timeIn(settings))
                         val zone = ZoneId.systemDefault()
-                        if (!container.meals.hasMeal(reminder.mealType, LocalDate.now(zone), zone)) {
+                        // Only a reminder that applies today rings (Ramadan can start or end overnight).
+                        val applies = reminder in MealReminder.active(settings, LocalDate.now(zone))
+                        if (applies && !container.meals.hasMeal(reminder.mealType, LocalDate.now(zone), zone)) {
                             MealReminders.show(app, reminder)
                         }
+                        MealReminders.scheduleAll(app)
                     }
                 }
             } finally {

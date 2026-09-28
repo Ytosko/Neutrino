@@ -71,6 +71,9 @@ class NeutrinoApplication : Application() {
         appScope.launch {
             container.chooseGlucoseUnitOnce()
             runCatching { container.settings.migrateAi() }
+            // Ramadan mode: fetch this (or next) Ramadan's times for the city if they aren't saved yet,
+            // before reminders are booked from them. Offline, the saved schedule is used as it is.
+            runCatching { container.ramadanSync.ensure() }
             if (container.backups.state.first().passwordSet) container.backups.schedule()
             if (container.settings.settings.first().remindersEnabled) MealReminders.scheduleAll(this@NeutrinoApplication)
             runCatching { DoseReminders.sync(this@NeutrinoApplication) }
@@ -272,6 +275,9 @@ class AppContainer(application: Application) {
     }
 
     val openRouter = dev.ytosko.neutrino.data.ai.OpenRouterClient(http, json)
+
+    /** Ramadan's dates and daily Sehri and Iftar times for the chosen city (Ummah API), kept on the phone. */
+    val ramadanSync by lazy { dev.ytosko.neutrino.data.ramadan.RamadanSync(settings, dev.ytosko.neutrino.data.ramadan.RamadanClient(http, json)) }
 
     /** Online or not, live; photos, voice and new-food estimates need the internet. */
     val network = dev.ytosko.neutrino.data.net.NetworkMonitor(application)

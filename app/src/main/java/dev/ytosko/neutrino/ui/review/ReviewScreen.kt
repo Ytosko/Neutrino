@@ -352,7 +352,7 @@ fun ReviewScreen(
             onDate = viewModel::setDate,
             onTime = viewModel::setTime,
             onDismiss = { showMealDetails = false },
-            ramadan = appSettings?.ramadan == true,
+            ramadan = appSettings?.ramadanToday == true,
         )
     }
 
