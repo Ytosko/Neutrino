@@ -25,6 +25,22 @@ data class BackupData(
     val glucose: List<GlucoseEntity> = emptyList(),
     val medicines: List<MedicineEntity> = emptyList(),
     val doses: List<DoseEntity> = emptyList(),
+    /** Daily goals, physique, workouts, conditions and weight history; null in backups from before 1.0.12. */
+    val goals: GoalsBackup? = null,
+)
+
+/**
+ * Daily goals and what they're worked out from. The profile parts are kept as the app stores
+ * them (JSON), so they restore exactly.
+ */
+@Serializable
+data class GoalsBackup(
+    val carbsG: Int? = null,
+    val proteinG: Int? = null,
+    val fatG: Int? = null,
+    val kcal: Int? = null,
+    val waterMl: Int? = null,
+    val profile: Map<String, String> = emptyMap(),
 )
 
 /** One AI model and its key, as a backup carries it (the whole backup is encrypted). */

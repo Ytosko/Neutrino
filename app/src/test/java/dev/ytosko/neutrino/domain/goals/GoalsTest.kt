@@ -109,10 +109,12 @@ class GoalsTest {
 
     @Test
     fun `liver grades come from CAP and kPa, else the picked ones`() {
-        assertEquals(0, LiverGrades.steatosis(240))
-        assertEquals(1, LiverGrades.steatosis(250))
-        assertEquals(2, LiverGrades.steatosis(270))
-        assertEquals(3, LiverGrades.steatosis(300))
+        assertEquals(0, LiverGrades.steatosis(237))
+        assertEquals(1, LiverGrades.steatosis(238))
+        assertEquals(1, LiverGrades.steatosis(259))
+        assertEquals(2, LiverGrades.steatosis(260))
+        assertEquals(2, LiverGrades.steatosis(286))
+        assertEquals(3, LiverGrades.steatosis(290))
         assertEquals(1, LiverGrades.fibrosis(6.0))
         assertEquals(3, LiverGrades.fibrosis(10.5))
         assertEquals(4, LiverGrades.fibrosis(15.0))

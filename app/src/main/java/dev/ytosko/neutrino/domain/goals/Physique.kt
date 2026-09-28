@@ -126,15 +126,14 @@ data class Conditions(
 }
 
 /**
- * FibroScan grades. Fat (CAP, dB/m): S0 under 248, S1 248–267, S2 268–279, S3 280 and over
- * (Karlas et al., 2017). Scarring (kPa, fatty liver): F0–F1 under 8.2, F2 8.2–9.6, F3 9.7–13.5,
+ * FibroScan grades. Fat (CAP, dB/m): S0 under 238, S1 238–259, S2 260–289, S3 290 and over. Scarring (kPa, fatty liver): F0–F1 under 8.2, F2 8.2–9.6, F3 9.7–13.5,
  * F4 13.6 and over (Eddowes et al., 2019). F0–F1 are reported together as 1.
  */
 object LiverGrades {
     fun steatosis(cap: Int): Int = when {
-        cap < 248 -> 0
-        cap < 268 -> 1
-        cap < 280 -> 2
+        cap < 238 -> 0
+        cap < 260 -> 1
+        cap < 290 -> 2
         else -> 3
     }
 

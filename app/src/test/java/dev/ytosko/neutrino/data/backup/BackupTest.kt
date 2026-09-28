@@ -47,6 +47,13 @@ class BackupTest {
                 snackCount = 2, dinnerCount = 0, lastQuantity = 1.0, lastUnit = "piece", createdAtEpochMs = 1),
         ),
         water = listOf(WaterEntity("w1", 250, 1_758_790_000_000, "Asia/Dhaka", true)),
+        goals = GoalsBackup(
+            carbsG = 150, kcal = 1_800, waterMl = 2_000,
+            profile = mapOf(
+                "weights" to """[{"id":"w","epochMs":1,"kg":84.4}]""",
+                "conditions" to """{"liver":true,"cap":286}""",
+            ),
+        ),
     )
 
     @Test
@@ -69,6 +76,7 @@ class BackupTest {
         val text = String(file, Charsets.ISO_8859_1)
         assertFalse("API key must not appear in plain text", text.contains("AIza-secret"))
         assertFalse(text.contains("Shawarma"))
+        assertFalse("Health details must not appear in plain text", text.contains("84.4") || text.contains("liver"))
     }
 
     @Test

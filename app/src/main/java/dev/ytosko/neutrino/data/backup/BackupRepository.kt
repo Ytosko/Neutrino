@@ -86,6 +86,8 @@ class BackupRepository(
     val auth: GoogleDriveAuth,
     val local: LocalBackupFile,
     private val json: Json,
+    /** Daily goals' profile (physique, conditions, workouts, weight history). */
+    private val goalProfile: () -> dev.ytosko.neutrino.data.goals.GoalProfileRepository,
 ) {
     private val store = context.applicationContext.backupStore
     private val mutex = Mutex()
@@ -204,6 +206,9 @@ class BackupRepository(
             settings.snapshot(), meals, dao.items(), dao.foods(), dao.water(), db.glucose().all(),
             medicines = db.medicines().allMedicines(),
             doses = db.medicines().allDoses(),
+            goals = settings.settings.first().let { s ->
+                dev.ytosko.neutrino.data.backup.GoalsBackup(s.carbGoalG, s.proteinGoalG, s.fatGoalG, s.kcalGoal, s.waterGoalMl, goalProfile().export())
+            },
         )
         val photos = meals.flatMap { meal ->
             val first = meal.thumbnailPath?.let(::File)?.takeIf { it.isFile } ?: return@flatMap emptyList()
@@ -329,6 +334,12 @@ class BackupRepository(
             db.medicines().insertDoses(data.doses)
         }
         settings.restore(data.settings)
+        // Older backups have no goals; then the phone's current ones stay.
+        data.goals?.let { g ->
+            settings.setGoals(g.carbsG, g.proteinG, g.fatG, g.kcal, g.waterMl)
+            goalProfile().import(g.profile)
+            runCatching { dev.ytosko.neutrino.data.reminders.WeighInReminder.sync(context) }
+        }
         // The switches aren't in backups; turn on whatever the restored medicines need.
         val kinds = data.medicines.filterNot { it.archived }.mapTo(HashSet()) { it.kind }
         if (dev.ytosko.neutrino.data.medicine.MedicineKind.Medicine.name in kinds) settings.setTakesMedicine(true)

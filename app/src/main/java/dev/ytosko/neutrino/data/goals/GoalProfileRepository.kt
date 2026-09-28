@@ -15,6 +15,7 @@ import dev.ytosko.neutrino.domain.goals.WeightEntry
 import dev.ytosko.neutrino.domain.goals.WeightUnit
 import dev.ytosko.neutrino.domain.goals.Workout
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -43,8 +44,20 @@ private data class StoredPhysique(
  * weigh-in. Kept on the phone only; sent to the user's AI provider only when they ask for a
  * suggestion.
  */
-class GoalProfileRepository(private val context: Context) {
+class GoalProfileRepository(private val context: Context, private val onChanged: () -> Unit = {}) {
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+
+    /** Everything stored here, as saved, for backups. */
+    suspend fun export(): Map<String, String> =
+        context.goalStore.data.first().asMap().mapNotNull { (k, v) -> (v as? String)?.let { k.name to it } }.toMap()
+
+    /** Replaces everything with a backup's [export]. */
+    suspend fun import(values: Map<String, String>) {
+        context.goalStore.edit { p ->
+            p.clear()
+            values.forEach { (k, v) -> p[stringPreferencesKey(k)] = v }
+        }
+    }
 
     private object Keys {
         val physique = stringPreferencesKey("physique")
@@ -60,13 +73,13 @@ class GoalProfileRepository(private val context: Context) {
     }
 
     /** Adds a weigh-in and makes the latest one the current weight. */
-    suspend fun addWeight(entry: WeightEntry) = context.goalStore.edit { p ->
+    suspend fun addWeight(entry: WeightEntry) = change { p ->
         val list = (decodeWeights(p) + entry).sortedBy { it.epochMs }
         p[Keys.weights] = json.encodeToString(list)
         setLatest(p, list)
     }
 
-    suspend fun removeWeight(id: String) = context.goalStore.edit { p ->
+    suspend fun removeWeight(id: String) = change { p ->
         val list = decodeWeights(p).filterNot { it.id == id }
         p[Keys.weights] = json.encodeToString(list)
         setLatest(p, list)
@@ -98,15 +111,21 @@ class GoalProfileRepository(private val context: Context) {
         p[Keys.weighIn]?.let { runCatching { json.decodeFromString<WeighIn>(it) }.getOrNull() } ?: WeighIn()
     }
 
-    suspend fun setPhysique(p: Physique) = context.goalStore.edit {
+    suspend fun setPhysique(p: Physique) = change {
         it[Keys.physique] = json.encodeToString(
             StoredPhysique(p.birthDate?.toEpochDay(), p.sex, p.heightCm, p.weightKg, p.targetKg, p.planLength, p.planUnit, p.heightUnit, p.weightUnit),
         )
     }
 
-    suspend fun setWorkouts(list: List<Workout>) = context.goalStore.edit { it[Keys.workouts] = json.encodeToString(list) }
+    suspend fun setWorkouts(list: List<Workout>) = change { it[Keys.workouts] = json.encodeToString(list) }
 
-    suspend fun setConditions(c: Conditions) = context.goalStore.edit { it[Keys.conditions] = json.encodeToString(c) }
+    suspend fun setConditions(c: Conditions) = change { it[Keys.conditions] = json.encodeToString(c) }
 
-    suspend fun setWeighIn(w: WeighIn) = context.goalStore.edit { it[Keys.weighIn] = json.encodeToString(w) }
+    suspend fun setWeighIn(w: WeighIn) = change { it[Keys.weighIn] = json.encodeToString(w) }
+
+    /** Saves, then lets the app know (a backup follows a little later). */
+    private suspend fun change(block: (androidx.datastore.preferences.core.MutablePreferences) -> Unit) {
+        context.goalStore.edit(block)
+        onChanged()
+    }
 }

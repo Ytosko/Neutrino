@@ -134,6 +134,7 @@ class AppContainer(application: Application) {
         auth = GoogleDriveAuth(application),
         local = LocalBackupFile(application),
         json = json,
+        goalProfile = { goalProfile },
     )
 
     private val scopeForChanges get() = scope
@@ -174,7 +175,7 @@ class AppContainer(application: Application) {
     val openWeight = MutableStateFlow(false)
 
     /** Physique, workouts, conditions and the weigh-in for Daily goals. */
-    val goalProfile by lazy { dev.ytosko.neutrino.data.goals.GoalProfileRepository(context) }
+    val goalProfile by lazy { dev.ytosko.neutrino.data.goals.GoalProfileRepository(context, onChanged = ::dataChanged) }
 
     val meals = MealRepository(
         database, healthConnect, photos, foods,
