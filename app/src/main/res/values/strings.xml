@@ -633,13 +633,13 @@
     <string name="settings_glucose_unit">Glucose unit</string>
     <string name="settings_glucose_unit_body">Only changes how readings are shown. Your saved readings stay exactly the same.</string>
     <string name="settings_glucose_import">Import from other glucose apps</string>
-    <string name="settings_glucose_import_body">Readings that CGM apps such as xDrip+ or Juggluco save to Health Connect, brought in whenever you open Neutrino. Some official sensor apps don\'t save there. Neutrino then reads blood glucose only.</string>
+    <string name="settings_glucose_import_body">Readings CGM apps like xDrip+ save to Health Connect. Glucose only.</string>
     <string name="settings_glucose_import_needs_permission">Health Connect doesn\'t allow reading glucose. Tap to allow it again.</string>
     <string name="hc_reads_glucose_only">Neutrino reads only blood glucose from other apps, because you turned on import.</string>
     <string name="settings_test_reminder">Remind me to test after meals</string>
-    <string name="settings_test_reminder_body">About 2 hours after a meal, skipped if you\'ve already tested</string>
+    <string name="settings_test_reminder_body">About 2 hours after a meal, if you haven\'t tested</string>
     <string name="settings_widget_glucose">Glucose on the widget</string>
-    <string name="settings_widget_glucose_body">Show today\'s latest reading on the home screen widget, with its time. Anyone who sees your screen can see it.</string>
+    <string name="settings_widget_glucose_body">Today\'s latest reading. Anyone who sees your screen can see it.</string>
     <string name="settings_section_goals">Goals</string>
     <string name="settings_weekly">Weekly summary</string>
     <string name="settings_weekly_body">A notification on Sunday evening about your week</string>

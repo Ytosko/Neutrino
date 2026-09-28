@@ -603,13 +603,13 @@
     <string name="settings_glucose_unit">গ্লুকোজের একক</string>
     <string name="settings_glucose_unit_body">শুধু রিডিং দেখানোর ধরন বদলায়। সেভ করা রিডিং একদম একই থাকে।</string>
     <string name="settings_glucose_import">অন্য গ্লুকোজ অ্যাপ থেকে আনুন</string>
-    <string name="settings_glucose_import_body">xDrip+ বা Juggluco-র মতো CGM অ্যাপ যে রিডিং Health Connect-এ সেভ করে, Neutrino খুললেই তা আনা হয়। কিছু অফিশিয়াল সেন্সর অ্যাপ সেখানে সেভ করে না। তখন Neutrino শুধু রক্তের গ্লুকোজ পড়ে।</string>
+    <string name="settings_glucose_import_body">xDrip+-এর মতো CGM অ্যাপ Health Connect-এ যে রিডিং রাখে। শুধু গ্লুকোজ।</string>
     <string name="settings_glucose_import_needs_permission">Health Connect গ্লুকোজ পড়ার অনুমতি দিচ্ছে না। আবার অনুমতি দিতে ট্যাপ করুন।</string>
     <string name="hc_reads_glucose_only">আপনি আনা চালু করেছেন বলে Neutrino অন্য অ্যাপ থেকে শুধু রক্তের গ্লুকোজ পড়ে।</string>
     <string name="settings_test_reminder">খাবারের পর টেস্টের কথা মনে করান</string>
-    <string name="settings_test_reminder_body">খাবারের প্রায় 2 ঘণ্টা পরে, আগেই টেস্ট করে থাকলে আসবে না</string>
+    <string name="settings_test_reminder_body">খাবারের প্রায় ২ ঘণ্টা পর, যদি পরীক্ষা না করে থাকেন</string>
     <string name="settings_widget_glucose">উইজেটে গ্লুকোজ</string>
-    <string name="settings_widget_glucose_body">হোম স্ক্রিনের উইজেটে আজকের সর্বশেষ রিডিং সময়সহ দেখান। আপনার স্ক্রিন যে দেখবে সে-ও এটি দেখতে পাবে।</string>
+    <string name="settings_widget_glucose_body">আজকের সর্বশেষ রিডিং। আপনার স্ক্রিন যে দেখবে সে-ও দেখতে পাবে।</string>
     <string name="settings_section_goals">লক্ষ্য</string>
     <string name="settings_weekly">সাপ্তাহিক সারাংশ</string>
     <string name="settings_weekly_body">রবিবার সন্ধ্যায় আপনার সপ্তাহ নিয়ে একটি নোটিফিকেশন</string>

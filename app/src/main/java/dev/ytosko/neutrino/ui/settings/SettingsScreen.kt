@@ -1,5 +1,6 @@
 package dev.ytosko.neutrino.ui.settings
 
+import androidx.compose.ui.text.style.TextOverflow
 import dev.ytosko.neutrino.data.reminders.DoseReminders
 import dev.ytosko.neutrino.data.medicine.MedicineKind
 import dev.ytosko.neutrino.data.medicine.MedicineEntity
@@ -197,7 +198,6 @@ fun SettingsScreen(
                 },
                 onClick = onOpenMeter,
             )
-            RowDivider()
             SettingRow(
                 icon = R.drawable.ic_chart_column,
                 tint = c.rose,
@@ -205,7 +205,6 @@ fun SettingsScreen(
                 value = appSettings.glucoseUnit.label,
                 onClick = { choosingUnit = true },
             )
-            RowDivider()
             SwitchRow(
                 icon = R.drawable.ic_heart_pulse,
                 tint = c.rose,
@@ -230,7 +229,6 @@ fun SettingsScreen(
                     }
                 },
             )
-            RowDivider()
             SwitchRow(
                 icon = R.drawable.ic_bell,
                 tint = c.rose,
@@ -245,7 +243,6 @@ fun SettingsScreen(
                     }
                 },
             )
-            RowDivider()
             SwitchRow(
                 icon = R.drawable.ic_smartphone,
                 tint = c.rose,
@@ -264,7 +261,6 @@ fun SettingsScreen(
                 checked = appSettings.takesMedicine,
                 onChange = { on -> scope.launch { repository.setTakesMedicine(on); DoseReminders.sync(context) } },
             )
-            RowDivider()
             SwitchRow(
                 icon = R.drawable.ic_syringe,
                 tint = c.cyan,
@@ -274,7 +270,6 @@ fun SettingsScreen(
                 onChange = { on -> scope.launch { repository.setUsesInsulin(on); DoseReminders.sync(context) } },
             )
             if (appSettings.medicinesOn) {
-                RowDivider()
                 val shown = medicineList.count {
                     (it.kindEnum == MedicineKind.Medicine && appSettings.takesMedicine) || (it.kindEnum == MedicineKind.Insulin && appSettings.usesInsulin)
                 }
@@ -317,7 +312,6 @@ fun SettingsScreen(
                 },
                 onClick = onOpenMeals,
             )
-            RowDivider()
             SwitchRow(
                 icon = R.drawable.ic_history,
                 tint = c.amber,
@@ -359,7 +353,6 @@ fun SettingsScreen(
                     }
                 },
             )
-            RowDivider()
             SwitchRow(
                 icon = R.drawable.ic_eye_off,
                 tint = c.slate,
@@ -380,9 +373,7 @@ fun SettingsScreen(
         }
         Section(stringResource(R.string.settings_section_about)) {
             SettingRow(icon = R.drawable.ic_shield_check, tint = c.slate, title = stringResource(R.string.settings_privacy), value = null, external = true) { uriHandler.openUri(privacyUrl) }
-            RowDivider()
             SettingRow(icon = R.drawable.ic_info, tint = c.slate, title = stringResource(R.string.settings_terms), value = null, external = true) { uriHandler.openUri(termsUrl) }
-            RowDivider()
             SettingRow(icon = R.drawable.ic_code, tint = c.slate, title = stringResource(R.string.settings_source), value = null, external = true) { uriHandler.openUri(sourceUrl) }
         }
         Text(
@@ -463,40 +454,31 @@ private fun SwitchRow(icon: Int, title: String, subtitle: String?, checked: Bool
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 64.dp)
+            .heightIn(min = ROW_MIN_HEIGHT)
             .toggleable(value = checked, role = Role.Switch) { on ->
                 haptics.performHapticFeedback(if (on) HapticFeedbackType.ToggleOn else HapticFeedbackType.ToggleOff)
                 onChange(on)
             }
-            .padding(horizontal = Spacing.md, vertical = Spacing.sm),
+            .padding(horizontal = Spacing.md, vertical = ROW_PADDING),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+        horizontalArrangement = Arrangement.spacedBy(ICON_GAP),
     ) {
-        IconBadge(icon = icon, container = tint.solid, content = Color.White, size = 32.dp)
-        Column(modifier = Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.titleSmall)
-            if (subtitle != null) {
-                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
+        Icon(painterResource(icon), contentDescription = null, tint = tint.solid, modifier = Modifier.size(ICON_SIZE))
+        RowText(title, subtitle, null, Modifier.weight(1f))
         Switch(checked = checked, onCheckedChange = null)
     }
 }
 
 @Composable
 private fun Section(title: String, content: @Composable () -> Unit) {
-    Column(modifier = Modifier.padding(bottom = Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+    Column(modifier = Modifier.padding(bottom = Spacing.md)) {
         Text(
-            title.uppercase(),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(start = Spacing.xs),
+            title,
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(start = Spacing.md, top = Spacing.xs, bottom = Spacing.xs),
         )
-        Card(
-            shape = MaterialTheme.shapes.large,
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
-            elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
-        ) { Column { content() } }
+        content()
     }
 }
 
@@ -513,19 +495,14 @@ private fun SettingRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 64.dp)
+            .heightIn(min = ROW_MIN_HEIGHT)
             .clickable(role = Role.Button, onClick = onClick)
-            .padding(horizontal = Spacing.md, vertical = Spacing.sm),
+            .padding(horizontal = Spacing.md, vertical = ROW_PADDING),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+        horizontalArrangement = Arrangement.spacedBy(ICON_GAP),
     ) {
-        IconBadge(icon = icon, container = tint.solid, content = Color.White, size = 32.dp)
-        Column(modifier = Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.titleSmall)
-            if (value != null) {
-                Text(value, style = MaterialTheme.typography.bodySmall, color = valueColor ?: MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
+        Icon(painterResource(icon), contentDescription = null, tint = tint.solid, modifier = Modifier.size(ICON_SIZE))
+        RowText(title, value, valueColor, Modifier.weight(1f))
         Icon(
             painterResource(if (external) R.drawable.ic_external_link else R.drawable.ic_chevron_right),
             contentDescription = null,
@@ -535,8 +512,24 @@ private fun SettingRow(
     }
 }
 
-/** A divider that starts after the row's icon, like iPhone settings. */
+/** Title and summary of a settings row: the summary is kept to two lines, like Android's Settings. */
 @Composable
-private fun RowDivider() {
-    HorizontalDivider(modifier = Modifier.padding(start = Spacing.md + 32.dp + Spacing.md), color = MaterialTheme.colorScheme.outlineVariant)
+private fun RowText(title: String, summary: String?, summaryColor: Color?, modifier: Modifier) {
+    Column(modifier = modifier) {
+        Text(title, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        if (summary != null) {
+            Text(
+                summary,
+                style = MaterialTheme.typography.bodyMedium,
+                color = summaryColor ?: MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
 }
+
+private val ROW_MIN_HEIGHT = 56.dp
+private val ROW_PADDING = 12.dp
+private val ICON_SIZE = 24.dp
+private val ICON_GAP = 20.dp
