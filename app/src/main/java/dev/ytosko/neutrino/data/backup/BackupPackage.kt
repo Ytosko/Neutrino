@@ -27,6 +27,8 @@ data class BackupData(
     val doses: List<DoseEntity> = emptyList(),
     /** Daily goals, physique, workouts, conditions and weight history; null in backups from before 1.0.12. */
     val goals: GoalsBackup? = null,
+    /** Every other setting, "type:value" by name (see SettingsRepository.exportPreferences); null in older backups. */
+    val preferences: Map<String, String>? = null,
 )
 
 /**

@@ -209,6 +209,7 @@ class BackupRepository(
             goals = settings.settings.first().let { s ->
                 dev.ytosko.neutrino.data.backup.GoalsBackup(s.carbGoalG, s.proteinGoalG, s.fatGoalG, s.kcalGoal, s.waterGoalMl, goalProfile().export())
             },
+            preferences = settings.exportPreferences(),
         )
         val photos = meals.flatMap { meal ->
             val first = meal.thumbnailPath?.let(::File)?.takeIf { it.isFile } ?: return@flatMap emptyList()
@@ -333,6 +334,8 @@ class BackupRepository(
             db.medicines().insertMedicines(data.medicines)
             db.medicines().insertDoses(data.doses)
         }
+        // App settings first; the AI and voice snapshot then goes on top.
+        data.preferences?.let { settings.importPreferences(it) }
         settings.restore(data.settings)
         // Older backups have no goals; then the phone's current ones stay.
         data.goals?.let { g ->
@@ -340,6 +343,13 @@ class BackupRepository(
             goalProfile().import(g.profile)
             runCatching { dev.ytosko.neutrino.data.reminders.WeighInReminder.sync(context) }
         }
+        // Reminders follow the restored settings and medicines.
+        runCatching {
+            if (settings.settings.first().remindersEnabled) dev.ytosko.neutrino.data.reminders.MealReminders.scheduleAll(context)
+            else dev.ytosko.neutrino.data.reminders.MealReminders.cancelAll(context)
+        }
+        runCatching { dev.ytosko.neutrino.data.reminders.DoseReminders.sync(context) }
+        runCatching { dev.ytosko.neutrino.data.reminders.WeeklySummary.sync(context) }
         // The switches aren't in backups; turn on whatever the restored medicines need.
         val kinds = data.medicines.filterNot { it.archived }.mapTo(HashSet()) { it.kind }
         if (dev.ytosko.neutrino.data.medicine.MedicineKind.Medicine.name in kinds) settings.setTakesMedicine(true)

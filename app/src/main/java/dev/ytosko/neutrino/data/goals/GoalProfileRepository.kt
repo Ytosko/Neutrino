@@ -11,6 +11,7 @@ import dev.ytosko.neutrino.domain.goals.HeightUnit
 import dev.ytosko.neutrino.domain.goals.Physique
 import dev.ytosko.neutrino.domain.goals.PlanUnit
 import dev.ytosko.neutrino.domain.goals.Sex
+import dev.ytosko.neutrino.domain.goals.LiverTest
 import dev.ytosko.neutrino.domain.goals.WeightEntry
 import dev.ytosko.neutrino.domain.goals.WeightUnit
 import dev.ytosko.neutrino.domain.goals.Workout
@@ -65,7 +66,26 @@ class GoalProfileRepository(private val context: Context, private val onChanged:
         val conditions = stringPreferencesKey("conditions")
         val weighIn = stringPreferencesKey("weigh_in")
         val weights = stringPreferencesKey("weights")
+        val liverTests = stringPreferencesKey("liver_tests")
     }
+
+    /** The fatty liver log (FibroScan and blood results), oldest first. */
+    val liverTests: Flow<List<LiverTest>> = context.goalStore.data.map { p ->
+        p[Keys.liverTests]?.let { runCatching { json.decodeFromString<List<LiverTest>>(it) }.getOrNull() }.orEmpty().sortedBy { it.epochDay }
+    }
+
+    /** Adds a result, or replaces the one with the same id. */
+    suspend fun saveLiverTest(t: LiverTest) = change { p ->
+        val list = decodeLiver(p).filterNot { it.id == t.id } + t
+        p[Keys.liverTests] = json.encodeToString(list.sortedBy { it.epochDay })
+    }
+
+    suspend fun removeLiverTest(id: String) = change { p ->
+        p[Keys.liverTests] = json.encodeToString(decodeLiver(p).filterNot { it.id == id })
+    }
+
+    private fun decodeLiver(p: Preferences): List<LiverTest> =
+        p[Keys.liverTests]?.let { runCatching { json.decodeFromString<List<LiverTest>>(it) }.getOrNull() }.orEmpty()
 
     /** Every weigh-in, oldest first. */
     val weights: Flow<List<WeightEntry>> = context.goalStore.data.map { p ->

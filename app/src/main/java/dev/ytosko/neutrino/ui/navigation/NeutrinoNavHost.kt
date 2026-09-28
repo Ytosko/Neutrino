@@ -117,6 +117,7 @@ sealed interface Route {
     @Serializable data object SettingsWorkouts : Route
     @Serializable data object SettingsConditions : Route
     @Serializable data object SettingsWeight : Route
+    @Serializable data object SettingsLiver : Route
     /** One AI model's setup: an existing one ([configId]) or a new one of [provider]. */
     @Serializable data class AiConfigEdit(val configId: String? = null, val provider: String? = null, val voice: Boolean = false) : Route
 }
@@ -356,7 +357,14 @@ fun NeutrinoNavHost(startDestination: Route, modifier: Modifier = Modifier) {
             )
         }
         composable<Route.SettingsConditions> {
-            ConditionsScreen(viewModel = goalsViewModel(), onBack = navController::popBackStack)
+            ConditionsScreen(
+                viewModel = goalsViewModel(),
+                onOpenLiver = { navController.navigate(Route.SettingsLiver) },
+                onBack = navController::popBackStack,
+            )
+        }
+        composable<Route.SettingsLiver> {
+            dev.ytosko.neutrino.ui.settings.LiverScreen(viewModel = goalsViewModel(), onBack = navController::popBackStack)
         }
         composable<Route.AddMeter> {
             AddMeterScreen(

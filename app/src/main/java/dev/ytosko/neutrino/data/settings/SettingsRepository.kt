@@ -132,6 +132,14 @@ data class AppSettings(
  */
 class SettingsRepository(context: Context, private val cipher: SecretCipher) {
 
+    private companion object {
+        /** Settings that belong to this phone, or travel in the snapshot instead. */
+        val NOT_BACKED_UP = setOf(
+            "onboarding_complete", "notifications_asked", "glucose_import", "glucose_imported_until", "app_lock",
+            "voice_enabled", "voice_config", "voice_speak",
+        )
+    }
+
     private val store = context.applicationContext.settingsStore
 
     private object Keys {
@@ -415,6 +423,46 @@ class SettingsRepository(context: Context, private val cipher: SecretCipher) {
      * Replaces AI settings with a backup's, re-encrypting keys for this install, and finishes
      * onboarding. Backups from before several models carry one key per provider; those are migrated.
      */
+    /**
+     * Every other setting (glucose unit and range, meal times, reminders, Ramadan, goals, widget,
+     * weekly summary…), for backups, each as "type:value". AI models and voice travel in
+     * [snapshot]; device-bound ones (app lock, glucose import, first-run flags) stay behind.
+     */
+    suspend fun exportPreferences(): Map<String, String> = preferences.first().asMap().mapNotNull { (k, v) ->
+        if (!backedUp(k.name)) return@mapNotNull null
+        val encoded = when (v) {
+            is Boolean -> "b:$v"
+            is Int -> "i:$v"
+            is Long -> "l:$v"
+            is Double -> "d:$v"
+            is Float -> "f:$v"
+            is String -> "s:$v"
+            else -> null
+        }
+        encoded?.let { k.name to it }
+    }.toMap()
+
+    /** Replaces the settings [exportPreferences] covers with a backup's. */
+    suspend fun importPreferences(values: Map<String, String>) {
+        store.edit { p ->
+            p.asMap().keys.filter { backedUp(it.name) }.forEach { p.remove(it) }
+            values.forEach { (name, encoded) ->
+                if (!backedUp(name)) return@forEach
+                val value = encoded.substringAfter(':')
+                when (encoded.substringBefore(':')) {
+                    "b" -> value.toBooleanStrictOrNull()?.let { p[booleanPreferencesKey(name)] = it }
+                    "i" -> value.toIntOrNull()?.let { p[intPreferencesKey(name)] = it }
+                    "l" -> value.toLongOrNull()?.let { p[androidx.datastore.preferences.core.longPreferencesKey(name)] = it }
+                    "d" -> value.toDoubleOrNull()?.let { p[androidx.datastore.preferences.core.doublePreferencesKey(name)] = it }
+                    "f" -> value.toFloatOrNull()?.let { p[androidx.datastore.preferences.core.floatPreferencesKey(name)] = it }
+                    "s" -> p[stringPreferencesKey(name)] = value
+                }
+            }
+        }
+    }
+
+    private fun backedUp(name: String): Boolean = !name.startsWith("ai_") && name !in NOT_BACKED_UP
+
     suspend fun restore(snapshot: SettingsSnapshot) {
         restoreVoice(snapshot)
         val current = decodeConfigs(preferences.first()[Keys.aiConfigs])

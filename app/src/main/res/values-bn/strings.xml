@@ -742,6 +742,28 @@
     <string name="weight_last_hint">শেষ ওজন: %1$s</string>
     <string name="weight_date">তারিখ</string>
     <string name="weight_today">আজ</string>
+    <string name="liver_body">প্রতিটি ফাইব্রোস্ক্যান আর রক্ত পরীক্ষা তারিখসহ লিখে রাখুন। ইতিহাস থেকে বোঝা যায় লিভার কেমন আছে, আর এটা লক্ষ্যের সুপারিশে যায়।</string>
+    <string name="liver_chart_hint">মান দেখতে একটি বারে চাপুন</string>
+    <string name="liver_log">ফলাফল লিখুন</string>
+    <string name="liver_edit">ফলাফল বদলান</string>
+    <string name="liver_latest_scan">সর্বশেষ ফাইব্রোস্ক্যান</string>
+    <string name="liver_latest_blood">সর্বশেষ রক্ত পরীক্ষা</string>
+    <string name="liver_none_yet">এখনো নেই</string>
+    <string name="liver_no_results">এখনো কোনো ফলাফল নেই</string>
+    <string name="liver_this_month">এই মাসে</string>
+    <string name="liver_scan_section">ফাইব্রোস্ক্যান</string>
+    <string name="liver_blood_section">রক্ত পরীক্ষা</string>
+    <string name="liver_delete_title">এই ফলাফলটি মুছবেন?</string>
+    <string name="liver_remove_title">ফ্যাটি লিভার সরাবেন?</string>
+    <string name="liver_remove_body">লক্ষ্যের সুপারিশে এটা আর বিবেচনা করা হবে না। আবার যোগ করলে কাজে লাগবে বলে আপনার লেখা ফলাফলগুলো রাখা থাকবে।</string>
+    <plurals name="liver_months_ago">
+        <item quantity="one">%1$d মাস আগে</item>
+        <item quantity="other">%1$d মাস আগে</item>
+    </plurals>
+    <plurals name="liver_years_ago">
+        <item quantity="one">%1$d বছর আগে</item>
+        <item quantity="other">%1$d বছর আগে</item>
+    </plurals>
     <string name="conditions_title">আমার অসুখ</string>
     <string name="conditions_none">নেই</string>
     <string name="conditions_body">আপনার যে অসুখগুলো আছে আর সর্বশেষ মানগুলো যোগ করুন। এগুলো শুধু লক্ষ্যের সুপারিশে ব্যবহার হয়।</string>

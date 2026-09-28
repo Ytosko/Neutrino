@@ -23,6 +23,8 @@ import dev.ytosko.neutrino.domain.goals.GoalFacts
 import dev.ytosko.neutrino.domain.goals.GoalMath
 import dev.ytosko.neutrino.domain.goals.Intakes
 import dev.ytosko.neutrino.domain.goals.Physique
+import dev.ytosko.neutrino.domain.goals.LiverLog
+import dev.ytosko.neutrino.domain.goals.LiverTest
 import dev.ytosko.neutrino.domain.goals.WeightEntry
 import dev.ytosko.neutrino.domain.goals.Workout
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -84,7 +86,17 @@ class GoalsViewModel(
 
     init {
         viewModelScope.launch {
-            _savedConditions.value = profile.conditions.first()
+            val saved = profile.conditions.first()
+            // Liver values saved before the log existed become its first result.
+            val old = LiverLog.fromOld(saved, LocalDate.now())
+            if (old != null && profile.liverTests.first().isEmpty()) {
+                profile.saveLiverTest(old)
+                val cleared = saved.copy(cap = null, kpa = null, steatosisGrade = null, fibrosisGrade = null, alt = null, ast = null, liverTestDay = null)
+                profile.setConditions(cleared)
+                _savedConditions.value = cleared
+            } else {
+                _savedConditions.value = saved
+            }
             // A weight saved before the history existed becomes its first entry.
             val kg = profile.physique.first().weightKg
             if (kg != null && profile.weights.first().isEmpty()) {
@@ -103,6 +115,19 @@ class GoalsViewModel(
     fun setPhysique(p: Physique) = viewModelScope.launch { profile.setPhysique(p) }
 
     val weights: StateFlow<List<WeightEntry>> = profile.weights.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    val liverTests: StateFlow<List<LiverTest>> = profile.liverTests.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /** Logs a liver result (or saves an edited one); logging turns fatty liver on. */
+    fun saveLiverTest(t: LiverTest) = viewModelScope.launch {
+        profile.saveLiverTest(t)
+        val c = profile.conditions.first()
+        if (!c.liver) setConditions(c.copy(liver = true)).join()
+    }
+
+    fun removeLiverTest(id: String) = viewModelScope.launch { profile.removeLiverTest(id) }
+
+    fun newLiverTestId(): String = "liver-" + UUID.randomUUID().toString()
 
     /** A weigh-in: kept in the history (the newest is the current weight), sent to Health Connect if allowed. */
     fun setWeight(kg: Double, at: Instant = Instant.now()) = viewModelScope.launch {
@@ -159,6 +184,7 @@ class GoalsViewModel(
             val facts = GoalFacts.build(
                 p, workouts.value, conditions.value, meterAverage.value, medicineList.value.map(::describe),
                 weights = weights.value,
+                liverTests = liverTests.value,
             )
             val bangla = Locale.getDefault().language == "bn"
             try {

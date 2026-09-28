@@ -41,6 +41,7 @@ object GoalFacts {
         today: LocalDate = LocalDate.now(),
         weights: List<WeightEntry> = emptyList(),
         nowMs: Long = System.currentTimeMillis(),
+        liverTests: List<LiverTest> = emptyList(),
     ): List<String> {
         val out = mutableListOf<String>()
         fun f(v: Double) = String.format(Locale.US, "%.1f", v)
@@ -106,14 +107,10 @@ object GoalFacts {
                 testAge(conditions.thyroidTestDay, today)
         }
         if (conditions.liver) {
-            val values = listOfNotNull(
-                conditions.steatosis?.let { "steatosis S$it" + (conditions.cap?.let { c -> " (CAP $c dB/m)" } ?: "") },
-                conditions.fibrosis?.let { "fibrosis ${if (it <= 1) "F0-F1" else "F$it"}" + (conditions.kpa?.let { k -> " (${f(k)} kPa)" } ?: "") },
-                conditions.alt?.let { "ALT $it U/L" },
-                conditions.ast?.let { "AST $it U/L" },
-            )
-            out += "Condition: fatty liver" + (if (values.isEmpty()) "" else ", " + values.joinToString(", ")) +
-                testAge(conditions.liverTestDay, today)
+            // The whole log, newest last (at most 10), so the AI sees how the liver is progressing.
+            val log = liverTests.filterNot { it.isEmpty }.sortedBy { it.epochDay }.takeLast(10)
+            out += "Condition: fatty liver" + if (log.isEmpty()) ", no results logged" else ", results below"
+            log.forEach { t -> out += "Liver result ${t.date}" + testAge(t.epochDay, today) + ": " + t.describe() }
         }
         if (!conditions.any) out += "Conditions: none given"
 

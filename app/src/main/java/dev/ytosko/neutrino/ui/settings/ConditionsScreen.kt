@@ -51,6 +51,8 @@ import dev.ytosko.neutrino.R
 import dev.ytosko.neutrino.domain.GlucoseUnit
 import dev.ytosko.neutrino.domain.goals.Conditions
 import dev.ytosko.neutrino.domain.goals.HormoneUnit
+import dev.ytosko.neutrino.domain.goals.LiverLog
+import dev.ytosko.neutrino.domain.goals.LiverTest
 import dev.ytosko.neutrino.ui.components.SetupScaffold
 import dev.ytosko.neutrino.ui.glucose.LocalGlucoseUnit
 import dev.ytosko.neutrino.ui.theme.NeutrinoTheme
@@ -98,7 +100,7 @@ internal fun conditionName(kind: ConditionKind): String = stringResource(
     },
 )
 
-private fun conditionIcon(kind: ConditionKind): Int = when (kind) {
+internal fun conditionIcon(kind: ConditionKind): Int = when (kind) {
     ConditionKind.Diabetes -> R.drawable.ic_activity
     ConditionKind.BloodPressure -> R.drawable.ic_heart_pulse
     ConditionKind.Thyroid -> R.drawable.ic_pill
@@ -106,18 +108,18 @@ private fun conditionIcon(kind: ConditionKind): Int = when (kind) {
 }
 
 @Composable
-private fun conditionColor(kind: ConditionKind): Color = when (kind) {
+internal fun conditionColor(kind: ConditionKind): Color = when (kind) {
     ConditionKind.Diabetes -> NeutrinoTheme.colors.glucose
     ConditionKind.BloodPressure -> NeutrinoTheme.colors.rose.solid
     ConditionKind.Thyroid -> NeutrinoTheme.colors.violet.solid
     ConditionKind.Liver -> NeutrinoTheme.colors.amber.solid
 }
 
-private fun fibrosisLabel(grade: Int): String = if (grade <= 1) "F0–F1" else "F$grade"
+internal fun fibrosisLabel(grade: Int): String = if (grade <= 1) "F0–F1" else "F$grade"
 
 /** One line under the name: the values that matter, or that there are none yet. */
 @Composable
-private fun conditionSummary(kind: ConditionKind, c: Conditions, meterAverage: Double?, unit: GlucoseUnit): String {
+private fun conditionSummary(kind: ConditionKind, c: Conditions, meterAverage: Double?, unit: GlucoseUnit, liver: List<LiverTest>): String {
     val none = stringResource(R.string.conditions_no_values)
     return when (kind) {
         ConditionKind.Diabetes -> c.avgGlucoseMmol?.let { stringResource(R.string.conditions_avg_value, unit.format(it), unit.label) }
@@ -130,11 +132,16 @@ private fun conditionSummary(kind: ConditionKind, c: Conditions, meterAverage: D
             c.ft3?.let { "FT3 ${formatNumber(it)}" },
             c.ft4?.let { "FT4 ${formatNumber(it)}" },
         ).joinToString(" · ").ifEmpty { none }
-        ConditionKind.Liver -> listOfNotNull(
-            c.steatosis?.let { "S$it" },
-            c.fibrosis?.let(::fibrosisLabel),
-            c.alt?.let { "ALT $it" },
-        ).joinToString(" · ").ifEmpty { none }
+        ConditionKind.Liver -> {
+            // The latest FibroScan grades and the latest ALT, from the log.
+            val scan = LiverLog.latestScan(liver)
+            val blood = LiverLog.latestBlood(liver)
+            listOfNotNull(
+                scan?.steatosis?.let { "S$it" },
+                scan?.fibrosis?.let(::fibrosisLabel),
+                blood?.alt?.let { "ALT $it" },
+            ).joinToString(" · ").ifEmpty { stringResource(R.string.liver_no_results) }
+        }
     }
 }
 
@@ -144,8 +151,9 @@ private fun conditionSummary(kind: ConditionKind, c: Conditions, meterAverage: D
  * rest. Used only for goal suggestions.
  */
 @Composable
-fun ConditionsScreen(viewModel: GoalsViewModel, onBack: () -> Unit) {
+fun ConditionsScreen(viewModel: GoalsViewModel, onOpenLiver: () -> Unit, onBack: () -> Unit) {
     val saved by viewModel.savedConditions.collectAsStateWithLifecycle()
+    val liverTests by viewModel.liverTests.collectAsStateWithLifecycle()
     val meterAverage by viewModel.meterAverage.collectAsStateWithLifecycle()
     val unit = LocalGlucoseUnit.current
     var editing by remember { mutableStateOf<ConditionKind?>(null) }
@@ -197,7 +205,8 @@ fun ConditionsScreen(viewModel: GoalsViewModel, onBack: () -> Unit) {
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .heightIn(min = 60.dp)
-                                .clickable(role = Role.Button) { editing = kind }
+                                // Fatty liver has its own page with the log of results.
+                                .clickable(role = Role.Button) { if (kind == ConditionKind.Liver) onOpenLiver() else editing = kind }
                                 .padding(start = 14.dp, end = Spacing.sm, top = 8.dp, bottom = 8.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(14.dp),
@@ -206,7 +215,7 @@ fun ConditionsScreen(viewModel: GoalsViewModel, onBack: () -> Unit) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(conditionName(kind), style = MaterialTheme.typography.bodyLarge)
                                 Text(
-                                    conditionSummary(kind, c, meterAverage, unit),
+                                    conditionSummary(kind, c, meterAverage, unit, liverTests),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
@@ -244,7 +253,12 @@ fun ConditionsScreen(viewModel: GoalsViewModel, onBack: () -> Unit) {
                                 .clip(RoundedCornerShape(8.dp))
                                 .clickable(role = Role.Button) {
                                     picking = false
-                                    editing = kind
+                                    if (kind == ConditionKind.Liver) {
+                                        viewModel.setConditions(c!!.with(kind))
+                                        onOpenLiver()
+                                    } else {
+                                        editing = kind
+                                    }
                                 }
                                 .padding(horizontal = 4.dp),
                             verticalAlignment = Alignment.CenterVertically,
@@ -380,53 +394,7 @@ private fun ConditionSheet(
                     Note(stringResource(R.string.conditions_thyroid_note))
                 }
 
-                ConditionKind.Liver -> {
-                    var cap by remember { mutableStateOf(c.cap?.toString().orEmpty()) }
-                    var kpa by remember { mutableStateOf(c.kpa?.let(::formatNumber).orEmpty()) }
-                    var alt by remember { mutableStateOf(c.alt?.toString().orEmpty()) }
-                    var ast by remember { mutableStateOf(c.ast?.toString().orEmpty()) }
-                    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                        Field(cap, { t ->
-                            cap = digits(t).take(3)
-                            c = c.copy(cap = cap.toIntOrNull()?.takeIf { it in 100..400 })
-                        }, "CAP", "dB/m", Modifier.weight(1f))
-                        Field(kpa, { t ->
-                            kpa = decimals(t)
-                            c = c.copy(kpa = parseNumber(kpa)?.takeIf { it in 1.0..75.0 })
-                        }, stringResource(R.string.liver_stiffness), "kPa", Modifier.weight(1f), decimal = true)
-                    }
-                    // The grades: worked out from the numbers, or picked from the report without them.
-                    GradePicker(
-                        title = stringResource(R.string.liver_fat_grade),
-                        grades = listOf(0, 1, 2, 3),
-                        label = { "S$it" },
-                        describe = { steatosisWord(it) },
-                        fromNumbers = c.cap?.let(dev.ytosko.neutrino.domain.goals.LiverGrades::steatosis),
-                        picked = c.steatosisGrade,
-                        onPick = { c = c.copy(steatosisGrade = it) },
-                    )
-                    GradePicker(
-                        title = stringResource(R.string.liver_scar_grade),
-                        grades = listOf(1, 2, 3, 4),
-                        label = ::fibrosisLabel,
-                        describe = { fibrosisWord(it) },
-                        fromNumbers = c.kpa?.let(dev.ytosko.neutrino.domain.goals.LiverGrades::fibrosis),
-                        picked = c.fibrosisGrade,
-                        onPick = { c = c.copy(fibrosisGrade = it) },
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                        Field(alt, { t ->
-                            alt = digits(t)
-                            c = c.copy(alt = alt.toIntOrNull()?.takeIf { it in 1..3_000 })
-                        }, "ALT", "U/L", Modifier.weight(1f))
-                        Field(ast, { t ->
-                            ast = digits(t)
-                            c = c.copy(ast = ast.toIntOrNull()?.takeIf { it in 1..3_000 })
-                        }, stringResource(R.string.liver_ast_optional), "U/L", Modifier.weight(1f))
-                    }
-                    TestDateRow(c.liverTestDay) { c = c.copy(liverTestDay = it) }
-                    Note(stringResource(R.string.liver_note))
-                }
+                ConditionKind.Liver -> Unit // Its own page: LiverScreen.
             }
             Button(
                 onClick = { onSave(c) },
@@ -443,7 +411,7 @@ private fun ConditionSheet(
 }
 
 @Composable
-private fun steatosisWord(grade: Int): String = stringResource(
+internal fun steatosisWord(grade: Int): String = stringResource(
     when (grade) {
         0 -> R.string.liver_s0
         1 -> R.string.liver_s1
@@ -453,7 +421,7 @@ private fun steatosisWord(grade: Int): String = stringResource(
 )
 
 @Composable
-private fun fibrosisWord(grade: Int): String = stringResource(
+internal fun fibrosisWord(grade: Int): String = stringResource(
     when (grade) {
         1 -> R.string.liver_f1
         2 -> R.string.liver_f2
@@ -464,7 +432,7 @@ private fun fibrosisWord(grade: Int): String = stringResource(
 
 /** Shows the grade the numbers give; without numbers, chips to pick it from the report. */
 @Composable
-private fun GradePicker(
+internal fun GradePicker(
     title: String,
     grades: List<Int>,
     label: (Int) -> String,
@@ -496,7 +464,7 @@ private fun GradePicker(
 }
 
 @Composable
-private fun Note(text: String) {
+internal fun Note(text: String) {
     Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 

@@ -772,6 +772,28 @@
     <string name="weight_last_hint">Last weigh-in: %1$s</string>
     <string name="weight_date">Date</string>
     <string name="weight_today">Today</string>
+    <string name="liver_body">Log each FibroScan and blood test with its date. The history shows how your liver is doing and goes with goal suggestions.</string>
+    <string name="liver_chart_hint">Tap a bar to see its value</string>
+    <string name="liver_log">Log a result</string>
+    <string name="liver_edit">Edit result</string>
+    <string name="liver_latest_scan">Latest FibroScan</string>
+    <string name="liver_latest_blood">Latest blood test</string>
+    <string name="liver_none_yet">None yet</string>
+    <string name="liver_no_results">No results yet</string>
+    <string name="liver_this_month">This month</string>
+    <string name="liver_scan_section">FibroScan</string>
+    <string name="liver_blood_section">Blood test</string>
+    <string name="liver_delete_title">Delete this result?</string>
+    <string name="liver_remove_title">Remove fatty liver?</string>
+    <string name="liver_remove_body">Goal suggestions won\'t consider it any more. Your logged results are kept, in case you add it again.</string>
+    <plurals name="liver_months_ago">
+        <item quantity="one">%1$d month ago</item>
+        <item quantity="other">%1$d months ago</item>
+    </plurals>
+    <plurals name="liver_years_ago">
+        <item quantity="one">%1$d year ago</item>
+        <item quantity="other">%1$d years ago</item>
+    </plurals>
     <string name="conditions_title">My conditions</string>
     <string name="conditions_none">None</string>
     <string name="conditions_body">Add the conditions you have and your latest values. They are used only for goal suggestions.</string>

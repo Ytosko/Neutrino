@@ -120,12 +120,22 @@ class GoalsTest {
         assertEquals(4, LiverGrades.fibrosis(15.0))
         assertEquals(2, Conditions(liver = true, steatosisGrade = 2).steatosis)
         assertEquals(3, Conditions(liver = true, cap = 290, steatosisGrade = 1).steatosis)
-        val facts = GoalFacts.build(
-            man, emptyList(),
-            Conditions(liver = true, cap = 290, kpa = 8.5, alt = 62, liverTestDay = LocalDate.of(2026, 1, 20).toEpochDay()),
-            null, emptyList(), today,
+        // The whole log goes to the AI, oldest first, each with how long ago it was.
+        val tests = listOf(
+            LiverTest("a", LocalDate.of(2026, 5, 20).toEpochDay(), cap = 290, kpa = 8.5, alt = 62),
+            LiverTest("b", LocalDate.of(2026, 9, 10).toEpochDay(), alt = 39),
         )
-        assertTrue(facts.any { it.startsWith("Condition: fatty liver") && "S3 (CAP 290" in it && "F2" in it && "ALT 62" in it && "tested 8 months ago" in it })
+        val facts = GoalFacts.build(man, emptyList(), Conditions(liver = true), null, emptyList(), today, liverTests = tests)
+        val lines = facts.filter { it.startsWith("Liver result") }
+        assertEquals(2, lines.size)
+        assertTrue(lines[0].contains("2026-05-20") && "4 months ago" in lines[0] && "CAP 290 dB/m (S3)" in lines[0] && "8.5 kPa (F2)" in lines[0])
+        assertTrue(lines[1].contains("this month") && "ALT 39 U/L" in lines[1])
+        assertEquals(tests[0], LiverLog.latestScan(tests))
+        assertEquals(tests[1], LiverLog.latestBlood(tests))
+        // Values saved before the log existed become its first result.
+        val old = LiverLog.fromOld(Conditions(liver = true, alt = 50, liverTestDay = 20_000), today)!!
+        assertEquals(50, old.alt)
+        assertEquals(20_000L, old.epochDay)
     }
 
     @Test
