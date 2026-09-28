@@ -1,5 +1,11 @@
 package dev.ytosko.neutrino.ui.settings
 
+import androidx.compose.ui.draw.scale
+import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import dev.ytosko.neutrino.data.reminders.DoseReminders
 import dev.ytosko.neutrino.data.medicine.MedicineKind
@@ -198,6 +204,7 @@ fun SettingsScreen(
                 },
                 onClick = onOpenMeter,
             )
+            RowDivider()
             SettingRow(
                 icon = R.drawable.ic_chart_column,
                 tint = c.rose,
@@ -205,6 +212,7 @@ fun SettingsScreen(
                 value = appSettings.glucoseUnit.label,
                 onClick = { choosingUnit = true },
             )
+            RowDivider()
             SwitchRow(
                 icon = R.drawable.ic_heart_pulse,
                 tint = c.rose,
@@ -229,6 +237,7 @@ fun SettingsScreen(
                     }
                 },
             )
+            RowDivider()
             SwitchRow(
                 icon = R.drawable.ic_bell,
                 tint = c.rose,
@@ -243,6 +252,7 @@ fun SettingsScreen(
                     }
                 },
             )
+            RowDivider()
             SwitchRow(
                 icon = R.drawable.ic_smartphone,
                 tint = c.rose,
@@ -261,6 +271,7 @@ fun SettingsScreen(
                 checked = appSettings.takesMedicine,
                 onChange = { on -> scope.launch { repository.setTakesMedicine(on); DoseReminders.sync(context) } },
             )
+            RowDivider()
             SwitchRow(
                 icon = R.drawable.ic_syringe,
                 tint = c.cyan,
@@ -270,6 +281,7 @@ fun SettingsScreen(
                 onChange = { on -> scope.launch { repository.setUsesInsulin(on); DoseReminders.sync(context) } },
             )
             if (appSettings.medicinesOn) {
+                RowDivider()
                 val shown = medicineList.count {
                     (it.kindEnum == MedicineKind.Medicine && appSettings.takesMedicine) || (it.kindEnum == MedicineKind.Insulin && appSettings.usesInsulin)
                 }
@@ -312,6 +324,7 @@ fun SettingsScreen(
                 },
                 onClick = onOpenMeals,
             )
+            RowDivider()
             SwitchRow(
                 icon = R.drawable.ic_history,
                 tint = c.amber,
@@ -353,6 +366,7 @@ fun SettingsScreen(
                     }
                 },
             )
+            RowDivider()
             SwitchRow(
                 icon = R.drawable.ic_eye_off,
                 tint = c.slate,
@@ -373,7 +387,9 @@ fun SettingsScreen(
         }
         Section(stringResource(R.string.settings_section_about)) {
             SettingRow(icon = R.drawable.ic_shield_check, tint = c.slate, title = stringResource(R.string.settings_privacy), value = null, external = true) { uriHandler.openUri(privacyUrl) }
+            RowDivider()
             SettingRow(icon = R.drawable.ic_info, tint = c.slate, title = stringResource(R.string.settings_terms), value = null, external = true) { uriHandler.openUri(termsUrl) }
+            RowDivider()
             SettingRow(icon = R.drawable.ic_code, tint = c.slate, title = stringResource(R.string.settings_source), value = null, external = true) { uriHandler.openUri(sourceUrl) }
         }
         Text(
@@ -454,31 +470,48 @@ private fun SwitchRow(icon: Int, title: String, subtitle: String?, checked: Bool
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = ROW_MIN_HEIGHT)
+            .heightIn(min = ROW_HEIGHT)
             .toggleable(value = checked, role = Role.Switch) { on ->
                 haptics.performHapticFeedback(if (on) HapticFeedbackType.ToggleOn else HapticFeedbackType.ToggleOff)
                 onChange(on)
             }
-            .padding(horizontal = Spacing.md, vertical = ROW_PADDING),
+            .padding(horizontal = ROW_SIDE, vertical = ROW_VERTICAL),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(ICON_GAP),
     ) {
-        Icon(painterResource(icon), contentDescription = null, tint = tint.solid, modifier = Modifier.size(ICON_SIZE))
-        RowText(title, subtitle, null, Modifier.weight(1f))
-        Switch(checked = checked, onCheckedChange = null)
+        IosIcon(icon, tint)
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (subtitle != null) {
+                Text(
+                    subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        // A little smaller than Android's default, closer to the iPhone look.
+        Switch(checked = checked, onCheckedChange = null, modifier = Modifier.scale(0.85f))
     }
 }
 
 @Composable
 private fun Section(title: String, content: @Composable () -> Unit) {
-    Column(modifier = Modifier.padding(bottom = Spacing.md)) {
+    Column(modifier = Modifier.padding(bottom = Spacing.lg), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(
-            title,
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(start = Spacing.md, top = Spacing.xs, bottom = Spacing.xs),
+            title.uppercase(),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = ROW_SIDE),
         )
-        content()
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(GROUP_CORNER))
+                .background(MaterialTheme.colorScheme.surfaceContainerLowest),
+        ) { content() }
     }
 }
 
@@ -495,14 +528,24 @@ private fun SettingRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = ROW_MIN_HEIGHT)
+            .heightIn(min = ROW_HEIGHT)
             .clickable(role = Role.Button, onClick = onClick)
-            .padding(horizontal = Spacing.md, vertical = ROW_PADDING),
+            .padding(start = ROW_SIDE, end = Spacing.sm, top = ROW_VERTICAL, bottom = ROW_VERTICAL),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(ICON_GAP),
     ) {
-        Icon(painterResource(icon), contentDescription = null, tint = tint.solid, modifier = Modifier.size(ICON_SIZE))
-        RowText(title, value, valueColor, Modifier.weight(1f))
+        IosIcon(icon, tint)
+        Text(title, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        // The value sits on the right in grey, like iPhone settings, shortened if it's long.
+        Text(
+            value.orEmpty(),
+            style = MaterialTheme.typography.bodyMedium,
+            color = valueColor ?: MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.End,
+            modifier = Modifier.weight(1f),
+        )
         Icon(
             painterResource(if (external) R.drawable.ic_external_link else R.drawable.ic_chevron_right),
             contentDescription = null,
@@ -512,24 +555,30 @@ private fun SettingRow(
     }
 }
 
-/** Title and summary of a settings row: the summary is kept to two lines, like Android's Settings. */
+/** A hairline that starts after the row's icon, like iPhone settings. */
 @Composable
-private fun RowText(title: String, summary: String?, summaryColor: Color?, modifier: Modifier) {
-    Column(modifier = modifier) {
-        Text(title, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        if (summary != null) {
-            Text(
-                summary,
-                style = MaterialTheme.typography.bodyMedium,
-                color = summaryColor ?: MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
+private fun RowDivider() {
+    HorizontalDivider(
+        modifier = Modifier.padding(start = ROW_SIDE + ICON_BOX + ICON_GAP),
+        thickness = 0.5.dp,
+        color = MaterialTheme.colorScheme.outlineVariant,
+    )
+}
+
+/** iPhone-style icon: a small rounded square in the row's colour with a white symbol. */
+@Composable
+private fun IosIcon(icon: Int, tint: Tint) {
+    Box(
+        modifier = Modifier.size(ICON_BOX).clip(RoundedCornerShape(7.dp)).background(tint.solid),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(painterResource(icon), contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
     }
 }
 
-private val ROW_MIN_HEIGHT = 56.dp
-private val ROW_PADDING = 12.dp
-private val ICON_SIZE = 24.dp
-private val ICON_GAP = 20.dp
+private val ROW_HEIGHT = 48.dp
+private val ROW_SIDE = 14.dp
+private val ROW_VERTICAL = 8.dp
+private val ICON_BOX = 29.dp
+private val ICON_GAP = 14.dp
+private val GROUP_CORNER = 12.dp
