@@ -58,16 +58,25 @@ based on your local time, so they show up in Google Health, Fitbit and any other
   change after each food, optional "time to test" reminder, and optional import from CGM apps through Health Connect
 - **Medicines and insulin (optional):** your list with MedEx name suggestions, one-tap dose logging, reminders with a
   "Taken" button, and doses in reports; records only, never dose advice
-- **Log again:** press and hold a meal to log it again, today or on its own day; **daily goals** for carbs, protein,
-  fat, calories and water
+- **Log again:** press and hold a meal to log it again, today or on its own day; **your usual meals** one tap away
+- **More photos:** up to 5 per meal (duplicates refused), nutrition label photos, and **home recipes** worked out per serving
+- **Daily goals** for carbs, protein, fat, calories and water, optionally **suggested by your AI** from your physique,
+  workouts, conditions (diabetes, blood pressure, thyroid, a dated fatty liver log of FibroScan and ALT/AST) and
+  medicines; kept within safe limits and saved only when you confirm
+- **Weight:** full history with 7-day to 12-month charts, edit or add past weigh-ins, and a weekly weigh-in reminder
+- **Ramadan mode (optional):** Sehri and Iftar from [Ummah API](https://ummahapi.com) for a city you pick or your
+  approximate location (checked only while the app is open); medicine reminders move with the fast
 - **Widgets and shortcuts:** today's macro rings, one-tap water, a camera button and the latest glucose; plus a small
   latest-glucose widget
 - **Reports:** a PDF report for your doctor and a full CSV export, made on the phone
 - **Privacy:** optional app lock (fingerprint / screen lock) and hiding from recent apps
 - **Languages:** English and Bangla (বাংলা)
-- **Health Connect:** writes `NutritionRecord`, `HydrationRecord` and `BloodGlucoseRecord`; reads nothing, except other
-  apps' `BloodGlucoseRecord` if you turn on glucose import
-- **Backups:** encrypted, automatic on the phone (survives uninstall), optional Google Drive, restore on reinstall
+- **Health Connect:** writes `NutritionRecord`, `HydrationRecord`, `BloodGlucoseRecord` and `WeightRecord`; reads nothing,
+  except other apps' `BloodGlucoseRecord` if you turn on glucose import
+- **Backups:** encrypted, automatic on the phone (survives uninstall), optional Google Drive, restore on reinstall;
+  everything is included (meals and photos, glucose, medicines, goals, conditions, weight and liver history, settings)
+- **Location (optional):** `ACCESS_COARSE_LOCATION` only for Ramadan mode's "Use my location", only while the app is
+  open, rounded to about 10 km and sent only to Ummah API; never in the background
 
 ## Repository layout
 

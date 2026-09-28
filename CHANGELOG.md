@@ -2,6 +2,42 @@
 
 Every release has a section here, headed `## [x.y.z] - YYYY-MM-DD` with an optional ` · Release name`. The release workflow publishes the section as the GitHub release notes (and the name as its title), and refuses to release a version that has none.
 
+## [1.0.12] - 2026-09-28 · v1.11-NeutrinoBuddy
+
+Daily goals worked out for you, your weight and health over time, Ramadan mode, recipes, and a new Settings.
+
+### Daily goals, suggested for you
+- **A new Daily goals page:** "Your day" shows your calories and how carbs, protein and fat share them; each goal opens a sheet with a big number, hold-to-repeat − and +, and common values.
+- **Physique:** date of birth (your age keeps itself up to date), sex, height (cm or ft/in), current and target weight (kg or lb) and how long you want to take.
+- **Workouts:** walking (steps, time, distance), running (time, distance) and cycling (time), each with how many days a week.
+- **My conditions:** diabetes (average blood sugar, filled in from your meter's last 30 days), high blood pressure (top and bottom numbers), thyroid (TSH, FT3, FT4, with a test date) and fatty liver.
+- **Fatty liver log:** every FibroScan (CAP, stiffness, or just the grades) and blood test (ALT, AST) with its date, newest first, the latest of each on top and a trend chart. The S and F grades are worked out from the numbers.
+- **Recalculate my intakes (✨):** shows what it will use, asks about workouts if you added none, then your AI suggests calories, carbs, protein, fat and water, with a reason for each and notes on medicines that may affect the plan. It starts from numbers worked out on the phone and never goes below a safe minimum. You can change any value; nothing is saved until you tap **Confirm intakes**.
+
+### Weight
+- **Weight page:** your latest weight, how it changed and what's left to your target, a chart for 7 days, 1, 6 or 12 months, and every weigh-in. Add one for an earlier day; tap to edit, touch and hold to edit or delete.
+- **Weekly weigh-in reminder** (Monday 9 AM unless you change it) opens the Weight page.
+- **Health Connect:** each weigh-in is saved there too, once you allow Weight.
+
+### Ramadan mode
+- **Sehri and Iftar become meals** during Ramadan, with their reminders, from Ummah API for your city, or for where you are with **Use my location** (approximate, only while Neutrino is open).
+- **Medicines move with the fast:** morning ones 30 minutes before Sehri ends, midday and afternoon ones at Iftar; evening ones stay.
+
+### Meals
+- **Up to 5 photos per meal,** and the same photo is never counted twice.
+- **Nutrition labels:** when a photo shows a packet's nutrition facts, Neutrino reads the numbers instead of estimating them.
+- **Home recipes:** type what went in, and Neutrino works out a serving.
+- **Your usual meals** in Log a meal (at most two): one tap logs them again.
+- **Your week in words:** a short weekly recap at the bottom of the Health page.
+
+### Voice
+- **Start and stop sounds** when you talk to Neutrino, and **Log by voice on the widget**.
+
+### Settings and backups
+- **A new Settings page** in iPhone-style groups: AI, Health, Meals, Your data, Privacy and General, and a separate Glucose settings page.
+- **Backups include everything:** besides meals, photos, glucose and medicines, now your goals, physique, conditions, workouts, the weight and liver history, and all app settings. Phone-bound settings like app lock stay behind.
+- **Fixed:** an empty strip no longer sits at the bottom of Meals and reminders, Export and Glucose meters.
+
 ## [1.0.11] - 2026-09-28 · v1.10-NeutrinoBuddy
 
 OpenRouter, and Neutrino without internet.

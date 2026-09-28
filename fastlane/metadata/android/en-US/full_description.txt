@@ -16,7 +16,10 @@
 <li>Food search: your foods, about 750 built-in foods with a big South Asian list (in English and Bangla), Open Food Facts for packaged products, or AI</li>
 <li>Everyday units: plate, bowl, piece, cup, glass as well as g, ml and more</li>
 <li>Health page: day, week, month or year, goal lines, and an estimated A1c (GMI)</li>
-<li>Daily goals for carbs, protein, fat, calories and water; water logging</li>
+<li>Up to 5 photos per meal, nutrition label photos, home recipes and your usual meals</li>
+<li>Daily goals for carbs, protein, fat, calories and water, optionally suggested by your AI from your physique, workouts, conditions (diabetes, blood pressure, thyroid, fatty liver) and medicines; water logging</li>
+<li>Weight history with charts and an optional weekly weigh-in reminder</li>
+<li>Optional Ramadan mode: Sehri and Iftar times for your city or approximate location, with medicine reminders that move with the fast</li>
 <li>Bluetooth glucose meters (Bluetooth Glucose Profile, e.g. CONTOUR PLUS ELITE), or readings typed in, in mmol/L or mg/dL</li>
 <li>Glucose before and 2 hours after each meal, your usual change after each food, time in range, test reminders</li>
 <li>Optional import of readings that CGM apps (e.g. xDrip+, Juggluco) save to Health Connect</li>
