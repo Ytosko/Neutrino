@@ -352,6 +352,7 @@ fun ReviewScreen(
             onDate = viewModel::setDate,
             onTime = viewModel::setTime,
             onDismiss = { showMealDetails = false },
+            ramadan = appSettings?.ramadan == true,
         )
     }
 
@@ -795,6 +796,8 @@ private fun MealDetailsDialog(
     onDate: (LocalDate) -> Unit,
     onTime: (LocalTime) -> Unit,
     onDismiss: () -> Unit,
+    /** Ramadan mode is on: Sehri and Iftar are offered too. */
+    ramadan: Boolean = false,
 ) {
     val context = LocalContext.current
     var pickDate by remember { mutableStateOf(false) }
@@ -808,7 +811,9 @@ private fun MealDetailsDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 Text(stringResource(R.string.review_meal_type), style = MaterialTheme.typography.titleSmall)
-                listOf(listOf(MealType.Breakfast, MealType.Lunch), listOf(MealType.Snack, MealType.Dinner)).forEach { row ->
+                // Sehri and Iftar are offered in Ramadan mode, and for a meal already saved as one.
+                val ramadanRow = listOf(MealType.Sehri, MealType.Iftar).takeIf { ramadan || state.mealType in it }
+                (listOf(listOf(MealType.Breakfast, MealType.Lunch), listOf(MealType.Snack, MealType.Dinner)) + listOfNotNull(ramadanRow)).forEach { row ->
                     Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
                         row.forEach { type ->
                             MealTypeTile(type, selected = state.mealType == type, onClick = { onMealType(type) }, modifier = Modifier.weight(1f))

@@ -91,6 +91,8 @@ object TestReminders {
                 MealType.Breakfast -> R.string.meal_breakfast
                 MealType.Lunch -> R.string.meal_lunch
                 MealType.Dinner -> R.string.meal_dinner
+                MealType.Sehri -> R.string.meal_sehri
+                MealType.Iftar -> R.string.meal_iftar
                 MealType.Snack -> R.string.meal_snack
             },
         ).lowercase()

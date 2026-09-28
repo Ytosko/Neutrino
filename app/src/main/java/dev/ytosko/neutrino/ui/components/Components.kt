@@ -290,6 +290,8 @@ fun mealTypeLabel(type: MealType): String = stringResource(
         MealType.Lunch -> R.string.meal_lunch
         MealType.Dinner -> R.string.meal_dinner
         MealType.Snack -> R.string.meal_snack
+        MealType.Sehri -> R.string.meal_sehri
+        MealType.Iftar -> R.string.meal_iftar
     },
 )
 
@@ -302,6 +304,8 @@ fun mealTypeColors(type: MealType): Pair<Color, Color> {
         MealType.Lunch -> colors.protein to colors.proteinContainer
         MealType.Snack -> colors.fat to colors.fatContainer
         MealType.Dinner -> colors.water to colors.waterContainer
+        MealType.Sehri -> colors.indigo.content to colors.indigo.container
+        MealType.Iftar -> colors.coral.content to colors.coral.container
     }
 }
 
@@ -311,4 +315,6 @@ fun mealTypeIcon(type: MealType): Int = when (type) {
     MealType.Lunch -> R.drawable.ic_sun
     MealType.Snack -> R.drawable.ic_cookie
     MealType.Dinner -> R.drawable.ic_moon
+    MealType.Sehri -> R.drawable.ic_star
+    MealType.Iftar -> R.drawable.ic_sunset
 }

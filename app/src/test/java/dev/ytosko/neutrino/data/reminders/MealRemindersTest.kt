@@ -22,7 +22,15 @@ class MealRemindersTest {
     fun `reminders are at 10, 14 and 18`() {
         assertEquals(
             listOf(LocalTime.of(10, 0), LocalTime.of(14, 0), LocalTime.of(18, 0)),
-            MealReminder.entries.map { it.time },
+            MealReminder.active(dev.ytosko.neutrino.data.settings.AppSettings()).map { it.time },
         )
+    }
+
+    @Test
+    fun `Ramadan mode swaps the three for Sehri and Iftar`() {
+        val ramadan = dev.ytosko.neutrino.data.settings.AppSettings(ramadan = true, sehriEnds = LocalTime.of(4, 40), iftar = LocalTime.of(17, 50))
+        assertEquals(listOf(MealReminder.Sehri, MealReminder.Iftar), MealReminder.active(ramadan))
+        assertEquals(LocalTime.of(3, 55), MealReminder.Sehri.timeIn(ramadan))
+        assertEquals(LocalTime.of(18, 20), MealReminder.Iftar.timeIn(ramadan))
     }
 }

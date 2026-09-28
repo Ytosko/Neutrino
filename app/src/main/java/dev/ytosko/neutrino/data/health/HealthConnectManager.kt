@@ -296,6 +296,9 @@ internal fun MealType.toHealthConnect(): Int = when (this) {
     MealType.Lunch -> HcMealType.MEAL_TYPE_LUNCH
     MealType.Dinner -> HcMealType.MEAL_TYPE_DINNER
     MealType.Snack -> HcMealType.MEAL_TYPE_SNACK
+    // Health Connect has no Ramadan meals: Sehri is the day's first meal, Iftar the evening one.
+    MealType.Sehri -> HcMealType.MEAL_TYPE_BREAKFAST
+    MealType.Iftar -> HcMealType.MEAL_TYPE_DINNER
 }
 
 private const val MEAL_PREFIX = "meal:"

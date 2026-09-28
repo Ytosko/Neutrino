@@ -1,5 +1,8 @@
 package dev.ytosko.neutrino.ui.insights
 
+import androidx.lifecycle.viewmodel.compose.viewModel
+import dev.ytosko.neutrino.appContainer
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.remember
 import dev.ytosko.neutrino.ui.medicine.kindIcon
 import dev.ytosko.neutrino.ui.medicine.kindTint
@@ -143,6 +146,13 @@ fun HealthContent(viewModel: HealthViewModel, contentPadding: PaddingValues, onO
         val chart = ChartContext(data.period, today, goals)
         val key = "${period.range}-${period.start}-${period.hourly}"
         item(key = "totals") { TotalsCard(data.totals, width) }
+        // The last 7 days in a few sentences, written by the user's AI when they ask.
+        item(key = "recap") {
+            val container = LocalContext.current.appContainer
+            val recap: RecapViewModel = viewModel(key = "recap") { RecapViewModel(container.meals, container.glucose, container.settings, container.aiClients) }
+            val online by container.network.online.collectAsStateWithLifecycle()
+            RecapCard(recap, online, width)
+        }
 
         val glucoseData = glucose?.takeIf { it.period == period && !it.isEmpty }
         val doseData = doseSummary?.takeIf { it.period == period && !it.isEmpty }
@@ -434,7 +444,7 @@ private fun MacroSplitCard(data: InsightSummary, modifier: Modifier) {
 
 @Composable
 private fun CarbsByMealCard(data: InsightSummary, modifier: Modifier) {
-    val order = listOf(MealType.Breakfast, MealType.Lunch, MealType.Snack, MealType.Dinner)
+    val order = listOf(MealType.Sehri, MealType.Breakfast, MealType.Lunch, MealType.Snack, MealType.Iftar, MealType.Dinner)
     val totalCarbs = order.sumOf { data.byMealType.getValue(it).carbsG }
     ChartCard(title = stringResource(R.string.health_carbs_by_meal), modifier = modifier) {
         order.forEach { type ->

@@ -101,6 +101,32 @@ object AnalysisPrompt {
         "cooked_grams" to Num,
     )
 
+    /**
+     * The week in a few friendly sentences, from plain facts (see WeeklyRecap). States what happened,
+     * never advises: no diet, medical or dosing suggestions.
+     */
+    fun weeklyRecap(facts: List<String>, bangla: Boolean): String {
+        val list = facts.joinToString("\n") { "- " + it.replace(Regex("[\"{}]"), " ") }
+        return """
+            Here are facts about one person's last 7 days of food, water and possibly blood glucose, from their food diary:
+            @@FACTS@@
+            Write a short, warm recap of their week in 3 or 4 plain sentences, addressed to them ("you"), like a friend reading their diary back to them. Mention the most notable patterns. State only what the facts say: do not give advice, do not suggest diets, foods, medicine or doses, and do not judge. Write in ${if (bangla) "Bangla" else "English"}.
+            Return ONLY a JSON object: {"recap": "string"}
+        """.trimIndent().replace("@@FACTS@@", list)
+    }
+
+    val RECAP_SCHEMA = Obj("recap" to Str)
+
+    /** The recap text from the reply; null if there's none. */
+    fun parseRecap(text: String): String? {
+        val start = text.indexOf('{')
+        val end = text.lastIndexOf('}')
+        if (start < 0 || end <= start) return null
+        val obj = runCatching { kotlinx.serialization.json.Json.parseToJsonElement(text.substring(start, end + 1)) as? kotlinx.serialization.json.JsonObject }.getOrNull()
+        val recap = (obj?.get("recap") as? kotlinx.serialization.json.JsonPrimitive)?.content?.trim()
+        return recap?.takeIf { it.isNotEmpty() }?.take(1_200)
+    }
+
     val FOOD_SCHEMA = Obj(
         "name" to Str, "category" to Str,
         "kcal_100g" to Num, "protein_100g" to Num, "carbs_100g" to Num, "fat_100g" to Num,

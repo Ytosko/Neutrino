@@ -64,6 +64,8 @@ import java.time.format.FormatStyle
 private sealed interface TimeTarget {
     data class MealStart(val type: MealType) : TimeTarget
     data class Reminder(val type: MealType) : TimeTarget
+    /** Sehri's end or Iftar, in Ramadan mode. */
+    data class Ramadan(val type: MealType) : TimeTarget
 }
 
 /**
@@ -151,12 +153,63 @@ fun MealsScreen(settings: SettingsRepository, onBack: () -> Unit) {
                                 .padding(Spacing.md),
                         )
                     }
-                    listOf(MealType.Breakfast, MealType.Lunch, MealType.Dinner).forEach { type ->
+                    if (s.ramadan) {
+                        // In Ramadan the Sehri and Iftar reminders take over (set below).
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                        TimeRow(type, stringResource(R.string.meals_remind_at), s.reminder(type)) {
-                            editing = TimeTarget.Reminder(type)
+                        Text(
+                            stringResource(R.string.ramadan_reminders_note),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(Spacing.md),
+                        )
+                    } else {
+                        listOf(MealType.Breakfast, MealType.Lunch, MealType.Dinner).forEach { type ->
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                            TimeRow(type, stringResource(R.string.meals_remind_at), s.reminder(type)) {
+                                editing = TimeTarget.Reminder(type)
+                            }
                         }
                     }
+                }
+            }
+
+            Group(stringResource(R.string.ramadan_section)) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 64.dp)
+                        .toggleable(value = s.ramadan, role = Role.Switch) { on ->
+                            scope.launch {
+                                settings.setRamadan(on)
+                                if (s.remindersEnabled) MealReminders.scheduleAll(context)
+                            }
+                        }
+                        .padding(horizontal = Spacing.md, vertical = Spacing.sm),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+                ) {
+                    IconBadge(icon = R.drawable.ic_moon, container = NeutrinoTheme.colors.indigo.container, content = NeutrinoTheme.colors.indigo.content, size = 40.dp)
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(stringResource(R.string.ramadan_mode), style = MaterialTheme.typography.titleSmall)
+                        Text(
+                            stringResource(R.string.ramadan_mode_body),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Switch(checked = s.ramadan, onCheckedChange = null)
+                }
+                if (s.ramadan) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    TimeRow(MealType.Sehri, stringResource(R.string.ramadan_sehri_ends), s.sehriEnds) { editing = TimeTarget.Ramadan(MealType.Sehri) }
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    TimeRow(MealType.Iftar, stringResource(R.string.ramadan_iftar_at), s.iftar) { editing = TimeTarget.Ramadan(MealType.Iftar) }
+                    Text(
+                        stringResource(R.string.ramadan_times_note),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.sm),
+                    )
                 }
             }
         }
@@ -168,6 +221,7 @@ fun MealsScreen(settings: SettingsRepository, onBack: () -> Unit) {
         val initial = when (target) {
             is TimeTarget.MealStart -> s.mealWindows.start(target.type)
             is TimeTarget.Reminder -> s.reminder(target.type)
+            is TimeTarget.Ramadan -> if (target.type == MealType.Sehri) s.sehriEnds else s.iftar
         }
         TimeDialog(
             initial = initial,
@@ -185,6 +239,13 @@ fun MealsScreen(settings: SettingsRepository, onBack: () -> Unit) {
                                 breakfast = if (target.type == MealType.Breakfast) time else s.breakfastReminder,
                                 lunch = if (target.type == MealType.Lunch) time else s.lunchReminder,
                                 dinner = if (target.type == MealType.Dinner) time else s.dinnerReminder,
+                            )
+                            if (s.remindersEnabled) MealReminders.scheduleAll(context)
+                        }
+                        is TimeTarget.Ramadan -> {
+                            settings.setRamadanTimes(
+                                sehriEnds = if (target.type == MealType.Sehri) time else s.sehriEnds,
+                                iftar = if (target.type == MealType.Iftar) time else s.iftar,
                             )
                             if (s.remindersEnabled) MealReminders.scheduleAll(context)
                         }
@@ -251,6 +312,9 @@ private fun MealWindows.start(type: MealType): LocalTime = when (type) {
     MealType.Lunch -> lunch
     MealType.Snack -> snack
     MealType.Dinner -> dinner
+    // Ramadan's meals have their own times (Sehri ends, Iftar), not window starts.
+    MealType.Sehri -> ramadan?.sehriEnds ?: breakfast
+    MealType.Iftar -> ramadan?.iftar ?: dinner
 }
 
 /** Throws if the new time would put the meals out of order. */
@@ -259,6 +323,7 @@ private fun MealWindows.with(type: MealType, time: LocalTime): MealWindows = whe
     MealType.Lunch -> copy(lunch = time)
     MealType.Snack -> copy(snack = time)
     MealType.Dinner -> copy(dinner = time)
+    MealType.Sehri, MealType.Iftar -> this
 }
 
 private fun AppSettings.reminder(type: MealType): LocalTime = when (type) {

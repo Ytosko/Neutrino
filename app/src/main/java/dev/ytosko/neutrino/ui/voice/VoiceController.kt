@@ -1,5 +1,7 @@
 package dev.ytosko.neutrino.ui.voice
 
+import kotlinx.coroutines.delay
+import android.media.MediaActionSound
 import dev.ytosko.neutrino.domain.voice.VoiceSession
 import dev.ytosko.neutrino.domain.voice.ItemChange
 import dev.ytosko.neutrino.data.voice.VoiceMeal
@@ -46,6 +48,9 @@ sealed interface VoicePhase {
     data class Failed(val error: Exception) : VoicePhase
 }
 
+/** How long the start sound plays before listening begins. */
+private const val CUE_MS = 350L
+
 /** What a voice turn did to the meal on screen: descriptions of the changes, and lines it couldn't change. */
 data class MealOutcome(val changes: List<String> = emptyList(), val unchanged: List<String> = emptyList())
 
@@ -75,6 +80,11 @@ class VoiceController(
     private val onMeal: suspend (said: String, command: VoiceCommand) -> MealOutcome,
 ) {
     private val recorder = VoiceRecorder()
+    /** The system's start and stop recording sounds. */
+    private val cues = MediaActionSound().apply {
+        load(MediaActionSound.START_VIDEO_RECORDING)
+        load(MediaActionSound.STOP_VIDEO_RECORDING)
+    }
     val level: StateFlow<Float> = recorder.level
 
     private val _phase = MutableStateFlow<VoicePhase>(VoicePhase.Idle)
@@ -107,7 +117,12 @@ class VoiceController(
         _finished.value = null
         job = scope.launch {
             _phase.value = VoicePhase.Listening
+            // A start and a stop sound, like the phone's own voice typing, so it's clear when it listens.
+            // Recording starts just after the start sound, so the beep isn't heard as speech.
+            cues.play(MediaActionSound.START_VIDEO_RECORDING)
+            delay(CUE_MS)
             val wav = recorder.record(stopOnSilence)
+            cues.play(MediaActionSound.STOP_VIDEO_RECORDING)
             if (wav == null) {
                 missed()
                 return@launch

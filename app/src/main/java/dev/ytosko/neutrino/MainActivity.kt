@@ -87,7 +87,7 @@ class MainActivity : FragmentActivity() {
     /** From the widget or an app shortcut; the Home screen picks it up. */
     private fun handleLaunchAction(intent: Intent?) {
         val action = intent?.action ?: return
-        if (action in setOf(LaunchAction.LOG_MEAL, LaunchAction.LOG_MEAL_PHOTO, LaunchAction.ADD_WATER)) {
+        if (action in setOf(LaunchAction.LOG_MEAL, LaunchAction.LOG_MEAL_PHOTO, LaunchAction.ADD_WATER, LaunchAction.LOG_VOICE)) {
             appContainer.launchAction.value = action
             intent.action = null
         }

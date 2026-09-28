@@ -201,7 +201,7 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 
 /** Meal groups in the order they happen in a day. */
-private val MEAL_ORDER = listOf(MealType.Breakfast, MealType.Lunch, MealType.Snack, MealType.Dinner)
+private val MEAL_ORDER = listOf(MealType.Sehri, MealType.Breakfast, MealType.Lunch, MealType.Snack, MealType.Iftar, MealType.Dinner)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -393,6 +393,7 @@ fun HomeScreen(
             when (action) {
                 LaunchAction.LOG_MEAL_PHOTO -> withAi { openCamera() }
                 LaunchAction.LOG_MEAL -> showSheet = true
+                LaunchAction.LOG_VOICE -> needsInternet { onLogByVoice() }
                 LaunchAction.ADD_WATER -> {
                     viewModel.addWater()
                     snackbar.showSnackbar(waterAdded)

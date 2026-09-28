@@ -103,6 +103,8 @@ private data class WidgetData(
     val water: String,
     /** "7.2 mmol/L · 6:08 PM", or null when hidden or there are no readings. */
     val glucose: String?,
+    /** Voice is set up: the widget offers a mic next to the camera. */
+    val voice: Boolean = false,
     val canAddWater: Boolean,
     val date: LocalDate,
 )
@@ -182,6 +184,7 @@ class NeutrinoWidget : GlanceAppWidget() {
             kcalOver = settings.kcalGoal?.let { over(n.calories - it, ::compactNumber) },
             water = formatWater(day.waterMl),
             glucose = glucose,
+            voice = settings.voiceReady,
             canAddWater = day.waterMl + GLASS_ML <= MAX_WATER_ML,
             date = today,
         )
@@ -253,6 +256,20 @@ class NeutrinoWidget : GlanceAppWidget() {
                         text = context.getString(R.string.home_add_glass),
                         onClick = actionRunCallback<AddWaterAction>(),
                         colors = ButtonDefaults.buttonColors(backgroundColor = WaterContainerColor, contentColor = WaterColor),
+                    )
+                    Spacer(GlanceModifier.width(8.dp))
+                }
+                if (data.voice) {
+                    CircleIconButton(
+                        imageProvider = ImageProvider(R.drawable.ic_mic),
+                        contentDescription = context.getString(R.string.voice_log_title),
+                        onClick = actionStartActivity(
+                            Intent(context, MainActivity::class.java)
+                                .setAction(LaunchAction.LOG_VOICE)
+                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP),
+                        ),
+                        backgroundColor = WaterContainerColor,
+                        contentColor = WaterColor,
                     )
                     Spacer(GlanceModifier.width(8.dp))
                 }
@@ -436,4 +453,6 @@ object LaunchAction {
     const val LOG_MEAL_PHOTO = "dev.ytosko.neutrino.action.LOG_MEAL_PHOTO"
     const val LOG_MEAL = "dev.ytosko.neutrino.action.LOG_MEAL"
     const val ADD_WATER = "dev.ytosko.neutrino.action.ADD_WATER"
+    /** Opens Log by voice, listening straight away. */
+    const val LOG_VOICE = "dev.ytosko.neutrino.action.LOG_VOICE"
 }

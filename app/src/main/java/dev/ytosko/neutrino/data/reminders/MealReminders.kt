@@ -33,6 +33,8 @@ enum class MealReminder(val mealType: MealType, val time: LocalTime, @StringRes 
     Breakfast(MealType.Breakfast, LocalTime.of(10, 0), R.string.reminder_breakfast_title, R.string.reminder_breakfast_body),
     Lunch(MealType.Lunch, LocalTime.of(14, 0), R.string.reminder_lunch_title, R.string.reminder_lunch_body),
     Dinner(MealType.Dinner, LocalTime.of(18, 0), R.string.reminder_dinner_title, R.string.reminder_dinner_body),
+    Sehri(MealType.Sehri, LocalTime.of(4, 0), R.string.reminder_sehri_title, R.string.reminder_sehri_body),
+    Iftar(MealType.Iftar, LocalTime.of(18, 20), R.string.reminder_iftar_title, R.string.reminder_iftar_body),
     ;
 
     /** The user's chosen time for this reminder. */
@@ -40,6 +42,13 @@ enum class MealReminder(val mealType: MealType, val time: LocalTime, @StringRes 
         Breakfast -> settings.breakfastReminder
         Lunch -> settings.lunchReminder
         Dinner -> settings.dinnerReminder
+        Sehri -> settings.sehriEnds.minusMinutes(45)
+        Iftar -> settings.iftar.plusMinutes(30)
+    }
+
+    companion object {
+        /** In Ramadan mode Sehri and Iftar; otherwise breakfast, lunch and dinner. */
+        fun active(settings: AppSettings): List<MealReminder> = if (settings.ramadan) listOf(Sehri, Iftar) else listOf(Breakfast, Lunch, Dinner)
     }
 }
 
@@ -62,10 +71,12 @@ object MealReminders {
         return if (today.isAfter(now)) today else today.plusDays(1)
     }
 
-    /** Books all three at the times chosen in settings. */
+    /** Books the reminders for now (Ramadan's or the usual three) at their times; cancels the others. */
     suspend fun scheduleAll(context: Context) {
         val settings = context.appContainer.settings.settings.first()
-        MealReminder.entries.forEach { schedule(context, it, it.timeIn(settings)) }
+        val active = MealReminder.active(settings)
+        val alarms = context.getSystemService(AlarmManager::class.java)
+        MealReminder.entries.forEach { if (it in active) schedule(context, it, it.timeIn(settings)) else alarms.cancel(pendingIntent(context, it)) }
     }
 
     fun cancelAll(context: Context) {
@@ -140,6 +151,7 @@ class MealReminderReceiver : BroadcastReceiver() {
                 when {
                     !enabled -> MealReminders.cancelAll(app)
                     reminder == null -> MealReminders.scheduleAll(app) // boot, time or time zone change, update
+                    reminder !in MealReminder.active(settings) -> MealReminders.scheduleAll(app) // Ramadan mode changed
                     else -> {
                         MealReminders.schedule(app, reminder, reminder.timeIn(settings))
                         val zone = ZoneId.systemDefault()

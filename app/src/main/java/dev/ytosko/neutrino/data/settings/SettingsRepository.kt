@@ -1,5 +1,7 @@
 package dev.ytosko.neutrino.data.settings
 
+import java.time.LocalDate
+import dev.ytosko.neutrino.domain.RamadanTimes
 import kotlinx.serialization.json.Json
 import dev.ytosko.neutrino.data.backup.AiConfigBackup
 import dev.ytosko.neutrino.data.ai.AiLineup
@@ -82,6 +84,14 @@ data class AppSettings(
     val takesMedicine: Boolean = false,
     /** Turns on the insulin log. */
     val usesInsulin: Boolean = false,
+    /** Ramadan mode: Sehri and Iftar as meals, with their reminders instead of breakfast, lunch and dinner. */
+    val ramadan: Boolean = false,
+    val sehriEnds: LocalTime = LocalTime.of(4, 40),
+    val iftar: LocalTime = LocalTime.of(17, 50),
+    /** The last weekly recap, the day it was written, and whether glucose goes into it (off by default). */
+    val recapText: String = "",
+    val recapDate: LocalDate? = null,
+    val recapGlucose: Boolean = false,
     /** Import blood glucose other apps (e.g. CGM apps) save to Health Connect. Needs its read permission. */
     val glucoseImport: Boolean = false,
     /** Readings up to this time were already imported. */
@@ -138,6 +148,12 @@ class SettingsRepository(context: Context, private val cipher: SecretCipher) {
         val glucoseImportedUntil = androidx.datastore.preferences.core.longPreferencesKey("glucose_imported_until")
         val widgetGlucose = booleanPreferencesKey("widget_glucose")
         val mealTipDone = booleanPreferencesKey("meal_tip_done")
+        val ramadan = booleanPreferencesKey("ramadan")
+        val recapText = stringPreferencesKey("recap_text")
+        val recapDay = androidx.datastore.preferences.core.longPreferencesKey("recap_day")
+        val recapGlucose = booleanPreferencesKey("recap_glucose")
+        val sehriEnds = intPreferencesKey("ramadan_sehri_min")
+        val iftar = intPreferencesKey("ramadan_iftar_min")
         fun model(provider: AiProvider) = stringPreferencesKey("ai_model_${provider.id}")
         fun apiKey(provider: AiProvider) = stringPreferencesKey("ai_key_${provider.id}")
         val aiConfigs = stringPreferencesKey("ai_configs")
@@ -169,6 +185,11 @@ class SettingsRepository(context: Context, private val cipher: SecretCipher) {
                     lunch = p[Keys.lunchStart]?.toTime() ?: defaults.lunch,
                     snack = p[Keys.snackStart]?.toTime() ?: defaults.snack,
                     dinner = p[Keys.dinnerStart]?.toTime() ?: defaults.dinner,
+                    ramadan = if (p[Keys.ramadan] == true) {
+                        RamadanTimes(p[Keys.sehriEnds]?.toTime() ?: LocalTime.of(4, 40), p[Keys.iftar]?.toTime() ?: LocalTime.of(17, 50))
+                    } else {
+                        null
+                    },
                 )
             }.getOrDefault(MealWindows()),
             breakfastReminder = p[Keys.breakfastReminder]?.toTime() ?: LocalTime.of(10, 0),
@@ -193,6 +214,12 @@ class SettingsRepository(context: Context, private val cipher: SecretCipher) {
             glucoseImportedUntil = p[Keys.glucoseImportedUntil] ?: 0,
             widgetShowsGlucose = p[Keys.widgetGlucose] ?: true,
             mealTipDone = p[Keys.mealTipDone] ?: false,
+            ramadan = p[Keys.ramadan] ?: false,
+            recapText = p[Keys.recapText].orEmpty(),
+            recapDate = p[Keys.recapDay]?.let(LocalDate::ofEpochDay),
+            recapGlucose = p[Keys.recapGlucose] ?: false,
+            sehriEnds = p[Keys.sehriEnds]?.toTime() ?: LocalTime.of(4, 40),
+            iftar = p[Keys.iftar]?.toTime() ?: LocalTime.of(17, 50),
         )
     }
 
@@ -200,6 +227,20 @@ class SettingsRepository(context: Context, private val cipher: SecretCipher) {
 
     private fun decodeConfigs(raw: String?): List<AiConfig> =
         raw?.let { runCatching { configJson.decodeFromString<List<AiConfig>>(it) }.getOrNull() }.orEmpty()
+
+    suspend fun setRamadan(on: Boolean) = store.edit { it[Keys.ramadan] = on }
+
+    suspend fun setRecapGlucose(on: Boolean) = store.edit { it[Keys.recapGlucose] = on }
+
+    suspend fun saveRecap(text: String, day: LocalDate) = store.edit {
+        it[Keys.recapText] = text
+        it[Keys.recapDay] = day.toEpochDay()
+    }
+
+    suspend fun setRamadanTimes(sehriEnds: LocalTime, iftar: LocalTime) = store.edit {
+        it[Keys.sehriEnds] = sehriEnds.hour * 60 + sehriEnds.minute
+        it[Keys.iftar] = iftar.hour * 60 + iftar.minute
+    }
 
     private fun decodeVoice(raw: String?): AiConfig? =
         raw?.let { runCatching { configJson.decodeFromString<AiConfig>(it) }.getOrNull() }
