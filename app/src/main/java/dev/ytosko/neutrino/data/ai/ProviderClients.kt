@@ -61,13 +61,14 @@ class GeminiClient(
         return ModelCatalog.fromGemini(json.decodeFromString<GeminiModelList>(body).models)
     }
 
-    override suspend fun generateJson(apiKey: String, model: String, prompt: String, schema: JsonSchema, image: ImageInput?): JsonReply {
-        val encoded = image?.let { Base64.encode(it.jpeg) }
+    override suspend fun generateJson(apiKey: String, model: String, prompt: String, schema: JsonSchema, images: List<ImageInput>): JsonReply {
+        val encoded = images.map { Base64.encode(it.jpeg) }
+        val detail = images.firstOrNull()?.detail
         // Try the leanest configuration first. If the model rejects an option (e.g. a thinking
         // level it doesn't support), step down; the last attempt uses no optional settings.
         val attempts = thinkingCandidates(model).map { Attempt(lean = true, thinking = it) } + Attempt(lean = false, thinking = null)
         attempts.forEachIndexed { index, attempt ->
-            val body = requestBody(prompt, schema, encoded, image?.detail, attempt)
+            val body = requestBody(prompt, schema, encoded, detail, attempt)
             val request = Request.Builder()
                 .url("$baseUrl/models/$model:generateContent")
                 .header("x-goog-api-key", apiKey)
@@ -86,13 +87,13 @@ class GeminiClient(
 
     private data class Attempt(val lean: Boolean, val thinking: JsonObject?)
 
-    private fun requestBody(prompt: String, schema: JsonSchema, image: String?, detail: PhotoDetail?, attempt: Attempt) =
+    private fun requestBody(prompt: String, schema: JsonSchema, images: List<String>, detail: PhotoDetail?, attempt: Attempt) =
         buildJsonObject {
             putJsonArray("contents") {
                 add(buildJsonObject {
                     put("role", "user")
                     putJsonArray("parts") {
-                        if (image != null) {
+                        images.forEach { image ->
                             add(buildJsonObject {
                                 putJsonObject("inline_data") {
                                     put("mime_type", "image/jpeg")
@@ -178,13 +179,13 @@ class OpenAiClient(
         return ModelCatalog.fromOpenAi(json.decodeFromString<OpenAiModelList>(body).data.map { it.id })
     }
 
-    override suspend fun generateJson(apiKey: String, model: String, prompt: String, schema: JsonSchema, image: ImageInput?): JsonReply {
-        val dataUrl = image?.let { "data:image/jpeg;base64," + Base64.encode(it.jpeg) }
+    override suspend fun generateJson(apiKey: String, model: String, prompt: String, schema: JsonSchema, images: List<ImageInput>): JsonReply {
+        val dataUrls = images.map { "data:image/jpeg;base64," + Base64.encode(it.jpeg) }
         for (lean in listOf(true, false)) {
             val request = Request.Builder()
                 .url("$baseUrl/chat/completions")
                 .header("Authorization", "Bearer $apiKey")
-                .post(requestBody(model, prompt, schema, dataUrl, image?.detail, lean).toString().toRequestBody(JSON_MEDIA))
+                .post(requestBody(model, prompt, schema, dataUrls, images.firstOrNull()?.detail, lean).toString().toRequestBody(JSON_MEDIA))
                 .build()
             val (code, body) = http.call(request)
             when {
@@ -196,7 +197,7 @@ class OpenAiClient(
         throw AiException.NoResult()
     }
 
-    private fun requestBody(model: String, prompt: String, schema: JsonSchema, dataUrl: String?, detail: PhotoDetail?, lean: Boolean) =
+    private fun requestBody(model: String, prompt: String, schema: JsonSchema, dataUrls: List<String>, detail: PhotoDetail?, lean: Boolean) =
         buildJsonObject {
             put("model", model)
             putJsonArray("messages") {
@@ -207,7 +208,7 @@ class OpenAiClient(
                             put("type", "text")
                             put("text", prompt)
                         })
-                        if (dataUrl != null) {
+                        dataUrls.forEach { dataUrl ->
                             add(buildJsonObject {
                                 put("type", "image_url")
                                 putJsonObject("image_url") {

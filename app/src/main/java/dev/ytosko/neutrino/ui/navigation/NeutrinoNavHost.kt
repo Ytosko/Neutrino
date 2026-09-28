@@ -87,7 +87,8 @@ sealed interface Route {
     @Serializable data object SettingsHealth : Route
     /** [logEpochDay]: the day shown on Today when logging started, if not today. */
     @Serializable data class Review(
-        val photoUri: String? = null,
+        /** Photos to read, joined by new lines (up to 5). */
+        val photoUris: String? = null,
         val fromCamera: Boolean = false,
         val logEpochDay: Long? = null,
         val editMealId: String? = null,
@@ -200,8 +201,8 @@ fun NeutrinoNavHost(startDestination: Route, modifier: Modifier = Modifier) {
                 onOpenSettings = { navController.navigate(Route.Settings) },
                 onOpenAiSettings = { navController.navigate(Route.SettingsAi) },
                 onOpenBackup = { navController.navigate(Route.SettingsBackup) },
-                onPhotoSelected = { uri, fromCamera ->
-                    navController.navigate(Route.Review(uri.toString(), fromCamera, homeViewModel.pastDayEpoch()))
+                onPhotoSelected = { uris, fromCamera ->
+                    navController.navigate(Route.Review(uris.joinToString("\n"), fromCamera, homeViewModel.pastDayEpoch()))
                 },
                 onAddManually = { navController.navigate(Route.Review(logEpochDay = homeViewModel.pastDayEpoch())) },
                 // Voice is on but not ready (no voice model, or no Primary): finish setting it up first.
@@ -224,16 +225,19 @@ fun NeutrinoNavHost(startDestination: Route, modifier: Modifier = Modifier) {
             val context = LocalContext.current
             val container = context.appContainer
             val reviewViewModel: ReviewViewModel = viewModel {
-                val uri = route.photoUri?.let(Uri::parse)
+                val uris = route.photoUris?.split('\n')?.filter { it.isNotBlank() }?.map(Uri::parse).orEmpty()
                 ReviewViewModel(
-                    photoUri = uri,
+                    photoUris = uris,
                     settings = container.settings,
                     clients = container.aiClients,
                     photos = container.photos,
                     meals = container.meals,
                     foods = container.foods,
                     // Camera captures are temporary; delete once the photo is prepared.
-                    onPhotoConsumed = { if (route.fromCamera && uri != null) runCatching { context.contentResolver.delete(uri, null, null) } },
+                    // Camera photos are temporary files (the gallery's aren't ours): deleted once read.
+                    onPhotoConsumed = { uri ->
+                        if (uri.authority == "${context.packageName}.files") runCatching { context.contentResolver.delete(uri, null, null) }
+                    },
                     logDate = route.logEpochDay?.let(java.time.LocalDate::ofEpochDay),
                     editMealId = route.editMealId,
                     voiceMeal = if (route.fromVoice) container.voiceMeal.also { container.voiceMeal = null } else null,

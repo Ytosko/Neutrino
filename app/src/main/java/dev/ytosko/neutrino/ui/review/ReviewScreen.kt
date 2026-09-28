@@ -1,5 +1,13 @@
 package dev.ytosko.neutrino.ui.review
 
+import dev.ytosko.neutrino.ui.components.rememberPhotoPickers
+import dev.ytosko.neutrino.data.meal.PhotoProcessor
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.pager.HorizontalPager
+import android.widget.Toast
 import androidx.compose.foundation.layout.navigationBarsPadding
 import dev.ytosko.neutrino.appContainer
 import dev.ytosko.neutrino.ui.voice.VoiceDialogs
@@ -145,6 +153,40 @@ fun ReviewScreen(
     var editingKey by remember { mutableStateOf<Long?>(null) }
     var showMealDetails by remember { mutableStateOf(false) }
     var showPhoto by remember { mutableStateOf(false) }
+    var choosingPhoto by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val noCamera = stringResource(R.string.home_no_camera)
+    val pickers = rememberPhotoPickers(
+        onPicked = { uris, _ -> viewModel.addPhotos(uris) },
+        onNoCamera = { Toast.makeText(context, noCamera, Toast.LENGTH_LONG).show() },
+    )
+    val offlineMessage = stringResource(R.string.offline_needs_internet_message)
+    val photoOnline by context.appContainer.network.online.collectAsStateWithLifecycle()
+    /** "Add photo": offline, says why; otherwise camera or gallery. */
+    fun addPhoto() {
+        if (photoOnline) choosingPhoto = true else Toast.makeText(context, offlineMessage, Toast.LENGTH_LONG).show()
+    }
+    val messageTexts = mapOf(
+        ReviewMessage.Duplicate to stringResource(R.string.review_photo_duplicate),
+        ReviewMessage.TooMany to stringResource(R.string.review_photo_too_many, PhotoProcessor.MAX_PHOTOS),
+        ReviewMessage.NothingNew to stringResource(R.string.review_photo_nothing_new),
+        ReviewMessage.Unreadable to stringResource(R.string.review_photo_error),
+        ReviewMessage.AiNotSetUp to stringResource(R.string.home_ai_needed),
+    )
+    var failedPhoto by remember { mutableStateOf<AiException?>(null) }
+    LaunchedEffect(viewModel) {
+        viewModel.messages.collect { message ->
+            if (message is ReviewMessage.Failed) failedPhoto = message.error
+            else messageTexts[message]?.let { Toast.makeText(context, it, Toast.LENGTH_LONG).show() }
+        }
+    }
+    failedPhoto?.let { error ->
+        val text = dev.ytosko.neutrino.ui.ai.aiErrorMessage(error)
+        LaunchedEffect(error) {
+            Toast.makeText(context, text, Toast.LENGTH_LONG).show()
+            failedPhoto = null
+        }
+    }
     var confirmDiscard by remember { mutableStateOf(false) }
     val haptics = LocalHapticFeedback.current
     LaunchedEffect(phase) {
@@ -209,14 +251,36 @@ fun ReviewScreen(
 
             if (phase == ReviewPhase.Ready || phase == ReviewPhase.Saving) {
                 item(key = "add") {
-                    FilledTonalButton(
-                        onClick = { openSearch(SearchTarget.Add) },
-                        enabled = state.canAddItem,
-                        modifier = width.padding(vertical = Spacing.xs).heightIn(min = 48.dp),
-                    ) {
-                        Icon(painterResource(R.drawable.ic_plus), contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.size(Spacing.xs))
-                        Text(stringResource(if (state.canAddItem) R.string.review_add_food else R.string.review_max_items, MAX_ITEMS))
+                    Row(modifier = width.padding(vertical = Spacing.xs), horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                        FilledTonalButton(
+                            onClick = { openSearch(SearchTarget.Add) },
+                            enabled = state.canAddItem,
+                            modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                        ) {
+                            Icon(painterResource(R.drawable.ic_plus), contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.size(Spacing.xs))
+                            Text(stringResource(if (state.canAddItem) R.string.review_add_food else R.string.review_max_items, MAX_ITEMS), maxLines = 1)
+                        }
+                        // More photos of this meal (up to 5), read with the foods already here.
+                        if (state.canAddPhoto) {
+                            OutlinedButton(onClick = ::addPhoto, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) {
+                                Icon(painterResource(R.drawable.ic_camera), contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.size(Spacing.xs))
+                                Text(stringResource(R.string.review_add_photo), maxLines = 1)
+                            }
+                        }
+                    }
+                }
+                if (state.addingPhotos) {
+                    item(key = "reading") {
+                        Row(
+                            modifier = width.padding(vertical = Spacing.xs),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                        ) {
+                            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                            Text(stringResource(R.string.review_reading_photo), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                     }
                 }
                 if (state.items.isEmpty()) {
@@ -292,8 +356,39 @@ fun ReviewScreen(
     }
 
     if (showPhoto) {
-        val photo = state.photo
-        if (photo == null) showPhoto = false else PhotoDialog(photo) { showPhoto = false }
+        if (state.photos.isEmpty()) {
+            showPhoto = false
+        } else {
+            PhotoGallery(
+                photos = state.photos,
+                canAdd = state.canAddPhoto,
+                onAdd = {
+                    showPhoto = false
+                    addPhoto()
+                },
+                onRemove = viewModel::removePhoto,
+                onDismiss = { showPhoto = false },
+            )
+        }
+    }
+
+    if (choosingPhoto) {
+        IosAlert(
+            title = stringResource(R.string.review_add_photo),
+            message = null,
+            buttons = listOf(
+                AlertButton(stringResource(R.string.home_take_photo)) {
+                    choosingPhoto = false
+                    pickers.takePhoto()
+                },
+                AlertButton(stringResource(R.string.home_choose_photo)) {
+                    choosingPhoto = false
+                    pickers.choose(PhotoProcessor.MAX_PHOTOS - state.photos.size)
+                },
+                AlertButton(stringResource(R.string.home_cancel), AlertStyle.Cancel) { choosingPhoto = false },
+            ),
+            onDismiss = { choosingPhoto = false },
+        )
     }
 
     if (confirmDiscard) {
@@ -414,6 +509,20 @@ private fun MealThumbnail(state: ReviewUiState, onPhoto: () -> Unit) {
             bitmap != null -> Image(bitmap, stringResource(R.string.review_photo_desc), contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
             state.items.isNotEmpty() -> FoodIcon(state.items.first().food.category, size = 48.dp)
             else -> Icon(painterResource(R.drawable.ic_utensils), contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp))
+        }
+        // More than one photo: how many, on the first one's corner.
+        if (bitmap != null && state.photos.size > 1) {
+            Text(
+                state.photos.size.toString(),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onPrimary,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(2.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary)
+                    .padding(horizontal = 5.dp, vertical = 1.dp),
+            )
         }
     }
 }
@@ -815,14 +924,69 @@ private fun DetailTile(icon: Int, label: String, value: String, onClick: () -> U
 }
 
 @Composable
-private fun PhotoDialog(jpeg: ByteArray, onDismiss: () -> Unit) {
-    val bitmap = remember(jpeg) { BitmapFactory.decodeByteArray(jpeg, 0, jpeg.size)?.asImageBitmap() } ?: return
-    Dialog(onDismissRequest = onDismiss) {
-        Image(
-            bitmap,
-            stringResource(R.string.review_photo_desc),
-            contentScale = ContentScale.Fit,
-            modifier = Modifier.fillMaxWidth().clip(MaterialTheme.shapes.large).clickable(onClick = onDismiss),
+private fun PhotoGallery(
+    photos: List<ByteArray>,
+    canAdd: Boolean,
+    onAdd: () -> Unit,
+    onRemove: (Int) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val pager = rememberPagerState(pageCount = { photos.size })
+    var removing by remember { mutableStateOf<Int?>(null) }
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(Spacing.md),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+        ) {
+            HorizontalPager(state = pager, pageSpacing = Spacing.sm, modifier = Modifier.fillMaxWidth()) { page ->
+                val bitmap = remember(photos[page]) { BitmapFactory.decodeByteArray(photos[page], 0, photos[page].size)?.asImageBitmap() }
+                if (bitmap != null) {
+                    Image(
+                        bitmap,
+                        stringResource(R.string.review_photo_desc),
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier.fillMaxWidth().clip(MaterialTheme.shapes.large),
+                    )
+                }
+            }
+            if (photos.size > 1) {
+                Text(
+                    stringResource(R.string.review_photo_count, pager.currentPage + 1, photos.size),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = Color.White,
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                FilledTonalButton(onClick = { removing = pager.currentPage }) {
+                    Icon(painterResource(R.drawable.ic_trash), contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.size(Spacing.xs))
+                    Text(stringResource(R.string.review_remove_photo))
+                }
+                if (canAdd) {
+                    FilledTonalButton(onClick = onAdd) {
+                        Icon(painterResource(R.drawable.ic_plus), contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.size(Spacing.xs))
+                        Text(stringResource(R.string.review_add_photo))
+                    }
+                }
+                FilledTonalButton(onClick = onDismiss) { Text(stringResource(R.string.review_photo_close)) }
+            }
+        }
+    }
+    removing?.let { index ->
+        IosAlert(
+            title = stringResource(R.string.review_remove_photo_title),
+            message = stringResource(R.string.review_remove_photo_body),
+            buttons = listOf(
+                AlertButton(stringResource(R.string.home_cancel), AlertStyle.Cancel) { removing = null },
+                AlertButton(stringResource(R.string.review_remove_photo), AlertStyle.Destructive) {
+                    removing = null
+                    onRemove(index)
+                    if (photos.size <= 1) onDismiss()
+                },
+            ),
+            onDismiss = { removing = null },
         )
     }
 }

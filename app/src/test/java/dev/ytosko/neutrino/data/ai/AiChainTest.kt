@@ -11,7 +11,7 @@ class AiChainTest {
     private class Fake(val fail: AiException?) : AiClient {
         var calls = 0
         override suspend fun listModels(apiKey: String) = ModelChoices(emptyList(), null)
-        override suspend fun generateJson(apiKey: String, model: String, prompt: String, schema: JsonSchema, image: ImageInput?): JsonReply {
+        override suspend fun generateJson(apiKey: String, model: String, prompt: String, schema: JsonSchema, images: List<ImageInput>): JsonReply {
             calls++
             fail?.let { throw it }
             return JsonReply("{}", null)

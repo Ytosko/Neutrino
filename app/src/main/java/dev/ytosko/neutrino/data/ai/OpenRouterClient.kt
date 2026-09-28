@@ -120,10 +120,10 @@ class OpenRouterClient(
         return FreeQuota(used, limit).also { lock.withLock { quotas[apiKey] = clock() to it.remaining } }
     }
 
-    override suspend fun generateJson(apiKey: String, model: String, prompt: String, schema: JsonSchema, image: ImageInput?): JsonReply {
+    override suspend fun generateJson(apiKey: String, model: String, prompt: String, schema: JsonSchema, images: List<ImageInput>): JsonReply {
         val free = model.endsWith(":free")
         if (free) gate(apiKey)
-        val dataUrl = image?.let { "data:image/jpeg;base64," + Base64.encode(it.jpeg) }
+        val dataUrls = images.map { "data:image/jpeg;base64," + Base64.encode(it.jpeg) }
         // First asking for the schema; a model that rejects that gets plain JSON instructions only.
         for (withSchema in listOf(true, false)) {
             val request = Request.Builder()
@@ -131,7 +131,7 @@ class OpenRouterClient(
                 .header("Authorization", "Bearer $apiKey")
                 .header("HTTP-Referer", "https://neutrino.ytosko.dev")
                 .header("X-Title", "Neutrino")
-                .post(requestBody(model, prompt, schema, dataUrl, withSchema).toString().toRequestBody(JSON_MEDIA))
+                .post(requestBody(model, prompt, schema, dataUrls, withSchema).toString().toRequestBody(JSON_MEDIA))
                 .build()
             val (code, body) = http.call(request)
             when {
@@ -177,7 +177,7 @@ class OpenRouterClient(
         return AiException.ModelGone(model, ModelCatalog.openRouterPick(models, freeOnly = model.endsWith(":free")))
     }
 
-    private fun requestBody(model: String, prompt: String, schema: JsonSchema, dataUrl: String?, withSchema: Boolean) =
+    private fun requestBody(model: String, prompt: String, schema: JsonSchema, dataUrls: List<String>, withSchema: Boolean) =
         buildJsonObject {
             put("model", model)
             putJsonArray("messages") {
@@ -188,7 +188,7 @@ class OpenRouterClient(
                             put("type", "text")
                             put("text", prompt)
                         })
-                        if (dataUrl != null) {
+                        dataUrls.forEach { dataUrl ->
                             add(buildJsonObject {
                                 put("type", "image_url")
                                 putJsonObject("image_url") { put("url", dataUrl) }

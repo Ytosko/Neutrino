@@ -1,5 +1,6 @@
 package dev.ytosko.neutrino.ui.review
 
+import kotlinx.coroutines.flow.receiveAsFlow
 import dev.ytosko.neutrino.ui.voice.MealOutcome
 import dev.ytosko.neutrino.domain.voice.SpokenCount
 import dev.ytosko.neutrino.domain.voice.VoiceSession
@@ -10,7 +11,7 @@ import androidx.lifecycle.viewModelScope
 import dev.ytosko.neutrino.data.ai.AiClient
 import dev.ytosko.neutrino.data.ai.AiException
 import dev.ytosko.neutrino.data.ai.AiProvider
-import dev.ytosko.neutrino.data.ai.analyzeMeal
+import dev.ytosko.neutrino.data.ai.analyzeMealPhotos
 import dev.ytosko.neutrino.data.food.FoodRepository
 import dev.ytosko.neutrino.data.meal.DraftItem
 import dev.ytosko.neutrino.data.meal.MealDraft
@@ -86,7 +87,10 @@ const val MAX_ITEMS = 50
 
 data class ReviewUiState(
     val phase: ReviewPhase = ReviewPhase.Preparing,
-    val photo: ByteArray? = null,
+    /** The meal's photos (up to [PhotoProcessor.MAX_PHOTOS]); the first is its thumbnail. */
+    val photos: List<ByteArray> = emptyList(),
+    /** Photos added on this page are being read. */
+    val addingPhotos: Boolean = false,
     /** Required. Filled in from the AI or the foods until the user edits it. */
     val name: String = "",
     val nameEditedByUser: Boolean = false,
@@ -107,6 +111,11 @@ data class ReviewUiState(
 
     val canAddItem: Boolean get() = items.size < MAX_ITEMS
 
+    val photo: ByteArray? get() = photos.firstOrNull()
+
+    /** Another photo can be added (fewer than the most one meal can have). */
+    val canAddPhoto: Boolean get() = photos.size < PhotoProcessor.MAX_PHOTOS && !addingPhotos && phase == ReviewPhase.Ready
+
     val canSave: Boolean
         get() = phase == ReviewPhase.Ready && items.isNotEmpty() && items.all { it.grams != null } && name.isNotBlank()
 }
@@ -122,8 +131,8 @@ internal fun autoName(items: List<ReviewItem>): String {
 }
 
 class ReviewViewModel(
-    /** Null when adding foods by hand (no photo). */
-    private val photoUri: Uri?,
+    /** The photos to read when the page opens (empty when adding foods by hand). */
+    private val photoUris: List<Uri>,
     private val settings: SettingsRepository,
     private val clients: Map<AiProvider, AiClient>,
     private val photos: PhotoProcessor,
@@ -131,7 +140,8 @@ class ReviewViewModel(
     private val foods: FoodRepository,
     private val zone: ZoneId = ZoneId.systemDefault(),
     private var mealWindows: MealWindows = MealWindows(),
-    private val onPhotoConsumed: () -> Unit = {},
+    /** Called with each photo once it's prepared (a camera photo's temporary file can go then). */
+    private val onPhotoConsumed: (Uri) -> Unit = {},
     /** The day being viewed on Today when logging started; a past day starts the meal on that date. */
     logDate: LocalDate? = null,
     /** Opens a saved meal for editing. */
@@ -149,7 +159,7 @@ class ReviewViewModel(
     }
     private val _state = MutableStateFlow(
         ReviewUiState(
-            phase = if (photoUri == null && editMealId == null) ReviewPhase.Ready else ReviewPhase.Preparing,
+            phase = if (photoUris.isEmpty() && editMealId == null) ReviewPhase.Ready else ReviewPhase.Preparing,
             eatenAt = now,
             mealType = mealWindows.mealAt(now.toLocalTime()),
             editing = editMealId != null,
@@ -157,7 +167,13 @@ class ReviewViewModel(
     )
     val state: StateFlow<ReviewUiState> = _state.asStateFlow()
 
-    private var prepared: PreparedPhoto? = null
+    private var prepared: List<PreparedPhoto> = emptyList()
+    /** Fingerprints of the photos in this meal, to refuse the same one twice. */
+    private val fingerprints = mutableSetOf<String>()
+
+    private val _messages = kotlinx.coroutines.channels.Channel<ReviewMessage>(kotlinx.coroutines.channels.Channel.BUFFERED)
+    /** One-off notes about added photos (already added, too many, nothing new, failed). */
+    val messages = _messages.receiveAsFlow()
     private var provider: AiProvider? = null
     private var job: Job? = null
     private var nextKey = 0L
@@ -180,7 +196,7 @@ class ReviewViewModel(
         }
         when {
             editMealId != null -> loadForEditing(editMealId)
-            photoUri != null -> analyze()
+            photoUris.isNotEmpty() -> analyze()
             voiceMeal != null -> openVoiceMeal(voiceMeal)
         }
     }
@@ -329,7 +345,7 @@ class ReviewViewModel(
             _state.update {
                 it.copy(
                     phase = ReviewPhase.Ready,
-                    photo = stored.thumbnail,
+                    photos = stored.photos,
                     name = meal.name,
                     nameEditedByUser = true,
                     items = items,
@@ -343,7 +359,7 @@ class ReviewViewModel(
     }
 
     fun analyze() {
-        val uri = photoUri ?: return
+        val uris = photoUris.takeIf { it.isNotEmpty() } ?: return
         job?.cancel()
         job = viewModelScope.launch {
             val current = settings.settings.first()
@@ -356,17 +372,16 @@ class ReviewViewModel(
             }
             provider = primary.providerEnum
 
-            val photo = prepared ?: runCatching { photos.prepare(uri, primary.detail.maxEdgePx) }
-                .onSuccess { onPhotoConsumed() }
-                .getOrElse {
-                    fail(FailureReason.PhotoUnreadable)
-                    return@launch
-                }
-            prepared = photo
-            val eatenAt = resolveEatenAt(photo.takenAt)
+            val ready = prepared.ifEmpty { prepareAll(uris.take(PhotoProcessor.MAX_PHOTOS), primary.detail.maxEdgePx) }
+            if (ready.isEmpty()) {
+                fail(FailureReason.PhotoUnreadable)
+                return@launch
+            }
+            prepared = ready
+            val eatenAt = resolveEatenAt(ready.first().takenAt)
             _state.update {
                 it.copy(
-                    photo = photo.jpeg,
+                    photos = ready.map(PreparedPhoto::jpeg),
                     eatenAt = eatenAt,
                     mealType = if (it.mealTypeChosenByUser) it.mealType else mealWindows.mealAt(eatenAt.toLocalTime()),
                     phase = ReviewPhase.Analyzing(primary.name),
@@ -375,13 +390,10 @@ class ReviewViewModel(
             }
 
             try {
-                val (answered, result) = AiChain.run(
-                    chain,
-                    clients,
+                val (answered, result) = analyzePhotos(
+                    chain, ready.map(PreparedPhoto::jpeg), current.promptHints, logged = emptyList(),
                     onAttempt = { config -> _state.update { it.copy(phase = ReviewPhase.Analyzing(config.name), model = config.model) } },
-                ) { client, apiKey, config ->
-                    client.analyzeMeal(apiKey, config.model, photo.jpeg, config.detail, current.promptHints)
-                } ?: run {
+                ) ?: run {
                     fail(FailureReason.AiNotSetUp)
                     return@launch
                 }
@@ -406,6 +418,125 @@ class ReviewViewModel(
             } catch (e: AiException) {
                 fail(FailureReason.Ai(e))
             }
+        }
+    }
+
+    /**
+     * Adds photos on the review page (to a meal with or without photos). Each is read together
+     * with the foods already in the meal, so only new foods come in; the same photo twice is
+     * refused on the phone. If reading fails, the photo isn't added.
+     */
+    fun addPhotos(uris: List<Uri>) {
+        val snapshot = _state.value
+        if (uris.isEmpty() || snapshot.addingPhotos) return
+        viewModelScope.launch {
+            val room = PhotoProcessor.MAX_PHOTOS - snapshot.photos.size
+            if (room <= 0 || uris.size > room) _messages.send(ReviewMessage.TooMany)
+            if (room <= 0) return@launch
+            val chain = settings.aiChain()
+            val primary = chain.firstOrNull()?.first ?: run {
+                _messages.send(ReviewMessage.AiNotSetUp)
+                return@launch
+            }
+            _state.update { it.copy(addingPhotos = true) }
+            try {
+                val fresh = prepareAll(uris.take(room), primary.detail.maxEdgePx)
+                if (fresh.isEmpty()) return@launch
+                val current = settings.settings.first()
+                val logged = _state.value.items.map { item -> "${item.food.name}: ${item.quantityText} ${item.unit.key}" }
+                val (answered, result) = analyzePhotos(chain, fresh.map(PreparedPhoto::jpeg), current.promptHints, logged) ?: return@launch
+                provider = answered.providerEnum
+                val resolved = result.items.filter { !it.nutrition.isEmpty }.map { ScanFoods.resolve(it, foods.findByName(it.name)) }
+                val added = resolved.map { newItem(it.food, it.portion) }
+                val hadPhotos = _state.value.photos.isNotEmpty()
+                _state.update { state ->
+                    val items = (state.items + added).take(MAX_ITEMS)
+                    state.copy(
+                        photos = state.photos + fresh.map(PreparedPhoto::jpeg),
+                        items = items,
+                        model = answered.model,
+                        usage = state.usage.plus(result.usage),
+                        changed = true,
+                        highlighted = added.mapTo(HashSet()) { it.key },
+                        name = when {
+                            state.nameEditedByUser -> state.name
+                            // Only a meal the photo found food for is named after it ("Not answerable" isn't a name).
+                            added.isEmpty() -> state.name
+                            state.items.isEmpty() && !hadPhotos -> result.foodName.take(80)
+                            else -> autoName(items)
+                        },
+                    )
+                }
+                if (added.isEmpty()) _messages.send(ReviewMessage.NothingNew)
+                delay(HIGHLIGHT_MS)
+                _state.update { it.copy(highlighted = emptySet()) }
+            } catch (e: AiException) {
+                // Not read, so not added: its fingerprint goes too, so it can be tried again.
+                _messages.send(ReviewMessage.Failed(e))
+            } finally {
+                _state.update { it.copy(addingPhotos = false) }
+            }
+        }
+    }
+
+    /** Removes a photo from the meal; its foods stay (the user may have changed them). */
+    fun removePhoto(index: Int) = _state.update { state ->
+        if (index !in state.photos.indices) state else state.copy(photos = state.photos.filterIndexed { i, _ -> i != index }, changed = true)
+    }
+
+    /** Prepares photos for reading, skipping ones already in this meal and ones that can't be read. */
+    private suspend fun prepareAll(uris: List<Uri>, maxEdgePx: Int): List<PreparedPhoto> {
+        val ready = mutableListOf<PreparedPhoto>()
+        for (uri in uris) {
+            val print = photos.fingerprint(uri)
+            if (print != null && !fingerprints.add(print)) {
+                _messages.send(ReviewMessage.Duplicate)
+                onPhotoConsumed(uri)
+                continue
+            }
+            val photo = runCatching { photos.prepare(uri, maxEdgePx) }.getOrNull()
+            onPhotoConsumed(uri)
+            if (photo == null) {
+                print?.let(fingerprints::remove)
+                _messages.send(ReviewMessage.Unreadable)
+            } else {
+                ready += photo
+            }
+        }
+        return ready
+    }
+
+    /**
+     * Reads [jpegs] with the model chain: all in one request, so each food is counted once. If that's
+     * too big for the model or plan, one photo at a time, each told what the others found.
+     */
+    private suspend fun analyzePhotos(
+        chain: List<Pair<dev.ytosko.neutrino.data.ai.AiConfig, String>>,
+        jpegs: List<ByteArray>,
+        hints: dev.ytosko.neutrino.data.ai.PromptHints,
+        logged: List<String>,
+        onAttempt: (dev.ytosko.neutrino.data.ai.AiConfig) -> Unit = {},
+    ): Pair<dev.ytosko.neutrino.data.ai.AiConfig, dev.ytosko.neutrino.domain.MealAnalysis>? {
+        suspend fun read(batch: List<ByteArray>, already: List<String>) = AiChain.run(chain, clients, onAttempt = onAttempt) { client, apiKey, config ->
+            client.analyzeMealPhotos(apiKey, config.model, batch, config.detail, hints, already)
+        }
+        return try {
+            read(jpegs, logged)
+        } catch (e: AiException.TooLarge) {
+            if (jpegs.size == 1) throw e
+            var answered: dev.ytosko.neutrino.data.ai.AiConfig? = null
+            var name = ""
+            val found = mutableListOf<dev.ytosko.neutrino.domain.ScannedItem>()
+            var usage: TokenUsage? = null
+            for (jpeg in jpegs) {
+                val already = logged + found.map { "${it.name}: ${formatQuantity(it.quantity)} ${it.unit}" }
+                val (config, result) = read(listOf(jpeg), already) ?: return null
+                answered = config
+                if (name.isEmpty()) name = result.foodName
+                found += result.items
+                usage = usage.plus(result.usage)
+            }
+            answered?.let { it to dev.ytosko.neutrino.domain.MealAnalysis(name, found, usage) }
         }
     }
 
@@ -473,7 +604,7 @@ class ReviewViewModel(
                     mealType = snapshot.mealType,
                     eatenAt = snapshot.eatenAt.toInstant(),
                     zone = zone,
-                    photoJpeg = snapshot.photo,
+                    photos = snapshot.photos,
                     provider = provider?.id,
                     model = snapshot.model,
                     usage = snapshot.usage,
@@ -563,4 +694,21 @@ internal fun voiceAmount(food: Food, said: ScannedItem): Portion? {
         return Portion(roundForUnit(said.quantity, unit), unit)
     }
     return Portion(grams.roundToInt().toDouble().coerceAtLeast(1.0), FoodUnit.Gram)
+}
+
+/** One-off notes on the review page about photos being added. */
+sealed interface ReviewMessage {
+    data object Duplicate : ReviewMessage
+    data object TooMany : ReviewMessage
+    data object NothingNew : ReviewMessage
+    data object Unreadable : ReviewMessage
+    data object AiNotSetUp : ReviewMessage
+    data class Failed(val error: AiException) : ReviewMessage
+}
+
+/** Token use added up over several requests. */
+internal fun TokenUsage?.plus(other: TokenUsage?): TokenUsage? = when {
+    this == null -> other
+    other == null -> this
+    else -> TokenUsage(input + other.input, output + other.output)
 }

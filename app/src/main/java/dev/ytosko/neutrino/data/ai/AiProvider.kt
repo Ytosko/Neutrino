@@ -90,8 +90,8 @@ interface AiClient {
     /** Lists vision-capable models available to [apiKey]. Doubles as a key check. */
     suspend fun listModels(apiKey: String): ModelChoices
 
-    /** Sends [prompt] (and optionally an image) and returns the model's JSON reply. */
-    suspend fun generateJson(apiKey: String, model: String, prompt: String, schema: JsonSchema, image: ImageInput? = null): JsonReply
+    /** Sends [prompt] (with any [images], e.g. several photos of one meal) and returns the model's JSON reply. */
+    suspend fun generateJson(apiKey: String, model: String, prompt: String, schema: JsonSchema, images: List<ImageInput> = emptyList()): JsonReply
 }
 
 /** Analyses a meal photo; the reply lists each food with its portion and nutrition. */
@@ -102,7 +102,24 @@ suspend fun AiClient.analyzeMeal(
     detail: PhotoDetail,
     hints: PromptHints = PromptHints(),
 ): MealAnalysis {
-    val reply = generateJson(apiKey, model, AnalysisPrompt.meal(hints), AnalysisPrompt.MEAL_SCHEMA, ImageInput(jpeg, detail))
+    val reply = generateJson(apiKey, model, AnalysisPrompt.meal(hints), AnalysisPrompt.MEAL_SCHEMA, listOf(ImageInput(jpeg, detail)))
+    return MealAnalysisParser.parse(reply.text)?.copy(usage = reply.usage) ?: throw AiException.NoResult()
+}
+
+/**
+ * Analyses one or more photos of the same meal. With [logged] (the foods already in the meal),
+ * only foods that aren't there yet come back.
+ */
+suspend fun AiClient.analyzeMealPhotos(
+    apiKey: String,
+    model: String,
+    jpegs: List<ByteArray>,
+    detail: PhotoDetail,
+    hints: PromptHints = PromptHints(),
+    logged: List<String> = emptyList(),
+): MealAnalysis {
+    val prompt = if (logged.isEmpty()) AnalysisPrompt.meal(hints) else AnalysisPrompt.morePhotos(hints, logged)
+    val reply = generateJson(apiKey, model, prompt, AnalysisPrompt.MEAL_SCHEMA, jpegs.map { ImageInput(it, detail) })
     return MealAnalysisParser.parse(reply.text)?.copy(usage = reply.usage) ?: throw AiException.NoResult()
 }
 

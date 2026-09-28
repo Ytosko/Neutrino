@@ -85,6 +85,16 @@
     <string name="review_photo_error">This photo couldn\'t be opened. Try another one.</string>
     <string name="review_ai_not_set">Connect an AI provider in Settings first.</string>
     <string name="review_time_ok">OK</string>
+    <string name="review_add_photo">Add photo</string>
+    <string name="review_reading_photo">Reading the photo…</string>
+    <string name="review_photo_count">%1$d of %2$d</string>
+    <string name="review_remove_photo">Remove</string>
+    <string name="review_remove_photo_title">Remove this photo?</string>
+    <string name="review_remove_photo_body">Its foods stay in the meal; change them yourself if needed.</string>
+    <string name="review_photo_close">Close</string>
+    <string name="review_photo_duplicate">This photo is already in this meal.</string>
+    <string name="review_photo_too_many">A meal can have up to %1$d photos.</string>
+    <string name="review_photo_nothing_new">No new foods in this photo. It\'s added to the meal.</string>
     <string name="review_photo_desc">Photo of your meal</string>
 
     <!-- Units -->

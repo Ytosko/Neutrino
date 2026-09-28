@@ -1,5 +1,6 @@
 package dev.ytosko.neutrino.data.backup
 
+import dev.ytosko.neutrino.data.meal.PhotoProcessor
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
@@ -204,8 +205,13 @@ class BackupRepository(
             medicines = db.medicines().allMedicines(),
             doses = db.medicines().allDoses(),
         )
-        val photos = meals.mapNotNull { meal ->
-            meal.thumbnailPath?.let(::File)?.takeIf { it.isFile }?.let { meal.id to it.readBytes() }
+        val photos = meals.flatMap { meal ->
+            val first = meal.thumbnailPath?.let(::File)?.takeIf { it.isFile } ?: return@flatMap emptyList()
+            // Extra photos go in as "<meal id>~2" … "~5"; backups from older versions simply have none.
+            val extras = (2..PhotoProcessor.MAX_PHOTOS).mapNotNull { n ->
+                File(thumbnails, "${meal.id}-$n.jpg").takeIf { it.isFile }?.let { "${meal.id}~$n" to it.readBytes() }
+            }
+            listOf(meal.id to first.readBytes()) + extras
         }.toMap()
         val header = BackupHeader(
             createdAtEpochMs = System.currentTimeMillis(),
@@ -307,6 +313,11 @@ class BackupRepository(
             val mealIds = data.meals.mapTo(HashSet()) { it.id }
             val saved = photos.filterKeys { it in mealIds }.mapValues { (id, jpeg) ->
                 File(thumbnails, "$id.jpg").apply { writeBytes(jpeg) }.absolutePath
+            }
+            photos.forEach { (key, jpeg) ->
+                val id = key.substringBefore('~')
+                val n = key.substringAfter('~', "").toIntOrNull()
+                if (n != null && n in 2..PhotoProcessor.MAX_PHOTOS && id in saved) File(thumbnails, "$id-$n.jpg").writeBytes(jpeg)
             }
             val meals = data.meals.map { it.copy(thumbnailPath = saved[it.id]) }
             db.backup().replaceAll(meals, data.items, data.foods, data.water)

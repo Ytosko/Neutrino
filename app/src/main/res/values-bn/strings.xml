@@ -79,6 +79,16 @@
     <string name="review_photo_error">ছবিটি খোলা যায়নি। অন্য একটি ছবি দিন।</string>
     <string name="review_ai_not_set">আগে সেটিংসে একটি AI প্রোভাইডার যুক্ত করুন।</string>
     <string name="review_time_ok">ঠিক আছে</string>
+    <string name="review_add_photo">ছবি যোগ করুন</string>
+    <string name="review_reading_photo">ছবি পড়া হচ্ছে…</string>
+    <string name="review_photo_count">%2$dটির মধ্যে %1$dটি</string>
+    <string name="review_remove_photo">সরান</string>
+    <string name="review_remove_photo_title">এই ছবিটি সরাবেন?</string>
+    <string name="review_remove_photo_body">এর খাবারগুলো খাবারের তালিকায় থাকবে; দরকার হলে নিজে বদলে নিন।</string>
+    <string name="review_photo_close">বন্ধ করুন</string>
+    <string name="review_photo_duplicate">এই ছবিটি আগেই এই খাবারে আছে।</string>
+    <string name="review_photo_too_many">একটি খাবারে সর্বোচ্চ %1$dটি ছবি রাখা যায়।</string>
+    <string name="review_photo_nothing_new">এই ছবিতে নতুন কোনো খাবার নেই। ছবিটি খাবারে যোগ হলো।</string>
     <string name="review_photo_desc">আপনার খাবারের ছবি</string>
     <string name="unit_g">g</string>
     <string name="unit_kg">kg</string>

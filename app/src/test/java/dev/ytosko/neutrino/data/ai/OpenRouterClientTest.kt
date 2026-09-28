@@ -135,7 +135,7 @@ class OpenRouterClientTest {
             val asked = mutableListOf<String>()
             val stub = object : AiClient {
                 override suspend fun listModels(apiKey: String) = ModelChoices(emptyList(), null)
-                override suspend fun generateJson(apiKey: String, model: String, prompt: String, schema: JsonSchema, image: ImageInput?): JsonReply {
+                override suspend fun generateJson(apiKey: String, model: String, prompt: String, schema: JsonSchema, images: List<ImageInput>): JsonReply {
                     asked += model
                     if (model == "old/model:free") throw AiException.ModelGone(model, replacement)
                     return JsonReply("ok", null)

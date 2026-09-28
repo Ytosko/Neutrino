@@ -34,8 +34,53 @@ class PhotoProcessor(private val context: Context) {
         PreparedPhoto(jpeg = upright.toJpeg(quality = 80), takenAt = takenAt)
     }
 
-    /** Saves a small thumbnail for the meal list; returns its absolute path. */
-    suspend fun saveThumbnail(jpeg: ByteArray, id: String): String? = withContext(Dispatchers.IO) {
+    /**
+     * Saves a meal's photos (up to [MAX_PHOTOS]) as small JPEGs: the first as the thumbnail the meal
+     * list shows (its path is returned), the others beside it. Old extra photos are removed.
+     */
+    suspend fun savePhotos(jpegs: List<ByteArray>, id: String): String? {
+        deleteExtras(id)
+        jpegs.drop(1).take(MAX_PHOTOS - 1).forEachIndexed { i, jpeg -> saveThumbnail(jpeg, id, index = i + 1) }
+        return jpegs.firstOrNull()?.let { saveThumbnail(it, id) }
+    }
+
+    /** SHA-256 of the photo file as picked, so the same photo isn't added to a meal twice. Null if unreadable. */
+    suspend fun fingerprint(uri: Uri): String? = withContext(Dispatchers.IO) {
+        runCatching {
+            val digest = java.security.MessageDigest.getInstance("SHA-256")
+            context.contentResolver.openInputStream(uri)?.use { stream ->
+                val buffer = ByteArray(64 * 1024)
+                while (true) {
+                    val read = stream.read(buffer)
+                    if (read < 0) break
+                    digest.update(buffer, 0, read)
+                }
+            } ?: return@runCatching null
+            digest.digest().joinToString("") { "%02x".format(it) }
+        }.getOrNull()
+    }
+
+    /** All photos of a meal, the thumbnail first; empty if it has none. */
+    suspend fun readPhotos(id: String, thumbnailPath: String?): List<ByteArray> = withContext(Dispatchers.IO) {
+        val first = thumbnailPath?.let { runCatching { File(it).readBytes() }.getOrNull() } ?: return@withContext emptyList()
+        listOf(first) + extraFiles(id).mapNotNull { runCatching { it.readBytes() }.getOrNull() }
+    }
+
+    /** The extra photos' files (2nd to 5th), in order. */
+    fun extraFiles(id: String): List<File> = (2..MAX_PHOTOS).map { File(dir, "$id-$it.jpg") }.filter { it.isFile }
+
+    /** Deletes all of a meal's photos. */
+    fun deletePhotos(id: String, thumbnailPath: String?) {
+        deleteThumbnail(thumbnailPath)
+        deleteExtras(id)
+    }
+
+    private fun deleteExtras(id: String) = extraFiles(id).forEach { runCatching { it.delete() } }
+
+    private val dir: File get() = File(context.filesDir, "thumbnails")
+
+    /** Saves a small photo for the meal ([index] 0 is the thumbnail, 1.. the extra ones); returns its path. */
+    suspend fun saveThumbnail(jpeg: ByteArray, id: String, index: Int = 0): String? = withContext(Dispatchers.IO) {
         runCatching {
             val source = BitmapFactory.decodeByteArray(jpeg, 0, jpeg.size) ?: return@runCatching null
             val scale = THUMB_EDGE_PX.toFloat() / max(source.width, source.height)
@@ -44,8 +89,9 @@ class PhotoProcessor(private val context: Context) {
             } else {
                 source
             }
-            val dir = File(context.filesDir, "thumbnails").apply { mkdirs() }
-            File(dir, "$id.jpg").apply { writeBytes(thumb.toJpeg(quality = 75)) }.absolutePath
+            dir.mkdirs()
+            val name = if (index == 0) "$id.jpg" else "$id-${index + 1}.jpg"
+            File(dir, name).apply { writeBytes(thumb.toJpeg(quality = 80)) }.absolutePath
         }.getOrNull()
     }
 
@@ -97,7 +143,10 @@ class PhotoProcessor(private val context: Context) {
         ByteArrayOutputStream().also { compress(Bitmap.CompressFormat.JPEG, quality, it) }.toByteArray()
 
     companion object {
-        private const val THUMB_EDGE_PX = 256
+        /** Big enough to look sharp in the photo gallery, small enough for backups. */
+        private const val THUMB_EDGE_PX = 480
+        /** Most photos one meal can have. */
+        const val MAX_PHOTOS = 5
         private val EXIF_DATE: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy:MM:dd HH:mm:ss")
 
         /** EXIF stores local wall time; the offset tag (if present) pins it to an instant. */

@@ -104,5 +104,6 @@ object BackupPackage {
     }
 
     /** Meal ids are UUIDs; anything else is dropped so entry names can't escape the folder. */
-    private fun String.safeName(): String = filter { it.isLetterOrDigit() || it == '-' }
+    /** Meal ids are UUIDs; "~" marks a meal's extra photos ("<id>~2"). */
+    private fun String.safeName(): String = filter { it.isLetterOrDigit() || it == '-' || it == '~' }
 }

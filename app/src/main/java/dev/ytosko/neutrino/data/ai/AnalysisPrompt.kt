@@ -13,13 +13,15 @@ import dev.ytosko.neutrino.data.ai.JsonSchema.Str
 object AnalysisPrompt {
 
     val MEAL = """
-        Analyze the provided food image carefully.
+        Analyze the provided food image carefully. When there are several images, they are photos of the same meal: count each food only once, even if it appears in more than one photo.
         Identify every distinct food item or dish visible. Give each a short, common English name; for South Asian or Bangladeshi dishes add the local name in parentheses, e.g. "Beef curry (gorur mangsho bhuna)". Treat a prepared dish (curry, biryani, dal) as one item rather than listing its ingredients.
 
         For each item:
         1. Estimate the portion as a quantity and a household unit people understand: piece, slice, cup, bowl, plate, glass, tbsp or tsp. Use g or ml only when nothing else fits.
         2. Estimate the portion's weight in grams from visual cues such as plate size, volume, thickness, count and typical serving sizes.
         3. Estimate the calories, protein, carbohydrates and fat for that portion.
+
+        If an image shows a nutrition facts label of a packaged food or drink, use the label instead of estimating: name the product, take one serving as the portion (the label's household unit, or "serving"), its serving size in grams, and the label's calories, protein, carbohydrates and fat per serving. If the product and its label are both shown, list the product once, with the label's numbers.
 
         Do not ignore sauces, oils, dressings, toppings or other calorie-containing ingredients that are visibly present; count cooking oil as part of the dish it is in. Do not invent ingredients that cannot reasonably be inferred from the image. Because image-based portion estimation is approximate, use the most realistic estimate rather than claiming exact measurements. If there is no food in the image, return an empty items list.
 
@@ -30,6 +32,20 @@ object AnalysisPrompt {
 
     /** [MEAL] plus the user's cuisine and notes, which only guide recognition; the reply format never changes. */
     fun meal(hints: PromptHints): String = MEAL + hints.render()
+
+    /**
+     * More photos of a meal that already has foods: the model sees the new photo(s) and the foods
+     * already logged ([logged], e.g. "White rice, cooked: 1 plate"), and returns only foods that
+     * aren't there yet, so a dish seen again (another angle, the same plate) isn't counted twice.
+     */
+    fun morePhotos(hints: PromptHints, logged: List<String>): String {
+        val list = logged.joinToString("\n") { "- " + it.replace(Regex("[\"{}\\n\\r]"), " ").take(120) }
+        return MEAL + "\n\n" + """
+            These photos are being added to a meal that already has these foods logged:
+            @@LOGGED@@
+            Return ONLY foods that are not in this list. A logged food seen again in these photos (the same dish from another angle, or the same plate) must not be returned, and its amount stays as logged. If there is nothing new, return an empty items list.
+        """.trimIndent().replace("@@LOGGED@@", list) + hints.render()
+    }
 
     val MEAL_SCHEMA = Obj(
         "food_name" to Str,

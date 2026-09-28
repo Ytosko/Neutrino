@@ -1,5 +1,7 @@
 package dev.ytosko.neutrino.ui.home
 
+import dev.ytosko.neutrino.data.meal.PhotoProcessor
+import dev.ytosko.neutrino.ui.components.rememberPhotoPickers
 import androidx.compose.foundation.layout.IntrinsicSize
 import android.widget.Toast
 import dev.ytosko.neutrino.ui.glucose.durationText
@@ -209,7 +211,8 @@ fun HomeScreen(
     onOpenAiSettings: () -> Unit,
     backup: BackupState?,
     onOpenBackup: () -> Unit,
-    onPhotoSelected: (uri: Uri, fromCamera: Boolean) -> Unit,
+    /** Photos to log a meal from (one from the camera, up to 5 from the gallery). */
+    onPhotoSelected: (uris: List<Uri>, fromCamera: Boolean) -> Unit,
     onAddManually: () -> Unit,
     /** Opens Log by voice (only offered when voice is turned on). */
     onLogByVoice: () -> Unit,
@@ -279,11 +282,6 @@ fun HomeScreen(
         }
     }
 
-    val camera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
-        val uri = pendingCapture?.let(Uri::parse)
-        pendingCapture = null
-        if (success && uri != null) onPhotoSelected(uri, true)
-    }
     val askForNotifications by viewModel.askForNotifications.collectAsStateWithLifecycle()
     val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
     LaunchedEffect(askForNotifications) {
@@ -295,12 +293,13 @@ fun HomeScreen(
         }
     }
 
-    val gallery = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        if (uri != null) onPhotoSelected(uri, false)
-    }
     val launchActions = context.appContainer.launchAction
 
     val noCamera = stringResource(R.string.home_no_camera)
+    val pickers = rememberPhotoPickers(
+        onPicked = { uris, fromCamera -> onPhotoSelected(uris, fromCamera) },
+        onNoCamera = { scope.launch { snackbar.showSnackbar(noCamera) } },
+    )
     val aiNeeded = stringResource(R.string.home_ai_needed)
     val setUp = stringResource(R.string.home_set_up)
     val waterAdded = stringResource(R.string.home_water_added)
@@ -364,15 +363,7 @@ fun HomeScreen(
         if (viewModel.isToday(meal)) logAgain(meal, onItsDay = false) else logAgainChoice = meal
     }
 
-    fun openCamera() {
-        val uri = newCaptureUri(context)
-        pendingCapture = uri.toString()
-        try {
-            camera.launch(uri)
-        } catch (_: ActivityNotFoundException) {
-            scope.launch { snackbar.showSnackbar(noCamera) }
-        }
-    }
+    fun openCamera() = pickers.takePhoto()
 
     fun startLogging() {
         showSheet = true
@@ -685,7 +676,7 @@ fun HomeScreen(
                         needsInternet { withAi { openCamera() } }
                     }
                     SheetTile(R.drawable.ic_image, stringResource(R.string.home_choose_photo), NeutrinoTheme.colors.sky, Modifier.weight(1f), online = online) {
-                        needsInternet { withAi { gallery.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) } }
+                        needsInternet { withAi { pickers.choose(PhotoProcessor.MAX_PHOTOS) } }
                     }
                 }
                 // In order, two to a row: manual, voice (if on), glucose, dose (if on). A tile left
@@ -925,12 +916,6 @@ private fun BackupReminder(backup: BackupState, onOpen: () -> Unit, modifier: Mo
     }
 }
 
-/** A fresh file in the app cache for the camera app to write into. */
-private fun newCaptureUri(context: Context): Uri {
-    val dir = File(context.cacheDir, "captures").apply { mkdirs() }
-    val file = File(dir, "meal-${System.currentTimeMillis()}.jpg")
-    return FileProvider.getUriForFile(context, "${context.packageName}.files", file)
-}
 
 /**
  * A big, friendly choice in the "Log a meal" sheet: icon above the label. With a [subtitle] it's the wide version for a

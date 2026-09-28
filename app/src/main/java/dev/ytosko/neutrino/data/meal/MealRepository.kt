@@ -61,7 +61,8 @@ data class MealDraft(
     val mealType: MealType,
     val eatenAt: Instant,
     val zone: ZoneId,
-    val photoJpeg: ByteArray?,
+    /** The meal's photos, the first shown as its thumbnail; up to [PhotoProcessor.MAX_PHOTOS]. */
+    val photos: List<ByteArray>,
     val provider: String?,
     val model: String?,
     val usage: TokenUsage?,
@@ -73,8 +74,11 @@ data class MealDraft(
 data class StoredMeal(
     val meal: MealEntity,
     val items: List<MealItemEntity>,
-    val thumbnail: ByteArray?,
-)
+    /** All its photos, the thumbnail first. */
+    val photos: List<ByteArray>,
+) {
+    val thumbnail: ByteArray? get() = photos.firstOrNull()
+}
 
 /** Result of saving: whether Health Connect received it too. */
 data class SaveResult(val id: String, val syncedToHealthConnect: Boolean)
@@ -117,7 +121,7 @@ class MealRepository(
         val meal = source.meal
         val nutrition = Nutrition(meal.calories, meal.proteinG, meal.carbsG, meal.fatG)
         val synced = runCatching { healthConnect.writeMeal(id, meal.name, nutrition, mealType, at, zone) }.getOrDefault(false)
-        val thumbnail = source.thumbnail?.let { photos.saveThumbnail(it, id) }
+        val thumbnail = photos.savePhotos(source.photos, id)
         db.meals().insertWithItems(
             meal.copy(
                 id = id,
@@ -195,7 +199,7 @@ class MealRepository(
         val synced = runCatching {
             healthConnect.writeMeal(id, draft.name, draft.nutrition, draft.mealType, draft.eatenAt, draft.zone)
         }.getOrDefault(false)
-        val thumbnail = draft.photoJpeg?.let { photos.saveThumbnail(it, id) }
+        val thumbnail = photos.savePhotos(draft.photos, id)
         val nutrition = draft.nutrition
         db.meals().insertWithItems(
             MealEntity(
@@ -227,10 +231,7 @@ class MealRepository(
 
     suspend fun loadMeal(id: String): StoredMeal? {
         val meal = db.meals().get(id) ?: return null
-        val thumbnail = meal.thumbnailPath?.let { path ->
-            withContext(Dispatchers.IO) { runCatching { java.io.File(path).readBytes() }.getOrNull() }
-        }
-        return StoredMeal(meal, db.meals().items(id), thumbnail)
+        return StoredMeal(meal, db.meals().items(id), photos.readPhotos(meal.id, meal.thumbnailPath))
     }
 
     /** Saves changes to an existing meal, replacing its Health Connect record too. */
@@ -240,8 +241,12 @@ class MealRepository(
         val synced = runCatching {
             healthConnect.writeMeal(id, draft.name, nutrition, draft.mealType, draft.eatenAt, draft.zone)
         }.getOrDefault(false)
+        // Photos can be added or removed while editing: store the meal's set as it is now.
+        photos.deleteThumbnail(existing.thumbnailPath)
+        val thumbnail = photos.savePhotos(draft.photos, id)
         db.meals().updateWithItems(
             existing.copy(
+                thumbnailPath = thumbnail,
                 name = draft.name,
                 calories = nutrition.calories,
                 proteinG = nutrition.proteinG,
@@ -266,7 +271,7 @@ class MealRepository(
         val stored = loadMeal(id) ?: return null
         healthConnect.deleteMeal(id)
         db.meals().delete(id)
-        photos.deleteThumbnail(stored.meal.thumbnailPath)
+        photos.deletePhotos(stored.meal.id, stored.meal.thumbnailPath)
         onChanged()
         return stored
     }
@@ -275,7 +280,7 @@ class MealRepository(
     suspend fun restoreMeal(stored: StoredMeal) {
         val meal = stored.meal
         healthConnect.cancelPendingDelete(meal.id)
-        val thumbnail = stored.thumbnail?.let { photos.saveThumbnail(it, meal.id) }
+        val thumbnail = photos.savePhotos(stored.photos, meal.id)
         val synced = runCatching {
             healthConnect.writeMeal(
                 meal.id,
