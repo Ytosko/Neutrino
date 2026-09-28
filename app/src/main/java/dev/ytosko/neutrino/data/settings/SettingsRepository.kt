@@ -208,8 +208,9 @@ class SettingsRepository(context: Context, private val cipher: SecretCipher) {
             appLock = p[Keys.appLock] ?: false,
             hideInRecents = p[Keys.hideInRecents] ?: false,
             weeklySummary = p[Keys.weeklySummary] ?: false,
-            takesMedicine = p[Keys.takesMedicine] ?: false,
-            usesInsulin = p[Keys.usesInsulin] ?: false,
+            // Both kinds are always available; medicine features show once the list has something in it.
+            takesMedicine = true,
+            usesInsulin = true,
             glucoseImport = p[Keys.glucoseImport] ?: false,
             glucoseImportedUntil = p[Keys.glucoseImportedUntil] ?: 0,
             widgetShowsGlucose = p[Keys.widgetGlucose] ?: true,

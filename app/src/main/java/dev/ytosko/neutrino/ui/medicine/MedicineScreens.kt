@@ -152,10 +152,10 @@ fun AppSettings.medicineKinds(): List<MedicineKind> = buildList {
     if (usesInsulin) add(MedicineKind.Insulin)
 }
 
-/** "Medicines and insulin", "Medicines" or "Insulin", for what's turned on. */
-fun dosesTitle(settings: AppSettings): Int = when {
-    settings.takesMedicine && settings.usesInsulin -> R.string.doses_title_both
-    settings.usesInsulin -> R.string.doses_title_insulin
+/** "Medicines and insulin", "Medicines" or "Insulin", for what's on the user's list. */
+fun dosesTitle(kinds: Collection<MedicineKind>): Int = when {
+    MedicineKind.Medicine in kinds && MedicineKind.Insulin in kinds -> R.string.doses_title_both
+    MedicineKind.Insulin in kinds -> R.string.doses_title_insulin
     else -> R.string.doses_title_medicine
 }
 

@@ -1,5 +1,6 @@
 package dev.ytosko.neutrino.ui.navigation
 
+import dev.ytosko.neutrino.ui.settings.GlucoseSettingsScreen
 import dev.ytosko.neutrino.ui.ai.OpenRouterGoneDialog
 import dev.ytosko.neutrino.ui.ai.OpenRouterCheckViewModel
 import androidx.compose.runtime.setValue
@@ -108,6 +109,7 @@ sealed interface Route {
     @Serializable data object Restore : Route
     @Serializable data object RestoreHealth : Route
     @Serializable data object Medicines : Route
+    @Serializable data object SettingsGlucose : Route
     /** One AI model's setup: an existing one ([configId]) or a new one of [provider]. */
     @Serializable data class AiConfigEdit(val configId: String? = null, val provider: String? = null, val voice: Boolean = false) : Route
 }
@@ -278,7 +280,18 @@ fun NeutrinoNavHost(startDestination: Route, modifier: Modifier = Modifier) {
                 onOpenExport = { navController.navigate(Route.SettingsExport) },
                 onOpenMedicines = { navController.navigate(Route.Medicines) },
                 medicines = container.medicines.medicines,
+                onOpenGlucose = { navController.navigate(Route.SettingsGlucose) },
                 repository = container.settings,
+            )
+        }
+        composable<Route.SettingsGlucose> {
+            val container = LocalContext.current.appContainer
+            GlucoseSettingsScreen(
+                settings = container.settings.settings,
+                healthViewModel = healthConnectViewModel(),
+                repository = container.settings,
+                onOpenHealthConnect = { navController.navigate(Route.SettingsHealth) },
+                onBack = navController::popBackStack,
             )
         }
         composable<Route.Medicines> {

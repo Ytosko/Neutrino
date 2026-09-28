@@ -631,6 +631,12 @@
     <string name="weekly_water">Water: %1$s a day</string>
     <string name="weekly_glucose">Glucose: %1$d%% in range (%2$d readings)</string>
     <string name="settings_glucose_unit">Glucose unit</string>
+    <string name="settings_section_health_group">Health</string>
+    <string name="settings_glucose_settings">Glucose settings</string>
+    <string name="settings_section_glucose_display">Display</string>
+    <string name="settings_section_glucose_sources">Readings</string>
+    <string name="settings_hc_connected_short">Connected</string>
+    <string name="settings_hc_attention">Needs attention</string>
     <string name="settings_glucose_unit_body">Only changes how readings are shown. Your saved readings stay exactly the same.</string>
     <string name="settings_glucose_import">Import from other glucose apps</string>
     <string name="settings_glucose_import_body">Readings CGM apps like xDrip+ save to Health Connect. Glucose only.</string>

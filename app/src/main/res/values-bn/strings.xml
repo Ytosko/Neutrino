@@ -601,6 +601,12 @@
     <string name="weekly_water">পানি: দিনে %1$s</string>
     <string name="weekly_glucose">গ্লুকোজ: %1$d%% সীমার মধ্যে (%2$dটি রিডিং)</string>
     <string name="settings_glucose_unit">গ্লুকোজের একক</string>
+    <string name="settings_section_health_group">স্বাস্থ্য</string>
+    <string name="settings_glucose_settings">গ্লুকোজ সেটিংস</string>
+    <string name="settings_section_glucose_display">দেখানো</string>
+    <string name="settings_section_glucose_sources">রিডিং</string>
+    <string name="settings_hc_connected_short">সংযুক্ত</string>
+    <string name="settings_hc_attention">দেখা দরকার</string>
     <string name="settings_glucose_unit_body">শুধু রিডিং দেখানোর ধরন বদলায়। সেভ করা রিডিং একদম একই থাকে।</string>
     <string name="settings_glucose_import">অন্য গ্লুকোজ অ্যাপ থেকে আনুন</string>
     <string name="settings_glucose_import_body">xDrip+-এর মতো CGM অ্যাপ Health Connect-এ যে রিডিং রাখে। শুধু গ্লুকোজ।</string>

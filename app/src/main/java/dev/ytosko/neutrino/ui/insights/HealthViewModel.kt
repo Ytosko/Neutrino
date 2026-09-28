@@ -114,6 +114,11 @@ class HealthViewModel(
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
+    /** The kinds on the user's medicine list, for the doses card's title. */
+    val medicineKinds: StateFlow<Set<dev.ytosko.neutrino.data.medicine.MedicineKind>> = medicines.medicines
+        .map { list -> list.mapTo(HashSet()) { it.kindEnum } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+
     val medicineSettings: StateFlow<dev.ytosko.neutrino.data.settings.AppSettings?> = settings.settings
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 

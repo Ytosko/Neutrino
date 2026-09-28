@@ -101,6 +101,7 @@ fun SettingsScreen(
     onOpenMedicines: () -> Unit,
     medicines: Flow<List<MedicineEntity>>,
     repository: SettingsRepository,
+    onOpenGlucose: () -> Unit,
 ) {
     val appSettings by settings.collectAsStateWithLifecycle(initialValue = AppSettings())
     val c = NeutrinoTheme.colors
@@ -118,16 +119,11 @@ fun SettingsScreen(
     val sourceUrl = stringResource(R.string.url_source)
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var choosingUnit by remember { mutableStateOf(false) }
     var choosingLanguage by remember { mutableStateOf(false) }
     val language = remember(choosingLanguage) { AppLanguage.current(context) }
     var lockUnavailable by remember { mutableStateOf(false) }
     // Reminders and the weekly summary need notifications (Android 13+ asks once).
     val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
-    // Glucose import: Health Connect asks the user to allow reading blood glucose.
-    val glucoseReadLauncher = rememberLauncherForActivityResult(healthViewModel.permissionContract()) { granted ->
-        healthViewModel.onGlucoseReadResult(granted) { repository.setGlucoseImport(true) }
-    }
     fun askNotificationsIfNeeded() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !MealReminders.canNotify(context)) {
             notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -151,48 +147,7 @@ fun SettingsScreen(
                 onClick = onOpenAi,
             )
         }
-        Section(stringResource(R.string.settings_section_health)) {
-            SettingRow(
-                icon = R.drawable.ic_heart_pulse,
-                tint = c.coral,
-                title = stringResource(R.string.settings_section_health),
-                value = when {
-                    health.granted -> stringResource(R.string.settings_hc_status_connected)
-                    health.allowed.isEmpty() -> stringResource(R.string.settings_hc_status_disconnected)
-                    else -> stringResource(
-                        R.string.settings_hc_status_missing,
-                        health.missing.map {
-                            stringResource(
-                                when (it) {
-                                    HealthKind.Nutrition -> R.string.hc_kind_nutrition
-                                    HealthKind.Hydration -> R.string.hc_kind_water
-                                    HealthKind.Glucose -> R.string.hc_kind_glucose
-                                },
-                            )
-                        }.joinToString(", "),
-                    )
-                },
-                valueColor = if (health.allowed.isNotEmpty() && !health.granted) MaterialTheme.colorScheme.error else null,
-                onClick = onOpenHealthConnect,
-            )
-        }
-        Section(stringResource(R.string.settings_section_backup)) {
-            val current = backupState
-            SettingRow(
-                icon = R.drawable.ic_archive,
-                tint = c.sky,
-                title = stringResource(R.string.backup_settings_title),
-                value = when {
-                    current == null -> null
-                    !current.configured -> stringResource(R.string.settings_backup_off)
-                    current.needsAttention -> stringResource(R.string.settings_backup_attention)
-                    else -> current.lastLocalAt?.let { stringResource(R.string.settings_backup_last, formatWhen(it)) }
-                        ?: stringResource(R.string.backup_never)
-                },
-                onClick = onOpenBackup,
-            )
-        }
-        Section(stringResource(R.string.settings_section_meter)) {
+        Section(stringResource(R.string.settings_section_health_group)) {
             SettingRow(
                 icon = R.drawable.ic_activity,
                 tint = c.rose,
@@ -208,101 +163,40 @@ fun SettingsScreen(
             SettingRow(
                 icon = R.drawable.ic_chart_column,
                 tint = c.rose,
-                title = stringResource(R.string.settings_glucose_unit),
-                value = appSettings.glucoseUnit.label,
-                onClick = { choosingUnit = true },
+                title = stringResource(R.string.settings_glucose_settings),
+                value = null,
+                onClick = onOpenGlucose,
             )
             RowDivider()
-            SwitchRow(
-                icon = R.drawable.ic_heart_pulse,
-                tint = c.rose,
-                title = stringResource(R.string.settings_glucose_import),
-                subtitle = stringResource(
-                    if (appSettings.glucoseImport && health.availability != null && !health.readsGlucose) {
-                        R.string.settings_glucose_import_needs_permission
-                    } else {
-                        R.string.settings_glucose_import_body
-                    },
-                ),
-                checked = appSettings.glucoseImport && (health.availability == null || health.readsGlucose),
-                onChange = { on ->
-                    if (on) {
-                        if (health.availability == dev.ytosko.neutrino.data.health.HealthConnectAvailability.Available) {
-                            glucoseReadLauncher.launch(setOf(healthViewModel.glucoseReadPermission))
-                        } else {
-                            onOpenHealthConnect()
-                        }
-                    } else {
-                        scope.launch { repository.setGlucoseImport(false) }
-                    }
-                },
-            )
-            RowDivider()
-            SwitchRow(
-                icon = R.drawable.ic_bell,
-                tint = c.rose,
-                title = stringResource(R.string.settings_test_reminder),
-                subtitle = stringResource(R.string.settings_test_reminder_body),
-                checked = appSettings.afterMealReminder,
-                onChange = { on ->
-                    if (on) askNotificationsIfNeeded()
-                    scope.launch {
-                        repository.setAfterMealReminder(on)
-                        if (!on) TestReminders.cancel(context)
-                    }
-                },
-            )
-            RowDivider()
-            SwitchRow(
-                icon = R.drawable.ic_smartphone,
-                tint = c.rose,
-                title = stringResource(R.string.settings_widget_glucose),
-                subtitle = stringResource(R.string.settings_widget_glucose_body),
-                checked = appSettings.widgetShowsGlucose,
-                onChange = { on -> scope.launch { repository.setWidgetShowsGlucose(on); NeutrinoWidget.refresh(context) } },
-            )
-        }
-        Section(stringResource(R.string.settings_section_medicine)) {
-            SwitchRow(
+            SettingRow(
                 icon = R.drawable.ic_pill,
                 tint = c.violet,
-                title = stringResource(R.string.settings_takes_medicine),
-                subtitle = stringResource(R.string.settings_takes_medicine_body),
-                checked = appSettings.takesMedicine,
-                onChange = { on -> scope.launch { repository.setTakesMedicine(on); DoseReminders.sync(context) } },
+                title = stringResource(R.string.settings_my_medicines),
+                value = if (medicineList.isEmpty()) stringResource(R.string.settings_medicines_none) else pluralStringResource(R.plurals.settings_medicines_count, medicineList.size, medicineList.size),
+                onClick = {
+                    askNotificationsIfNeeded()
+                    onOpenMedicines()
+                },
             )
             RowDivider()
-            SwitchRow(
-                icon = R.drawable.ic_syringe,
-                tint = c.cyan,
-                title = stringResource(R.string.settings_uses_insulin),
-                subtitle = stringResource(R.string.settings_uses_insulin_body),
-                checked = appSettings.usesInsulin,
-                onChange = { on -> scope.launch { repository.setUsesInsulin(on); DoseReminders.sync(context) } },
-            )
-            if (appSettings.medicinesOn) {
-                RowDivider()
-                val shown = medicineList.count {
-                    (it.kindEnum == MedicineKind.Medicine && appSettings.takesMedicine) || (it.kindEnum == MedicineKind.Insulin && appSettings.usesInsulin)
-                }
-                SettingRow(
-                    icon = R.drawable.ic_bell,
-                    tint = c.violet,
-                    title = stringResource(R.string.settings_my_medicines),
-                    value = if (shown == 0) stringResource(R.string.settings_medicines_none) else pluralStringResource(R.plurals.settings_medicines_count, shown, shown),
-                    onClick = {
-                        askNotificationsIfNeeded()
-                        onOpenMedicines()
-                    },
-                )
-            }
-        }
-        Section(stringResource(R.string.settings_section_goals)) {
             SettingRow(
-                icon = R.drawable.ic_chart_column,
+                icon = R.drawable.ic_heart_pulse,
+                tint = c.coral,
+                title = stringResource(R.string.settings_section_health),
+                value = when {
+                    health.granted -> stringResource(R.string.settings_hc_connected_short)
+                    health.allowed.isEmpty() -> stringResource(R.string.settings_hc_status_disconnected)
+                    else -> stringResource(R.string.settings_hc_attention)
+                },
+                valueColor = if (health.allowed.isNotEmpty() && !health.granted) MaterialTheme.colorScheme.error else null,
+                onClick = onOpenHealthConnect,
+            )
+            RowDivider()
+            SettingRow(
+                icon = R.drawable.ic_target,
                 tint = c.green,
                 title = stringResource(R.string.goals_title),
-                value = goalsSummary(appSettings),
+                value = null,
                 onClick = onOpenGoals,
             )
         }
@@ -329,7 +223,7 @@ fun SettingsScreen(
                 icon = R.drawable.ic_history,
                 tint = c.amber,
                 title = stringResource(R.string.settings_weekly),
-                subtitle = stringResource(R.string.settings_weekly_body),
+                subtitle = null,
                 checked = appSettings.weeklySummary,
                 onChange = { on ->
                     if (on) askNotificationsIfNeeded()
@@ -342,11 +236,21 @@ fun SettingsScreen(
         }
         Section(stringResource(R.string.settings_section_data)) {
             SettingRow(
-                icon = R.drawable.ic_archive,
+                icon = R.drawable.ic_file_text,
                 tint = c.indigo,
                 title = stringResource(R.string.export_title),
-                value = stringResource(R.string.settings_export_value),
+                value = null,
                 onClick = onOpenExport,
+            )
+            RowDivider()
+            // Only a problem shows here (in red); otherwise the row is just "Backup".
+            SettingRow(
+                icon = R.drawable.ic_archive,
+                tint = c.sky,
+                title = stringResource(R.string.backup_settings_title),
+                value = backupState?.takeIf { it.configured && it.needsAttention }?.let { stringResource(R.string.settings_backup_attention) },
+                valueColor = MaterialTheme.colorScheme.error,
+                onClick = onOpenBackup,
             )
         }
         Section(stringResource(R.string.settings_section_privacy)) {
@@ -354,7 +258,7 @@ fun SettingsScreen(
                 icon = R.drawable.ic_lock,
                 tint = c.slate,
                 title = stringResource(R.string.settings_app_lock),
-                subtitle = stringResource(R.string.settings_app_lock_body),
+                subtitle = null,
                 checked = appSettings.appLock,
                 onChange = { on ->
                     val activity = context as? FragmentActivity
@@ -371,7 +275,7 @@ fun SettingsScreen(
                 icon = R.drawable.ic_eye_off,
                 tint = c.slate,
                 title = stringResource(R.string.settings_hide_recents),
-                subtitle = stringResource(R.string.settings_hide_recents_body),
+                subtitle = null,
                 checked = appSettings.hideInRecents,
                 onChange = { on -> scope.launch { repository.setHideInRecents(on) } },
             )
@@ -397,20 +301,6 @@ fun SettingsScreen(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = Spacing.lg),
-        )
-    }
-
-    if (choosingUnit) {
-        IosAlert(
-            title = stringResource(R.string.settings_glucose_unit),
-            message = stringResource(R.string.settings_glucose_unit_body),
-            buttons = GlucoseUnit.entries.map { unit ->
-                AlertButton(if (appSettings.glucoseUnit == unit) "✓  ${unit.label}" else unit.label) {
-                    scope.launch { repository.setGlucoseUnit(unit); NeutrinoWidget.refresh(context) }
-                    choosingUnit = false
-                }
-            } + AlertButton(stringResource(R.string.backup_cancel), AlertStyle.Cancel) { choosingUnit = false },
-            onDismiss = { choosingUnit = false },
         )
     }
 
@@ -582,3 +472,110 @@ private val ROW_VERTICAL = 8.dp
 private val ICON_BOX = 29.dp
 private val ICON_GAP = 14.dp
 private val GROUP_CORNER = 12.dp
+
+/**
+ * Settings → Health → Glucose settings: how readings are shown, where else they come from, the
+ * after-meal test reminder and the widget. Each switch keeps a short explanation here.
+ */
+@Composable
+fun GlucoseSettingsScreen(
+    settings: Flow<AppSettings>,
+    healthViewModel: HealthConnectViewModel,
+    repository: SettingsRepository,
+    onOpenHealthConnect: () -> Unit,
+    onBack: () -> Unit,
+) {
+    val appSettings by settings.collectAsStateWithLifecycle(initialValue = AppSettings())
+    val health by healthViewModel.state.collectAsStateWithLifecycle()
+    val c = NeutrinoTheme.colors
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var choosingUnit by remember { mutableStateOf(false) }
+    LifecycleResumeEffect(Unit) {
+        healthViewModel.refresh()
+        onPauseOrDispose { }
+    }
+    val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+    // Glucose import: Health Connect asks the user to allow reading blood glucose.
+    val glucoseReadLauncher = rememberLauncherForActivityResult(healthViewModel.permissionContract()) { granted ->
+        healthViewModel.onGlucoseReadResult(granted) { repository.setGlucoseImport(true) }
+    }
+
+    SetupScaffold(title = stringResource(R.string.settings_glucose_settings), onBack = onBack) {
+        Section(stringResource(R.string.settings_section_glucose_display)) {
+            SettingRow(
+                icon = R.drawable.ic_chart_column,
+                tint = c.rose,
+                title = stringResource(R.string.settings_glucose_unit),
+                value = appSettings.glucoseUnit.label,
+                onClick = { choosingUnit = true },
+            )
+            RowDivider()
+            SwitchRow(
+                icon = R.drawable.ic_smartphone,
+                tint = c.rose,
+                title = stringResource(R.string.settings_widget_glucose),
+                subtitle = stringResource(R.string.settings_widget_glucose_body),
+                checked = appSettings.widgetShowsGlucose,
+                onChange = { on -> scope.launch { repository.setWidgetShowsGlucose(on); NeutrinoWidget.refresh(context) } },
+            )
+        }
+        Section(stringResource(R.string.settings_section_glucose_sources)) {
+            SwitchRow(
+                icon = R.drawable.ic_heart_pulse,
+                tint = c.rose,
+                title = stringResource(R.string.settings_glucose_import),
+                subtitle = stringResource(
+                    if (appSettings.glucoseImport && health.availability != null && !health.readsGlucose) {
+                        R.string.settings_glucose_import_needs_permission
+                    } else {
+                        R.string.settings_glucose_import_body
+                    },
+                ),
+                checked = appSettings.glucoseImport && (health.availability == null || health.readsGlucose),
+                onChange = { on ->
+                    if (on) {
+                        if (health.availability == dev.ytosko.neutrino.data.health.HealthConnectAvailability.Available) {
+                            glucoseReadLauncher.launch(setOf(healthViewModel.glucoseReadPermission))
+                        } else {
+                            onOpenHealthConnect()
+                        }
+                    } else {
+                        scope.launch { repository.setGlucoseImport(false) }
+                    }
+                },
+            )
+            RowDivider()
+            SwitchRow(
+                icon = R.drawable.ic_bell,
+                tint = c.rose,
+                title = stringResource(R.string.settings_test_reminder),
+                subtitle = stringResource(R.string.settings_test_reminder_body),
+                checked = appSettings.afterMealReminder,
+                onChange = { on ->
+                    if (on && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !MealReminders.canNotify(context)) {
+                        notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    }
+                    scope.launch {
+                        repository.setAfterMealReminder(on)
+                        if (!on) TestReminders.cancel(context)
+                    }
+                },
+            )
+        }
+    }
+
+    if (choosingUnit) {
+        IosAlert(
+            title = stringResource(R.string.settings_glucose_unit),
+            message = stringResource(R.string.settings_glucose_unit_body),
+            buttons = GlucoseUnit.entries.map { unit ->
+                AlertButton(if (appSettings.glucoseUnit == unit) "✓  ${unit.label}" else unit.label) {
+                    scope.launch { repository.setGlucoseUnit(unit); NeutrinoWidget.refresh(context) }
+                    choosingUnit = false
+                }
+            } + AlertButton(stringResource(R.string.backup_cancel), AlertStyle.Cancel) { choosingUnit = false },
+            onDismiss = { choosingUnit = false },
+        )
+    }
+}

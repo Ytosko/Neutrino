@@ -240,7 +240,8 @@ fun HomeScreen(
     }
     val medicineList by viewModel.medicineList.collectAsStateWithLifecycle()
     val homeSettings by viewModel.appSettings.collectAsStateWithLifecycle()
-    val medicinesOn = homeSettings?.medicinesOn == true
+    // Medicine features show once there's a medicine or insulin on the list.
+    val medicinesOn = medicineList.isNotEmpty()
     val voiceOn = homeSettings?.voiceEnabled == true
     val online by context.appContainer.network.online.collectAsStateWithLifecycle()
     val offlineMessage = stringResource(R.string.offline_needs_internet_message)
@@ -647,7 +648,7 @@ fun HomeScreen(
                 item(key = "doses") {
                     DosesDayCard(
                         doses = doses,
-                        title = stringResource(homeSettings?.let(::dosesTitle) ?: R.string.doses_title_medicine),
+                        title = stringResource(dosesTitle(medicineList.map { it.kindEnum })),
                         isToday = isToday,
                         onAdd = { addingDose = true },
                         onOpen = { editingDose = it },

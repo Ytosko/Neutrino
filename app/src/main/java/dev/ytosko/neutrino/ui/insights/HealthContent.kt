@@ -114,7 +114,7 @@ fun HealthContent(viewModel: HealthViewModel, contentPadding: PaddingValues, onO
     val mealRises by viewModel.mealRises.collectAsStateWithLifecycle()
     val gmi by viewModel.gmi.collectAsStateWithLifecycle()
     val doseSummary by viewModel.doseSummary.collectAsStateWithLifecycle()
-    val medicineSettings by viewModel.medicineSettings.collectAsStateWithLifecycle()
+    val medicineKinds by viewModel.medicineKinds.collectAsStateWithLifecycle()
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -156,7 +156,7 @@ fun HealthContent(viewModel: HealthViewModel, contentPadding: PaddingValues, onO
 
         val glucoseData = glucose?.takeIf { it.period == period && !it.isEmpty }
         val doseData = doseSummary?.takeIf { it.period == period && !it.isEmpty }
-        val doseTitle = medicineSettings?.let(::dosesTitle) ?: R.string.doses_title_medicine
+        val doseTitle = dosesTitle(medicineKinds)
         val rises = mealRises?.takeIf { it.first == period }?.second.orEmpty()
         if (data.isEmpty) {
             if (glucoseData != null) item(key = "glucose-$key") { GlucoseCard(glucoseData, chart, width) }
