@@ -229,7 +229,15 @@ internal fun HeightDialog(cm: Double?, unit: HeightUnit, onSave: (Double, Height
 }
 
 @Composable
-internal fun WeightDialog(title: String, kg: Double?, unit: WeightUnit, onSave: (Double, WeightUnit) -> Unit, onDismiss: () -> Unit) {
+internal fun WeightDialog(
+    title: String,
+    kg: Double?,
+    unit: WeightUnit,
+    onSave: (Double, WeightUnit) -> Unit,
+    onDismiss: () -> Unit,
+    hint: String? = null,
+    extra: @Composable () -> Unit = {},
+) {
     var chosen by remember { mutableStateOf(unit) }
     fun shown(k: Double, u: WeightUnit) = formatNumber(((if (u == WeightUnit.Kg) k else GoalMath.kgToLb(k)) * 10).roundToInt() / 10.0)
     var text by remember { mutableStateOf(kg?.let { shown(it, unit) }.orEmpty()) }
@@ -240,6 +248,8 @@ internal fun WeightDialog(title: String, kg: Double?, unit: WeightUnit, onSave: 
             chosen = new
         }
         NumberField(text, { text = it }, title, if (chosen == WeightUnit.Kg) "kg" else "lb", decimal = true)
+        if (hint != null) Text(hint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        extra()
     }
 }
 

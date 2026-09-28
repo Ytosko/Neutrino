@@ -252,6 +252,10 @@ class HealthConnectManager(private val context: Context) {
         if (!delete(NutritionRecord::class, id)) pending.add(MEAL_PREFIX + id)
     }
 
+    suspend fun deleteWeight(id: String) {
+        runCatching { delete(androidx.health.connect.client.records.WeightRecord::class, id) }
+    }
+
     suspend fun deleteWater(id: String) {
         if (!delete(HydrationRecord::class, id)) pending.add(WATER_PREFIX + id)
     }

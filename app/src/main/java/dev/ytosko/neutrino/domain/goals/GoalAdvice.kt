@@ -25,6 +25,13 @@ data class GoalAdvice(
  * My conditions, Workouts and My medicines, plus the numbers worked out on the phone ([GoalMath]).
  */
 object GoalFacts {
+    /** ", tested 8 months ago" for a test date; empty without one. */
+    private fun testAge(epochDay: Long?, today: LocalDate): String {
+        val date = epochDay?.let(LocalDate::ofEpochDay) ?: return ""
+        val months = java.time.Period.between(date, today).toTotalMonths()
+        return if (months < 1) ", tested this month" else ", tested $months months ago"
+    }
+
     fun build(
         p: Physique,
         workouts: List<Workout>,
@@ -32,6 +39,8 @@ object GoalFacts {
         meterAvgGlucoseMmol: Double?,
         medicines: List<String>,
         today: LocalDate = LocalDate.now(),
+        weights: List<WeightEntry> = emptyList(),
+        nowMs: Long = System.currentTimeMillis(),
     ): List<String> {
         val out = mutableListOf<String>()
         fun f(v: Double) = String.format(Locale.US, "%.1f", v)
@@ -41,6 +50,15 @@ object GoalFacts {
         p.weightKg?.let { out += "Current weight: ${f(it)} kg" }
         GoalMath.bmi(p)?.let { out += "BMI: ${f(it)}" }
         p.targetKg?.let { out += "Target weight: ${f(it)} kg" }
+        // The weigh-ins of the last year (at most 12, spread out), and how fast weight has moved.
+        val year = weights.filter { it.epochMs >= nowMs - 365 * 86_400_000L }.sortedBy { it.epochMs }
+        if (year.size >= 2) {
+            val step = (year.size - 1) / 11.0
+            val picked = if (year.size <= 12) year else (0 until 12).map { year[Math.round(it * step).toInt()] }.distinct()
+            out += "Weight history: " + picked.joinToString("; ") { "${it.date} ${f(it.kg)} kg" }
+            WeightTrend.perWeek(weights, 30, nowMs)?.let { out += "Weight change over the last month: ${String.format(Locale.US, "%+.2f", it)} kg per week" }
+            WeightTrend.perWeek(weights, 90, nowMs)?.let { out += "Weight change over the last 3 months: ${String.format(Locale.US, "%+.2f", it)} kg per week" }
+        }
         if (p.planLength != null) out += "Plan length: ${p.planLength} ${p.planUnit.name.lowercase()} (${p.planDays} days)"
         GoalMath.paceKgPerWeek(p)?.let {
             out += when {
@@ -84,7 +102,18 @@ object GoalFacts {
                 conditions.ft3?.let { "FT3 ${f(it)} $ft3Unit" },
                 conditions.ft4?.let { "FT4 ${f(it)} $ft4Unit" },
             )
-            out += "Condition: thyroid" + if (values.isEmpty()) "" else ", " + values.joinToString(", ")
+            out += "Condition: thyroid" + (if (values.isEmpty()) "" else ", " + values.joinToString(", ")) +
+                testAge(conditions.thyroidTestDay, today)
+        }
+        if (conditions.liver) {
+            val values = listOfNotNull(
+                conditions.steatosis?.let { "steatosis S$it" + (conditions.cap?.let { c -> " (CAP $c dB/m)" } ?: "") },
+                conditions.fibrosis?.let { "fibrosis ${if (it <= 1) "F0-F1" else "F$it"}" + (conditions.kpa?.let { k -> " (${f(k)} kPa)" } ?: "") },
+                conditions.alt?.let { "ALT $it U/L" },
+                conditions.ast?.let { "AST $it U/L" },
+            )
+            out += "Condition: fatty liver" + (if (values.isEmpty()) "" else ", " + values.joinToString(", ")) +
+                testAge(conditions.liverTestDay, today)
         }
         if (!conditions.any) out += "Conditions: none given"
 

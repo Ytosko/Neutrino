@@ -44,6 +44,24 @@ data class Physique(
         }
 }
 
+/** One weigh-in. [id] is also its Health Connect record id. */
+@Serializable
+data class WeightEntry(val id: String, val epochMs: Long, val kg: Double) {
+    val date: LocalDate get() = java.time.Instant.ofEpochMilli(epochMs).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+}
+
+object WeightTrend {
+    /** kg per week over the entries since [days] ago (first to last); null with fewer than two over a week apart. */
+    fun perWeek(entries: List<WeightEntry>, days: Long, nowMs: Long = System.currentTimeMillis()): Double? {
+        val from = nowMs - days * 86_400_000L
+        val inRange = entries.filter { it.epochMs >= from }.sortedBy { it.epochMs }
+        if (inRange.size < 2) return null
+        val spanDays = (inRange.last().epochMs - inRange.first().epochMs) / 86_400_000.0
+        if (spanDays < 7) return null
+        return (inRange.last().kg - inRange.first().kg) / spanDays * 7
+    }
+}
+
 enum class WorkoutType { Walking, Running, Cycling }
 
 /**
@@ -84,8 +102,48 @@ data class Conditions(
     val ft4: Double? = null,
     /** FT3 and FT4 in pmol/L, or FT3 in pg/mL and FT4 in ng/dL. */
     val hormoneUnit: HormoneUnit = HormoneUnit.Pmol,
+    /** When the thyroid test was done (epoch day); optional. */
+    val thyroidTestDay: Long? = null,
+    /** Fatty liver: FibroScan CAP (dB/m) and stiffness (kPa), ALT and AST (U/L). */
+    val liver: Boolean = false,
+    val cap: Int? = null,
+    val kpa: Double? = null,
+    val alt: Int? = null,
+    val ast: Int? = null,
+    /** S0–S3 picked from the report when there's no CAP number. */
+    val steatosisGrade: Int? = null,
+    /** F0–F4 picked from the report when there's no kPa number. */
+    val fibrosisGrade: Int? = null,
+    val liverTestDay: Long? = null,
 ) {
-    val any: Boolean get() = diabetes || bloodPressure || thyroid
+    val any: Boolean get() = diabetes || bloodPressure || thyroid || liver
+
+    /** The fat grade: from CAP when there is one, else the one picked. */
+    val steatosis: Int? get() = cap?.let(LiverGrades::steatosis) ?: steatosisGrade
+
+    /** The scarring grade: from kPa when there is one, else the one picked. */
+    val fibrosis: Int? get() = kpa?.let(LiverGrades::fibrosis) ?: fibrosisGrade
+}
+
+/**
+ * FibroScan grades. Fat (CAP, dB/m): S0 under 248, S1 248–267, S2 268–279, S3 280 and over
+ * (Karlas et al., 2017). Scarring (kPa, fatty liver): F0–F1 under 8.2, F2 8.2–9.6, F3 9.7–13.5,
+ * F4 13.6 and over (Eddowes et al., 2019). F0–F1 are reported together as 1.
+ */
+object LiverGrades {
+    fun steatosis(cap: Int): Int = when {
+        cap < 248 -> 0
+        cap < 268 -> 1
+        cap < 280 -> 2
+        else -> 3
+    }
+
+    fun fibrosis(kpa: Double): Int = when {
+        kpa < 8.2 -> 1
+        kpa < 9.7 -> 2
+        kpa < 13.6 -> 3
+        else -> 4
+    }
 }
 
 /** Daily targets, as the AI suggests them and as the user confirms them. */

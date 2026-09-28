@@ -107,6 +107,38 @@ class GoalsTest {
         assertNull(AnalysisPrompt.parseGoalPlan("""{"kcal": 2000}"""))
     }
 
+    @Test
+    fun `liver grades come from CAP and kPa, else the picked ones`() {
+        assertEquals(0, LiverGrades.steatosis(240))
+        assertEquals(1, LiverGrades.steatosis(250))
+        assertEquals(2, LiverGrades.steatosis(270))
+        assertEquals(3, LiverGrades.steatosis(300))
+        assertEquals(1, LiverGrades.fibrosis(6.0))
+        assertEquals(3, LiverGrades.fibrosis(10.5))
+        assertEquals(4, LiverGrades.fibrosis(15.0))
+        assertEquals(2, Conditions(liver = true, steatosisGrade = 2).steatosis)
+        assertEquals(3, Conditions(liver = true, cap = 290, steatosisGrade = 1).steatosis)
+        val facts = GoalFacts.build(
+            man, emptyList(),
+            Conditions(liver = true, cap = 290, kpa = 8.5, alt = 62, liverTestDay = LocalDate.of(2026, 1, 20).toEpochDay()),
+            null, emptyList(), today,
+        )
+        assertTrue(facts.any { it.startsWith("Condition: fatty liver") && "S3 (CAP 290" in it && "F2" in it && "ALT 62" in it && "tested 8 months ago" in it })
+    }
+
+    @Test
+    fun `weight history and trend go to the AI`() {
+        val now = LocalDate.of(2026, 9, 28).atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+        val day = 86_400_000L
+        val weights = (0..12).map { w -> WeightEntry("w$w", now - (12 - w) * 7 * day, 88.0 - w * 0.5) }
+        assertEquals(-0.5, WeightTrend.perWeek(weights, 90, now)!!, 0.01)
+        val facts = GoalFacts.build(man, emptyList(), Conditions(), null, emptyList(), today, weights, now)
+        val history = facts.first { it.startsWith("Weight history:") }
+        assertTrue(history.count { it == ';' } <= 11)
+        assertTrue(facts.any { it.startsWith("Weight change over the last 3 months: -0.50") })
+        assertNull(WeightTrend.perWeek(weights.take(1), 90, now))
+    }
+
     private fun assertEquals(expected: Int, actual: Int, tolerance: Int) =
         assertTrue("expected $expected ± $tolerance but was $actual", kotlin.math.abs(expected - actual) <= tolerance)
 }

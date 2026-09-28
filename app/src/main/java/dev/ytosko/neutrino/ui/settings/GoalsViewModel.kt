@@ -23,6 +23,7 @@ import dev.ytosko.neutrino.domain.goals.GoalFacts
 import dev.ytosko.neutrino.domain.goals.GoalMath
 import dev.ytosko.neutrino.domain.goals.Intakes
 import dev.ytosko.neutrino.domain.goals.Physique
+import dev.ytosko.neutrino.domain.goals.WeightEntry
 import dev.ytosko.neutrino.domain.goals.Workout
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -84,6 +85,12 @@ class GoalsViewModel(
     init {
         viewModelScope.launch {
             _savedConditions.value = profile.conditions.first()
+            // A weight saved before the history existed becomes its first entry.
+            val kg = profile.physique.first().weightKg
+            if (kg != null && profile.weights.first().isEmpty()) {
+                val now = Instant.now().toEpochMilli()
+                profile.addWeight(WeightEntry("weight-$now", now, kg))
+            }
         }
         viewModelScope.launch {
             val zone = ZoneId.systemDefault()
@@ -95,11 +102,28 @@ class GoalsViewModel(
 
     fun setPhysique(p: Physique) = viewModelScope.launch { profile.setPhysique(p) }
 
-    /** A new current weight: saved, sent to Health Connect (if allowed) and the weigh-in re-booked. */
-    fun setWeight(kg: Double) = viewModelScope.launch {
-        profile.setPhysique(physique.value.copy(weightKg = kg))
-        val now = Instant.now()
-        runCatching { healthConnect.writeWeight("weight-${now.toEpochMilli()}", kg, now, ZoneId.systemDefault()) }
+    val weights: StateFlow<List<WeightEntry>> = profile.weights.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /** A weigh-in: kept in the history (the newest is the current weight), sent to Health Connect if allowed. */
+    fun setWeight(kg: Double, at: Instant = Instant.now()) = viewModelScope.launch {
+        val entry = WeightEntry("weight-${at.toEpochMilli()}", at.toEpochMilli(), kg)
+        profile.addWeight(entry)
+        runCatching { healthConnect.writeWeight(entry.id, kg, at, ZoneId.systemDefault()) }
+        runCatching { WeighInReminder.sync(context) }
+    }
+
+    /** Changes a weigh-in's weight or day (a new record replaces the old one, also in Health Connect). */
+    fun editWeight(old: WeightEntry, kg: Double, at: Instant) = viewModelScope.launch {
+        profile.removeWeight(old.id)
+        runCatching { healthConnect.deleteWeight(old.id) }
+        val entry = WeightEntry("weight-${at.toEpochMilli()}", at.toEpochMilli(), kg)
+        profile.addWeight(entry)
+        runCatching { healthConnect.writeWeight(entry.id, kg, at, ZoneId.systemDefault()) }
+    }
+
+    fun removeWeight(id: String) = viewModelScope.launch {
+        profile.removeWeight(id)
+        runCatching { healthConnect.deleteWeight(id) }
         runCatching { WeighInReminder.sync(context) }
     }
 
@@ -132,7 +156,10 @@ class GoalsViewModel(
                 _advice.value = Advice.NeedsAi
                 return@launch
             }
-            val facts = GoalFacts.build(p, workouts.value, conditions.value, meterAverage.value, medicineList.value.map(::describe))
+            val facts = GoalFacts.build(
+                p, workouts.value, conditions.value, meterAverage.value, medicineList.value.map(::describe),
+                weights = weights.value,
+            )
             val bangla = Locale.getDefault().language == "bn"
             try {
                 val (_, advice) = AiChain.run(chain, clients) { client, key, config ->

@@ -11,6 +11,7 @@ import dev.ytosko.neutrino.domain.goals.HeightUnit
 import dev.ytosko.neutrino.domain.goals.Physique
 import dev.ytosko.neutrino.domain.goals.PlanUnit
 import dev.ytosko.neutrino.domain.goals.Sex
+import dev.ytosko.neutrino.domain.goals.WeightEntry
 import dev.ytosko.neutrino.domain.goals.WeightUnit
 import dev.ytosko.neutrino.domain.goals.Workout
 import kotlinx.coroutines.flow.Flow
@@ -50,6 +51,34 @@ class GoalProfileRepository(private val context: Context) {
         val workouts = stringPreferencesKey("workouts")
         val conditions = stringPreferencesKey("conditions")
         val weighIn = stringPreferencesKey("weigh_in")
+        val weights = stringPreferencesKey("weights")
+    }
+
+    /** Every weigh-in, oldest first. */
+    val weights: Flow<List<WeightEntry>> = context.goalStore.data.map { p ->
+        p[Keys.weights]?.let { runCatching { json.decodeFromString<List<WeightEntry>>(it) }.getOrNull() }.orEmpty().sortedBy { it.epochMs }
+    }
+
+    /** Adds a weigh-in and makes the latest one the current weight. */
+    suspend fun addWeight(entry: WeightEntry) = context.goalStore.edit { p ->
+        val list = (decodeWeights(p) + entry).sortedBy { it.epochMs }
+        p[Keys.weights] = json.encodeToString(list)
+        setLatest(p, list)
+    }
+
+    suspend fun removeWeight(id: String) = context.goalStore.edit { p ->
+        val list = decodeWeights(p).filterNot { it.id == id }
+        p[Keys.weights] = json.encodeToString(list)
+        setLatest(p, list)
+    }
+
+    private fun decodeWeights(p: Preferences): List<WeightEntry> =
+        p[Keys.weights]?.let { runCatching { json.decodeFromString<List<WeightEntry>>(it) }.getOrNull() }.orEmpty()
+
+    /** The physique's current weight follows the newest weigh-in. */
+    private fun setLatest(p: androidx.datastore.preferences.core.MutablePreferences, list: List<WeightEntry>) {
+        val stored = p[Keys.physique]?.let { runCatching { json.decodeFromString<StoredPhysique>(it) }.getOrNull() } ?: StoredPhysique()
+        p[Keys.physique] = json.encodeToString(stored.copy(weightKg = list.maxByOrNull { it.epochMs }?.kg))
     }
 
     val physique: Flow<Physique> = context.goalStore.data.map { p ->

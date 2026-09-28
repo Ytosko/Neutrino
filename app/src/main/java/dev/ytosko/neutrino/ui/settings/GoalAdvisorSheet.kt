@@ -216,6 +216,7 @@ internal fun conditionNames(c: dev.ytosko.neutrino.domain.goals.Conditions): Str
     if (c.diabetes) stringResource(R.string.conditions_diabetes) else null,
     if (c.bloodPressure) stringResource(R.string.conditions_bp) else null,
     if (c.thyroid) stringResource(R.string.conditions_thyroid) else null,
+    if (c.liver) stringResource(R.string.conditions_liver) else null,
 ).joinToString(", ")
 
 @Composable

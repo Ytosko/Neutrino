@@ -2,6 +2,7 @@ package dev.ytosko.neutrino.ui.navigation
 
 import dev.ytosko.neutrino.ui.settings.ConditionsScreen
 import dev.ytosko.neutrino.ui.settings.WorkoutsScreen
+import dev.ytosko.neutrino.ui.settings.WeightScreen
 import androidx.navigation.NavDestination.Companion.hasRoute
 import dev.ytosko.neutrino.ui.settings.GlucoseSettingsScreen
 import dev.ytosko.neutrino.ui.ai.OpenRouterGoneDialog
@@ -115,6 +116,7 @@ sealed interface Route {
     @Serializable data object SettingsGlucose : Route
     @Serializable data object SettingsWorkouts : Route
     @Serializable data object SettingsConditions : Route
+    @Serializable data object SettingsWeight : Route
     /** One AI model's setup: an existing one ([configId]) or a new one of [provider]. */
     @Serializable data class AiConfigEdit(val configId: String? = null, val provider: String? = null, val voice: Boolean = false) : Route
 }
@@ -132,8 +134,8 @@ fun NeutrinoNavHost(startDestination: Route, modifier: Modifier = Modifier) {
     val openWeight = LocalContext.current.appContainer.openWeight
     val wantsWeight by openWeight.collectAsStateWithLifecycle()
     LaunchedEffect(wantsWeight) {
-        if (wantsWeight && navController.currentDestination?.hasRoute(Route.SettingsGoals::class) != true) {
-            runCatching { navController.navigate(Route.SettingsGoals) }
+        if (wantsWeight && navController.currentDestination?.hasRoute(Route.SettingsWeight::class) != true) {
+            runCatching { navController.navigate(Route.SettingsWeight) }
         }
     }
     NavHost(navController = navController, startDestination = startDestination, modifier = modifier) {
@@ -336,7 +338,7 @@ fun NeutrinoNavHost(startDestination: Route, modifier: Modifier = Modifier) {
             GoalsScreen(
                 settings = container.settings,
                 viewModel = goalsViewModel(),
-                openWeight = container.openWeight,
+                onOpenWeight = { navController.navigate(Route.SettingsWeight) },
                 onOpenWorkouts = { navController.navigate(Route.SettingsWorkouts) },
                 onOpenConditions = { navController.navigate(Route.SettingsConditions) },
                 onOpenAi = { navController.navigate(Route.SettingsAi) },
@@ -345,6 +347,13 @@ fun NeutrinoNavHost(startDestination: Route, modifier: Modifier = Modifier) {
         }
         composable<Route.SettingsWorkouts> {
             WorkoutsScreen(viewModel = goalsViewModel(), onBack = navController::popBackStack)
+        }
+        composable<Route.SettingsWeight> {
+            WeightScreen(
+                viewModel = goalsViewModel(),
+                openWeight = LocalContext.current.appContainer.openWeight,
+                onBack = navController::popBackStack,
+            )
         }
         composable<Route.SettingsConditions> {
             ConditionsScreen(viewModel = goalsViewModel(), onBack = navController::popBackStack)

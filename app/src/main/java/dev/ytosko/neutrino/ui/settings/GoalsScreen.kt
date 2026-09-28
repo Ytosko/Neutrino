@@ -99,7 +99,7 @@ private fun AppSettings.valueOf(goal: Goal): Int? = when (goal) {
 fun GoalsScreen(
     settings: SettingsRepository,
     viewModel: GoalsViewModel,
-    openWeight: kotlinx.coroutines.flow.MutableStateFlow<Boolean>,
+    onOpenWeight: () -> Unit,
     onOpenWorkouts: () -> Unit,
     onOpenConditions: () -> Unit,
     onOpenAi: () -> Unit,
@@ -118,14 +118,6 @@ fun GoalsScreen(
     var askAddWorkouts by rememberSaveable { mutableStateOf(false) }
     if (workouts.any { it.filled }) askAddWorkouts = false
 
-    // The weigh-in reminder opens this page with the weight editor.
-    val wantsWeight by openWeight.collectAsStateWithLifecycle()
-    LaunchedEffect(wantsWeight) {
-        if (wantsWeight) {
-            openWeight.value = false
-            field = PhysiqueField.Weight
-        }
-    }
     fun save(goal: Goal, value: Int?) = scope.launch {
         settings.setGoals(
             if (goal == Goal.Carbs) value else s.carbGoalG,
@@ -160,7 +152,7 @@ fun GoalsScreen(
                 workouts = workouts.count { it.filled },
                 askAddWorkouts = askAddWorkouts,
                 weighIn = weighIn,
-                onEdit = { field = it },
+                onEdit = { if (it == PhysiqueField.Weight) onOpenWeight() else field = it },
                 onOpenWorkouts = onOpenWorkouts,
             )
             GoalGroup(stringResource(R.string.conditions_section)) {
@@ -208,11 +200,6 @@ fun GoalsScreen(
             viewModel.setPhysique(p.copy(heightCm = cm, heightUnit = unit))
             field = null
         }, onDismiss = { field = null })
-        PhysiqueField.Weight -> WeightDialog(stringResource(R.string.physique_weight), p.weightKg, p.weightUnit, onSave = { kg, unit ->
-            viewModel.setPhysique(p.copy(weightUnit = unit))
-            viewModel.setWeight(kg)
-            field = null
-        }, onDismiss = { field = null })
         PhysiqueField.Target -> WeightDialog(stringResource(R.string.physique_target), p.targetKg, p.weightUnit, onSave = { kg, unit ->
             viewModel.setPhysique(p.copy(targetKg = kg, weightUnit = unit))
             field = null
@@ -222,7 +209,7 @@ fun GoalsScreen(
             field = null
         }, onDismiss = { field = null })
         PhysiqueField.WeighIn -> WeighInDialog(weighIn, onSave = { viewModel.setWeighIn(it); field = null }, onDismiss = { field = null })
-        null -> {}
+        PhysiqueField.Weight, null -> {}
     }
 }
 
