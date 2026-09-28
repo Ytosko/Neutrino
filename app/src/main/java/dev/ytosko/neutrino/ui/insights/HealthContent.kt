@@ -146,8 +146,8 @@ fun HealthContent(viewModel: HealthViewModel, contentPadding: PaddingValues, onO
         val chart = ChartContext(data.period, today, goals)
         val key = "${period.range}-${period.start}-${period.hourly}"
         item(key = "totals") { TotalsCard(data.totals, width) }
-        // The last 7 days in a few sentences, written by the user's AI when they ask.
-        item(key = "recap") {
+        /** The last 7 days in a few sentences, written by the user's AI when they ask; last on the page. */
+        fun recap() = item(key = "recap") {
             val container = LocalContext.current.appContainer
             val recap: RecapViewModel = viewModel(key = "recap") { RecapViewModel(container.meals, container.glucose, container.settings, container.aiClients) }
             val online by container.network.online.collectAsStateWithLifecycle()
@@ -164,6 +164,7 @@ fun HealthContent(viewModel: HealthViewModel, contentPadding: PaddingValues, onO
             if (rises.isNotEmpty()) item(key = "meal-glucose-$key") { MealGlucoseCard(rises, width) }
             doseData?.let { item(key = "doses-$key") { DosesCard(it, doseTitle, chart, width) } }
             item(key = "empty") { EmptyRange(width) }
+            recap()
             return@LazyColumn
         }
         item(key = "calories-$key") { CaloriesCard(data, chart, onOpenDay, width) }
@@ -176,6 +177,7 @@ fun HealthContent(viewModel: HealthViewModel, contentPadding: PaddingValues, onO
         item(key = "meals-$key") { CarbsByMealCard(data, width) }
         item(key = "water-$key") { WaterCard(data, chart, width) }
         if (data.topFoods.isNotEmpty()) item(key = "foods-$key") { TopFoodsCard(data, width) }
+        recap()
     }
 }
 
