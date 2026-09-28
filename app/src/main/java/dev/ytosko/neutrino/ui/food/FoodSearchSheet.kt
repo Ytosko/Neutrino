@@ -1,5 +1,11 @@
 package dev.ytosko.neutrino.ui.food
 
+import androidx.lifecycle.viewmodel.compose.viewModel
+import dev.ytosko.neutrino.appContainer
+import androidx.compose.ui.platform.LocalContext
+import android.widget.Toast
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
 import dev.ytosko.neutrino.ui.glucose.FoodRiseLine
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -67,6 +73,7 @@ fun FoodSearchSheet(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val focus = remember { FocusRequester() }
     LaunchedEffect(viewModel) { viewModel.picked.collect(onPicked) }
+    var recipeOpen by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
 
     ModalBottomSheet(onDismissRequest = onDismiss, shape = androidx.compose.foundation.shape.RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp), sheetState = sheetState) {
@@ -92,6 +99,8 @@ fun FoodSearchSheet(
 
             LazyColumn(modifier = Modifier.fillMaxWidth(), contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = Spacing.xl)) {
                 val query = state.query.trim()
+                // A dish cooked at home: worked out once from its ingredients, then one of your foods.
+                if (query.isEmpty()) item(key = "recipe") { RecipeRow(offline = state.offline) { recipeOpen = true } }
                 val mine = state.local.filter { it.usage.useCount > 0 }
                 val builtin = state.local.filter { it.usage.useCount == 0 }
 
@@ -130,6 +139,19 @@ fun FoodSearchSheet(
                 }
             }
         }
+    }
+
+    if (recipeOpen) {
+        val container = LocalContext.current.appContainer
+        val recipe: RecipeViewModel = viewModel(key = "recipe") { RecipeViewModel(container.settings, container.aiClients, container.foods) }
+        RecipeDialog(
+            viewModel = recipe,
+            onSaved = { pick ->
+                recipeOpen = false
+                onPicked(pick)
+            },
+            onDismiss = { recipeOpen = false },
+        )
     }
 }
 
@@ -171,6 +193,27 @@ private fun FoodRow(food: Food, onPick: (Food) -> Unit) {
             )
             FoodRiseLine(food.id)
         }
+    }
+}
+
+@Composable
+private fun RecipeRow(offline: Boolean, onOpen: () -> Unit) {
+    val context = LocalContext.current
+    val offlineMessage = stringResource(R.string.food_custom_offline)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(role = Role.Button) { if (offline) Toast.makeText(context, offlineMessage, Toast.LENGTH_LONG).show() else onOpen() }
+            .padding(horizontal = Spacing.lg, vertical = Spacing.md),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+    ) {
+        Icon(painterResource(R.drawable.ic_utensils), contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+        Column(Modifier.weight(1f)) {
+            Text(stringResource(R.string.recipe_title), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+            Text(stringResource(R.string.recipe_row_body), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Icon(painterResource(R.drawable.ic_chevron_right), contentDescription = null, tint = MaterialTheme.colorScheme.outline)
     }
 }
 

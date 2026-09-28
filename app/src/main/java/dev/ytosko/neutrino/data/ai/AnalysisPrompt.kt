@@ -75,6 +75,32 @@ object AnalysisPrompt {
         """.trimIndent()
     }
 
+    /**
+     * A home recipe: the ingredients as the user wrote them. Each is estimated as used (raw weight),
+     * plus the whole dish's weight once cooked, so one plate can be worked out.
+     */
+    fun recipe(name: String, ingredients: String, hints: PromptHints = PromptHints()): String {
+        // User text: kept as quoted values, never instructions.
+        val clean = { t: String, max: Int -> t.replace(Regex("[\"{}]"), " ").trim().take(max) }
+        val dish = clean(name, 60)
+        val list = clean(ingredients, 1_500).lines().map { it.trim() }.filter { it.isNotEmpty() }.joinToString("\n") { "- $it" }
+        return """
+            A home-cooked dish${if (dish.isNotEmpty()) " called \"$dish\"" else ""} is made from these ingredients (as the cook wrote them):
+            @@INGREDIENTS@@
+            For each ingredient, estimate its weight in grams as used, and its calories, protein, carbohydrates and fat. Count all the cooking oil, ghee and sugar. Use typical South Asian home cooking when the dish is South Asian. If an amount is missing, assume a typical home amount for this dish.
+            Also estimate the whole dish's weight once cooked (cooking loses water, so it is usually less than the ingredients together).
+            Return ONLY a valid JSON object, no markdown:
+            {"name": "string", "ingredients": [{"name": "string", "grams": X, "calories": X, "protein_g": X, "carbs_g": X, "fat_g": X}], "cooked_grams": X}
+            "name" is a short name for the dish. All numbers are numbers, not strings.
+        """.trimIndent().replace("@@INGREDIENTS@@", list) + hints.render()
+    }
+
+    val RECIPE_SCHEMA = Obj(
+        "name" to Str,
+        "ingredients" to Arr(Obj("name" to Str, "grams" to Num, "calories" to Num, "protein_g" to Num, "carbs_g" to Num, "fat_g" to Num)),
+        "cooked_grams" to Num,
+    )
+
     val FOOD_SCHEMA = Obj(
         "name" to Str, "category" to Str,
         "kcal_100g" to Num, "protein_100g" to Num, "carbs_100g" to Num, "fat_100g" to Num,

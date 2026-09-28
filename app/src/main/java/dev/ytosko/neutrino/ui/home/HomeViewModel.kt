@@ -188,6 +188,10 @@ class HomeViewModel(
         .map { it.mealWindows }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MealWindows())
 
+    /** Meals eaten often, for one-tap chips in the Log a meal sheet (the current meal type first). */
+    val usualMeals: StateFlow<List<LoggedMeal>> = meals.observeUsualMeals(zone, { mealWindows.value.mealAt(LocalTime.now(zone)) })
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     val aiReady: StateFlow<Boolean> = settings.settings
         .map { it.aiReady }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)

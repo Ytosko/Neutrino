@@ -76,6 +76,14 @@ class FoodRepository(
         )
     }
 
+    /**
+     * Saves a food the user made (a home recipe) to their foods, with [portion] as its usual amount,
+     * so it's found in search straight away.
+     */
+    suspend fun saveOwn(food: Food, portion: Portion) {
+        dao.upsert(food.toEntity(now()).copy(useCount = 1, lastUsedEpochMs = now(), lastQuantity = portion.quantity, lastUnit = portion.unit.key))
+    }
+
     /** The portion the user last logged for this food, if any. */
     /** A food by id: the user's directory first, then the built-in list. */
     suspend fun byId(id: String): Food? = dao.get(id)?.toFood() ?: catalog.byId(id)

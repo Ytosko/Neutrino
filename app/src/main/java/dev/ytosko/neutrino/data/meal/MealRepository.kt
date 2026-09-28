@@ -112,6 +112,24 @@ class MealRepository(
     }
 
     /**
+     * "My usual meals": meals with the same foods logged at least twice in the last [days] days, most
+     * often first (the current meal type ahead), as their latest copy (which Log again repeats).
+     */
+    fun observeUsualMeals(zone: ZoneId, currentType: () -> MealType, days: Long = 60, limit: Int = 3): Flow<List<LoggedMeal>> {
+        val to = Instant.now().plusSeconds(24 * 3600).toEpochMilli()
+        val from = Instant.now().minusSeconds(days * 24 * 3600).toEpochMilli()
+        return combine(db.meals().observeBetween(from, to), db.meals().observeMealFoods(from, to)) { meals, foods ->
+            val foodsByMeal = foods.groupBy({ it.mealId }, { it.foodId })
+            val logged = meals.map { m ->
+                dev.ytosko.neutrino.domain.food.UsualMeals.Logged(m.meal.id, m.meal.eatenAtEpochMs, m.meal.mealType, foodsByMeal[m.meal.id].orEmpty().toSet())
+            }
+            val byId = meals.associateBy { it.meal.id }
+            dev.ytosko.neutrino.domain.food.UsualMeals.pick(logged, currentType().name, limit)
+                .mapNotNull { usual -> byId[usual.mealId]?.let { it.meal.toLoggedMeal(it.firstCategory?.let(FoodCategory::fromKey)) } }
+        }
+    }
+
+    /**
      * Logs a copy of meal [sourceId] at [at] as [mealType]: same foods, amounts and photo, a new
      * record in Health Connect. Returns the new meal's id.
      */

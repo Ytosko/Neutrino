@@ -30,6 +30,8 @@
     <string name="home_settings">সেটিংস</string>
     <string name="home_take_photo">ছবি তুলুন</string>
     <string name="home_choose_photo">গ্যালারি থেকে বেছে নিন</string>
+    <string name="home_usual_meals">আপনার নিয়মিত</string>
+    <string name="home_usual_meal_kcal">%1$d kcal · %2$s</string>
     <string name="home_log_meal_title">খাবার লগ করুন</string>
     <string name="home_no_camera">এই ফোনে কোনো ক্যামেরা অ্যাপ পাওয়া যায়নি।</string>
     <string name="home_ai_needed">খাবারের ছবি বিশ্লেষণ করতে একটি AI প্রোভাইডার যুক্ত করুন।</string>
@@ -117,6 +119,24 @@
     <string name="offline_needs_internet_message">আপনি অফলাইনে আছেন। ছবি আর ভয়েস আপনার AI মডেল পড়ে, তাই সংযোগ পেলে আবার চেষ্টা করুন।</string>
     <string name="food_offline_hint">অফলাইন: আপনার খাবার আর বিল্ট-ইন তালিকা দেখানো হচ্ছে।</string>
     <string name="food_custom_offline">নতুন খাবারের হিসাব করতে ইন্টারনেট লাগে। কাছাকাছি একটি খাবার বেছে নিন, বা অনলাইনে এসে আবার চেষ্টা করুন।</string>
+    <string name="recipe_title">ঘরের রেসিপি</string>
+    <string name="recipe_row_body">উপকরণ থেকে নিজের রান্না করা খাবারের এক প্লেটের হিসাব</string>
+    <string name="recipe_body">যেভাবে রান্না করেন সেভাবে উপকরণগুলো লিখুন, প্রতি লাইনে একটি। Neutrino পুরো হাঁড়ির হিসাব একবার করে, তারপর এক প্লেট (বা বাটি, পিস…) আপনার নিজের খাবার হিসেবে রাখে।</string>
+    <string name="recipe_name">খাবারের নাম</string>
+    <string name="recipe_name_hint">মুরগির তরকারি, ঘরোয়া</string>
+    <string name="recipe_ingredients">উপকরণ</string>
+    <string name="recipe_ingredients_hint">১ কেজি মুরগি
+৩টি পেঁয়াজ
+৪ টেবিল চামচ সরিষার তেল
+১ চা চামচ হলুদ</string>
+    <string name="recipe_makes">হয়</string>
+    <string name="recipe_work_out">হিসাব করুন</string>
+    <string name="recipe_working">হিসাব হচ্ছে…</string>
+    <string name="recipe_per_serving">এক %1$s · প্রায় %2$d গ্রাম</string>
+    <string name="recipe_macros">%1$d kcal · C %2$dg · P %3$dg · F %4$dg</string>
+    <string name="recipe_ingredients_found">উপকরণ (%1$d)</string>
+    <string name="recipe_total">পুরো খাবার: %1$d kcal, রান্নার পর প্রায় %2$d গ্রাম, %3$d ভাগে।</string>
+    <string name="recipe_save">রেখে খাবারে যোগ করুন</string>
     <string name="food_packaged_offline">এখন প্যাকেটজাত পণ্য খোঁজা যাচ্ছে না। ইন্টারনেট সংযোগ দেখুন বা পরে চেষ্টা করুন।</string>
     <string name="food_custom">“%1$s” নতুন খাবার হিসেবে যোগ করুন</string>
     <string name="food_custom_body">AI একবার এর পুষ্টির হিসাব করবে; এটি আপনার খাবারের তালিকায় সেভ থাকবে।</string>

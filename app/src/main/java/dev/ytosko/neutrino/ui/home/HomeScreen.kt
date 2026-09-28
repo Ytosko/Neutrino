@@ -1,5 +1,6 @@
 package dev.ytosko.neutrino.ui.home
 
+import androidx.compose.foundation.horizontalScroll
 import dev.ytosko.neutrino.data.meal.PhotoProcessor
 import dev.ytosko.neutrino.ui.components.rememberPhotoPickers
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -671,6 +672,22 @@ fun HomeScreen(
                 verticalArrangement = Arrangement.spacedBy(Spacing.sm),
             ) {
                 Text(stringResource(R.string.home_log_meal_title), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(bottom = Spacing.xs))
+                // Meals eaten often: one tap logs them again now (with Undo), like "Log again".
+                val usual by viewModel.usualMeals.collectAsStateWithLifecycle()
+                if (usual.isNotEmpty()) {
+                    Text(stringResource(R.string.home_usual_meals), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(bottom = Spacing.xs),
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                    ) {
+                        usual.forEach { meal ->
+                            UsualMealChip(meal) {
+                                showSheet = false
+                                logAgain(meal, onItsDay = false)
+                            }
+                        }
+                    }
+                }
                 Row(modifier = Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                     SheetTile(R.drawable.ic_camera, stringResource(R.string.home_take_photo), NeutrinoTheme.colors.coral, Modifier.weight(1f), online = online) {
                         needsInternet { withAi { openCamera() } }
@@ -916,6 +933,26 @@ private fun BackupReminder(backup: BackupState, onOpen: () -> Unit, modifier: Mo
     }
 }
 
+
+/** A meal eaten often, as a chip: its name and calories; tapping logs it again now. */
+@Composable
+private fun UsualMealChip(meal: LoggedMeal, onClick: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .widthIn(max = 220.dp)
+            .clip(MaterialTheme.shapes.large)
+            .background(MaterialTheme.colorScheme.surfaceContainerLowest)
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(horizontal = Spacing.md, vertical = Spacing.sm),
+    ) {
+        Text(meal.name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(
+            stringResource(R.string.home_usual_meal_kcal, meal.nutrition.calories.roundKcal(), mealTypeLabel(meal.mealType)),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
 
 /**
  * A big, friendly choice in the "Log a meal" sheet: icon above the label. With a [subtitle] it's the wide version for a
